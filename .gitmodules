@@ -1,0 +1,9 @@
+[submodule "obli-transpiler-framework"]
+	path = obli-transpiler-framework
+	url = git@github.com:hyperpolymath/obli-transpiler-framework.git
+[submodule "obli-riscv-dev-kit"]
+	path = obli-riscv-dev-kit
+	url = git@github.com:hyperpolymath/obli-riscv-dev-kit.git
+[submodule "obli-fs"]
+	path = obli-fs
+	url = git@github.com:hyperpolymath/obli-fs.git

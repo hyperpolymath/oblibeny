@@ -1,0 +1,35 @@
+= Oblibeny
+
+*Oblivious computing ecosystem - privacy-preserving computation tools*
+
+== Components
+
+|===
+| Repo | Description
+
+| link:obli-transpiler-framework[obli-transpiler-framework]
+| Oblivious program transpiler framework
+
+| link:obli-riscv-dev-kit[obli-riscv-dev-kit]
+| RISC-V development kit with oblivious computing
+
+| link:obli-fs[obli-fs]
+| Oblivious filesystem with privacy guarantees
+
+|===
+
+== What is Oblivious Computing?
+
+Oblivious computing hides access patterns and data access from observers,
+providing strong privacy guarantees beyond encryption alone. These tools
+enable building privacy-preserving applications.
+
+== Quick Start
+
+```bash
+git clone --recursive https://github.com/hyperpolymath/oblibeny.git
+```
+
+== License
+
+MIT OR Palimpsest-0.8
