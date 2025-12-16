@@ -1091,6 +1091,285 @@
         5. Debuggable intermediate artifacts")))))
 
 ;;;============================================================================
+;;; PART V: ADVANCED DEFENSE THEORY
+;;; Homoiconicity, Reflection, Reversibility in Turing-Incomplete Context
+;;;============================================================================
+
+(define advanced-defense-theory
+  '((section . "Defense Capabilities Across Turing Boundary")
+
+    ;;=========================================================================
+    ;; CRITICAL INSIGHT: These Concepts Do NOT Require Turing Completeness
+    ;;=========================================================================
+    (key-insight
+     ((statement . "Homoiconicity, Reflection, and Reversibility do NOT
+                    inherently require Turing completeness.")
+
+      (implication . "The Deployment Subset can retain LIMITED but USEFUL
+                      forms of these defense mechanisms while remaining
+                      provably terminating and resource-bounded.")
+
+      (theoretical-basis
+       ((homoiconicity
+         ((requires-turing . #f)
+          (explanation . "Code-as-data representation (S-expressions) is
+                          a syntactic property, not a computational one.
+                          JSON/XML are homoiconic but not Turing-complete.")))
+
+        (reflection
+         ((requires-turing . "Only for intercession, not introspection")
+          (explanation . "Introspection (reading structure) needs no
+                          computation. Intercession (modifying structure)
+                          can be bounded. Full dynamic code generation
+                          requires Turing completeness.")))
+
+        (reversibility
+         ((requires-turing . #f)
+          (explanation . "Reversible operations (XOR, permutations,
+                          bijective functions) are information-preserving
+                          but computationally bounded. Reversible Turing
+                          machines exist, but reversibility itself is
+                          orthogonal to computational power.")))))))
+
+    ;;=========================================================================
+    ;; DEFENSE CAPABILITIES BY COMPILATION PHASE
+    ;;=========================================================================
+    (defense-by-phase
+     ((compile-time-defenses
+       ((phase . "Stage 0: Expansion")
+        (turing . "complete")
+        (capabilities
+         (("Full Metamorphic Generation"
+           ((description . "Arbitrary code rewriting via macros")
+            (mechanism . "defmacro, metamorphic-if, rewrite-self")
+            (power . "unlimited")))
+
+          ("Dynamic Reflection"
+           ((description . "Runtime introspection and modification")
+            (mechanism . "Compile-time block execution")
+            (power . "full intercession")))
+
+          ("Reversible Transactions"
+           ((description . "Undo arbitrary operations")
+            (mechanism . "transaction, commit, rollback")
+            (power . "unbounded state reversal")))
+
+          ("Unbounded Obfuscation Passes"
+           ((description . "Iterate obfuscation until entropy threshold")
+            (mechanism . "while loops in compile-time blocks")
+            (power . "arbitrary iterations")))
+
+          ("Polymorphic Variant Generation"
+           ((description . "Generate thousands of semantically equivalent forms")
+            (mechanism . "Macro-driven instruction substitution")
+            (power . "combinatorial explosion")))))))
+
+      (deploy-time-defenses
+       ((phase . "Stage 2: Generation → Runtime")
+        (turing . "incomplete")
+        (capabilities
+         (("Static Polymorphic Variants"
+           ((description . "Pre-computed alternative representations")
+            (mechanism . "Compile-time generated lookup tables")
+            (limitation . "Fixed set, chosen at compile time")
+            (example . "(+ a b) → (- a (- 0 b)) → (xor a (xor a (+ a b)))")))
+
+          ("Metamorphic Seeding"
+           ((description . "Deterministic self-modification from seed")
+            (mechanism . "Bounded permutation of code blocks at load time")
+            (limitation . "Permutation count ≤ max-iterations")
+            (example . "Seed selects from N! orderings of M code blocks")))
+
+          ("Hardware-Bound Keys"
+           ((description . "Tie decryption to device-specific values")
+            (mechanism . "capability-invoke for hardware attestation")
+            (limitation . "Key derivation must be bounded")
+            (defense . "Binary useless without specific hardware")))
+
+          ("Bounded Reversible Operations"
+           ((description . "Information-preserving transforms")
+            (mechanism . "XOR, rotate, permute, Feistel networks")
+            (limitation . "Fixed round count, no dynamic loops")
+            (example . "(xor (xor data key1) key2) ; reversible")))
+
+          ("Control Flow Integrity"
+           ((description . "Ensure execution follows intended path")
+            (mechanism . "Embedded checksums, canary values")
+            (limitation . "Verification count bounded")
+            (defense . "Tampering detected, fail triggered")))
+
+          ("Checksum Armoring"
+           ((description . "Self-verification of code integrity")
+            (mechanism . "CRC/hash embedded in code section")
+            (limitation . "Hash computation must be bounded")
+            (defense . "Modified code fails checksum")))
+
+          ("Opaque Predicates (Static)"
+           ((description . "Conditions that always evaluate same way")
+            (mechanism . "Compile-time proven tautologies/contradictions")
+            (limitation . "No runtime computation needed")
+            (example . "(if (= (* 7 11) 77) real-code fake-code)")))
+
+          ("Dead Code Insertion"
+           ((description . "Unreachable code paths for confusion")
+            (mechanism . "Compile-time inserted, statically unreachable")
+            (limitation . "Does not affect resource bounds")
+            (defense . "Analysts waste time on fake paths")))
+
+          ("Data Obfuscation"
+           ((description . "Non-obvious data representation")
+            (mechanism . "Lookup tables, split values, arithmetic encoding")
+            (limitation . "Table size bounded by max-memory")
+            (example . "key = table[i] ^ table[j] ; derived at runtime")))))))))
+
+    ;;=========================================================================
+    ;; OBFUSCATION STRATEGY BY LEVEL
+    ;;=========================================================================
+    (obfuscation-strategies
+     ((none
+       ((compile-time . "No transformations")
+        (deploy-time . "Direct codegen")
+        (use-case . "Development, debugging")))
+
+      (minimal
+       ((compile-time . ("Name mangling"
+                         "Layout randomization"))
+        (deploy-time . ("Symbol stripping"
+                        "Section reordering"))
+        (use-case . "Basic IP protection")))
+
+      (aggressive
+       ((compile-time . ("Polymorphic variant selection"
+                         "Instruction substitution"
+                         "Control flow flattening"
+                         "Opaque predicate insertion"))
+        (deploy-time . ("Metamorphic seeding"
+                        "Dead code blocks"
+                        "Data encoding"
+                        "Control flow integrity"))
+        (use-case . "Anti-reverse engineering")))
+
+      (paranoid
+       ((compile-time . ("All aggressive transforms"
+                         "Virtual machine generation"
+                         "Multi-layer encryption"
+                         "Trap insertion"
+                         "Diversity maximization"))
+        (deploy-time . ("Hardware binding"
+                        "Environment verification"
+                        "Self-destruct triggers"
+                        "Checksum armoring"
+                        "Maximum metamorphic permutation"))
+        (use-case . "Hostile environment deployment")))))
+
+    ;;=========================================================================
+    ;; REVERSIBILITY IN TURING-INCOMPLETE CONTEXT
+    ;;=========================================================================
+    (bounded-reversibility
+     ((concept . "Reversible operations without Turing completeness")
+
+      (allowed-operations
+       (("XOR" . "a ⊕ b ⊕ b = a")
+        ("Rotate" . "ROL(ROR(x, n), n) = x")
+        ("Permute" . "P⁻¹(P(x)) = x")
+        ("Feistel" . "Symmetric round function")
+        ("Affine" . "ax + b mod n (when gcd(a,n)=1)")))
+
+      (forbidden-operations
+       (("Unbounded iteration" . "Cannot reverse arbitrary loop count")
+        ("Dynamic allocation" . "Cannot track arbitrary heap state")
+        ("Recursion" . "Cannot reverse unbounded stack")))
+
+      (use-cases
+       (("Selective decryption"
+         ((description . "Decrypt only with valid capability")
+          (mechanism . "XOR chain with capability-derived key")
+          (bounded . "Fixed key schedule rounds")))
+
+        ("Tamper response"
+         ((description . "Reverse obfuscation only if unmodified")
+          (mechanism . "Checksum gates decryption key")
+          (bounded . "Single checksum computation")))
+
+        ("Forensic resistance"
+         ((description . "Leave no trace after execution")
+          (mechanism . "XOR working memory with final state")
+          (bounded . "Linear pass over fixed memory region")))))))
+
+    ;;=========================================================================
+    ;; HOMOICONICITY IN DEPLOYMENT
+    ;;=========================================================================
+    (deployment-homoiconicity
+     ((concept . "Code-as-data without Turing completeness")
+
+      (compile-time-use
+       ((description . "Full S-expression manipulation")
+        (power . "Macros can generate arbitrary code")
+        (example . "(defmacro obfuscate (expr) ...arbitrary transform...)")))
+
+      (deploy-time-use
+       ((description . "Static AST templates, no runtime generation")
+        (limitation . "Cannot create new code at runtime")
+        (allowed . ("Pre-computed variant selection"
+                    "Table-driven dispatch"
+                    "Compile-time specialized functions"))
+        (forbidden . ("eval"
+                      "Runtime code synthesis"
+                      "Dynamic macro expansion"))
+
+        (example . "
+          ; Compile-time: generate 16 variants
+          (compile-time
+            (for variant 0 16
+              (emit-function (concat 'process_ variant)
+                (obfuscate-with-seed base-function variant))))
+
+          ; Deploy-time: select variant based on capability
+          (deploy-time
+            (let variant-id: u8 (capability CAP_VARIANT_SELECT))
+            (bounded-for i 0 16
+              (if (= i variant-id)
+                  (call (table-lookup variant-table i) (args)))))
+        ")))))
+
+    ;;=========================================================================
+    ;; DEFENSE WORTHLESSNESS PRINCIPLE
+    ;;=========================================================================
+    (worthlessness-principle
+     ((goal . "Deployed binary is WORTHLESS if reverse-engineered")
+
+      (strategies
+       (("Minimal functionality"
+         ((description . "Code does ONE thing, nothing else useful")
+          (mechanism . "Extreme DSL restriction")
+          (result . "No reusable components")))
+
+        ("Hardware dependency"
+         ((description . "Requires specific device to function")
+          (mechanism . "Capability-based hardware attestation")
+          (result . "Binary useless on other hardware")))
+
+        ("Context dependency"
+         ((description . "Requires runtime context to decrypt logic")
+          (mechanism . "Sensor readings, timestamps as key material")
+          (result . "Static analysis yields encrypted garbage")))
+
+        ("Self-destruction"
+         ((description . "Erases itself if tampering detected")
+          (mechanism . "Checksum-gated memory wipe")
+          (result . "Attacker gets nothing")))
+
+        ("Decoy logic"
+         ((description . "Fake code paths outnumber real ones")
+          (mechanism . "Static dead code insertion")
+          (result . "Which path is real?")))))
+
+      (maximal-obfuscation-principle
+       "While deployed code is MINIMAL for function, it should be
+        MAXIMAL for obfuscation. Every bit of headroom in resource
+        bounds should be used for defense, not functionality.")))))
+
+;;;============================================================================
 ;;; SUMMARY
 ;;;============================================================================
 
