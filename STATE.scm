@@ -12,10 +12,10 @@
 ;;;============================================================================
 
 (define metadata
-  '((version . "0.1.0")
+  '((version . "0.2.0")
     (schema-version . "1.0")
     (created . "2025-12-15")
-    (updated . "2025-12-15")
+    (updated . "2025-12-16")
     (project . "oblibeny")
     (repo . "github.com/hyperpolymath/oblibeny")))
 
@@ -26,12 +26,13 @@
 (define project-context
   '((name . "oblibeny")
     (tagline . "*Oblivious computing ecosystem - privacy-preserving computation tools*")
-    (version . "0.1.0")
+    (version . "0.2.0")
     (license . "AGPL-3.0-or-later")
     (rsr-compliance . "gold-target")
 
     (tech-stack
-     ((primary . "See repository languages")
+     ((primary . "Oblibeny (custom DSL) + Scheme")
+      (grammar . "EBNF v0.6 - Secure Edge Grammar")
       (ci-cd . "GitHub Actions + GitLab CI + Bitbucket Pipelines")
       (security . "CodeQL + OSSF Scorecard")))))
 
@@ -40,8 +41,8 @@
 ;;;============================================================================
 
 (define current-position
-  '((phase . "v0.1 - Initial Setup and RSR Compliance")
-    (overall-completion . 25)
+  '((phase . "v0.2 - Language Specification")
+    (overall-completion . 40)
 
     (components
      ((rsr-compliance
@@ -49,10 +50,18 @@
         (completion . 100)
         (notes . "SHA-pinned actions, SPDX headers, multi-platform CI")))
 
+      (language-grammar
+       ((status . "complete")
+        (completion . 100)
+        (notes . "Oblibeny v0.6 EBNF grammar - Secure Edge Grammar with
+                  dual-phase compilation model (Turing-complete dev ->
+                  Turing-incomplete deploy), capability-based I/O,
+                  proof annotations, and semantic obfuscation")))
+
       (documentation
        ((status . "foundation")
-        (completion . 30)
-        (notes . "README exists, META/ECOSYSTEM/STATE.scm added")))
+        (completion . 40)
+        (notes . "README, META/ECOSYSTEM/STATE.scm, grammar spec added")))
 
       (testing
        ((status . "minimal")
@@ -61,14 +70,15 @@
 
       (core-functionality
        ((status . "in-progress")
-        (completion . 25)
-        (notes . "Initial implementation underway")))))
+        (completion . 30)
+        (notes . "Grammar defined, parser/compiler implementation pending")))))
 
     (working-features
      ("RSR-compliant CI/CD pipeline"
       "Multi-platform mirroring (GitHub, GitLab, Bitbucket)"
       "SPDX license headers on all files"
-      "SHA-pinned GitHub Actions"))))
+      "SHA-pinned GitHub Actions"
+      "Oblibeny v0.6 language grammar specification"))))
 
 ;;;============================================================================
 ;;; ROUTE TO MVP
@@ -157,7 +167,18 @@
        ("Added META.scm, ECOSYSTEM.scm, STATE.scm"
         "Established RSR compliance"
         "Created initial project checkpoint"))
-      (notes . "First STATE.scm checkpoint created via automated script")))))
+      (notes . "First STATE.scm checkpoint created via automated script"))
+
+     ((date . "2025-12-16")
+      (session . "secure-edge-grammar")
+      (accomplishments
+       ("Added Oblibeny v0.6 EBNF grammar specification"
+        "Defined dual-phase compilation model (Turing-complete -> Turing-incomplete)"
+        "Specified deployment security constraints and proof annotations"
+        "Defined capability-based I/O as syscall alternative"
+        "Documented semantic obfuscation levels"
+        "Added assembly integration for x86-64 targets"))
+      (notes . "Language specification milestone - grammar/oblibeny-v0.6.ebnf")))))
 
 ;;;============================================================================
 ;;; HELPER FUNCTIONS (for Guile evaluation)
@@ -184,11 +205,11 @@
 
 (define state-summary
   '((project . "oblibeny")
-    (version . "0.1.0")
-    (overall-completion . 25)
-    (next-milestone . "v0.2 - Core Functionality")
+    (version . "0.2.0")
+    (overall-completion . 40)
+    (next-milestone . "v0.3 - Parser Implementation")
     (critical-blockers . 0)
     (high-priority-issues . 0)
-    (updated . "2025-12-15")))
+    (updated . "2025-12-16")))
 
 ;;; End of STATE.scm

@@ -1,0 +1,589 @@
+(* ==================================================================== *)
+(*   SPDX-License-Identifier: AGPL-3.0-or-later                        *)
+(*   SPDX-FileCopyrightText: 2025 Jonathan D.A. Jewell                 *)
+(* ==================================================================== *)
+(*   Oblibeny Language Specification v0.6 - Secure Edge Grammar        *)
+(*   Turing-Complete Development -> Turing-Incomplete Deployment       *)
+(*   Security Model: Minimal Attack Surface + Semantic Obfuscation     *)
+(* ==================================================================== *)
+
+program      = { top_level_form } ;
+start_symbol = program ;
+
+(* ================================================================== *)
+(* TOP-LEVEL STRUCTURE                                                *)
+(* ================================================================== *)
+
+top_level_form = module_def
+               | package_decl
+               | function_def
+               | defmacro
+               | global_data_def
+               | assembly_directive
+               | conditional_assembly
+               | deployment_spec
+               | compile_time_block
+               ;
+
+(* ================================================================== *)
+(* COMPILATION PHASE CONTROL & SECURITY MODEL                         *)
+(* ================================================================== *)
+
+deployment_spec = "(" , "deployment"
+                , target_profile
+                , resource_bounds
+                , obfuscation_level
+                , [ security_constraints ]
+                , ")"
+                ;
+
+target_profile = "(" , "profile"
+               , ( "edge-minimal"
+                 | "iot-secure"
+                 | "embedded-hardened"
+                 | "sensor-node"
+                 | "actuator-minimal"
+                 )
+               , ")"
+               ;
+
+resource_bounds = "(" , "bounds"
+                , { bound_declaration }
+                , ")"
+                ;
+
+bound_declaration = max_iterations
+                  | max_stack_depth
+                  | max_memory
+                  | max_call_depth
+                  | max_execution_time
+                  ;
+
+max_iterations = "(" , "max-iterations" , number , ")" ;
+max_stack_depth = "(" , "max-stack-depth" , number , ")" ;
+max_memory = "(" , "max-memory" , number , ")" ;
+max_call_depth = "(" , "max-call-depth" , number , ")" ;
+max_execution_time = "(" , "max-execution-time" , number , ")" ;
+
+obfuscation_level = "(" , "obfuscate"
+                  , ( "none"
+                    | "minimal"       (* Basic name mangling *)
+                    | "aggressive"    (* Semantic metamorphism *)
+                    | "paranoid"      (* Full code morphing *)
+                    )
+                  , ")"
+                  ;
+
+security_constraints = "(" , "constraints"
+                     , { security_rule }
+                     , ")"
+                     ;
+
+security_rule = "(" , "forbid" , forbidden_feature , ")"
+              | "(" , "require" , required_proof , ")"
+              ;
+
+forbidden_feature = "syscalls" | "recursion" | "backward-jumps"
+                  | "dynamic-allocation" | "function-pointers"
+                  ;
+
+required_proof = "termination" | "bounded-memory" | "no-side-effects" ;
+
+compile_time_block = "(" , "compile-time" , statement_block , ")" ;
+deploy_time_block = "(" , "deploy-time" , restricted_statement_block , ")" ;
+
+(* ================================================================== *)
+(* SCOPED STATEMENT BLOCKS                                            *)
+(* ================================================================== *)
+
+statement_block = { statement } ;
+
+statement = executable_statement
+          | local_data_def
+          | assembler_directive
+          | deploy_time_block
+          ;
+
+executable_statement = instruction
+                     | transaction
+                     | metamorphic_if
+                     | function_call
+                     | try_catch
+                     | loop_stmt
+                     | conditional_assembly
+                     | expression_stmt
+                     ;
+
+assembler_directive = assembly_label_def
+                    | data_directive
+                    ;
+
+(* ================================================================== *)
+(* RESTRICTED DEPLOYMENT SUBSET (Turing-Incomplete)                   *)
+(* ================================================================== *)
+
+restricted_statement_block = { restricted_statement } ;
+
+restricted_statement = bounded_instruction
+                     | bounded_loop
+                     | restricted_function_call
+                     | restricted_expression_stmt
+                     | restricted_local_data_def
+                     ;
+
+bounded_instruction = data_transfer_op
+                    | arithmetic_instruction
+                    | comparison_op_instr
+                    | restricted_stack_op
+                    | bounded_memory_op
+                    (* EXPLICITLY FORBIDDEN: syscall, arbitrary jumps, checkpoint_op *)
+                    ;
+
+bounded_loop = "(" , "bounded-for" , identifier
+             , expression      (* start - must be compile-time constant *)
+             , expression      (* end - must be compile-time constant *)
+             , restricted_statement_block
+             , ")"
+             (* Iteration count must be statically provable *)
+             ;
+
+restricted_function_call = "(" , "call" , identifier , argument_list , ")"
+                         (* Callees must have termination proofs *)
+                         (* No recursion allowed - call graph must be acyclic *)
+                         ;
+
+restricted_expression_stmt = restricted_expression ;
+
+restricted_expression = literal_expr
+                      | variable_expr
+                      | restricted_arithmetic_expr
+                      | restricted_comparison_expr
+                      | restricted_logical_expr
+                      | bounded_memory_expr
+                      ;
+
+restricted_arithmetic_expr = "(" , arithmetic_op , restricted_expression
+                           , restricted_expression , ")" ;
+
+restricted_comparison_expr = "(" , comparison_op , restricted_expression
+                           , restricted_expression , ")" ;
+
+restricted_logical_expr = "(" , logical_op , restricted_expression
+                        , { restricted_expression } , ")" ;
+
+bounded_memory_expr = "(" , "mem" , restricted_expression
+                    , [ "+" , restricted_expression ] , ")"
+                    (* Memory access must be within statically proven bounds *)
+                    ;
+
+restricted_local_data_def = "(" , "let" , identifier , ":" , type_expr
+                          , [ restricted_expression ]
+                          , ")"
+                          (* Type annotation required in deployment code *)
+                          ;
+
+restricted_stack_op = "(" , ( "push" | "pop" ) , operand , ")"
+                    (* Stack depth tracked statically *)
+                    ;
+
+bounded_memory_op = "(" , "alloc" , register , number , ")"
+                  (* Allocation size must be compile-time constant *)
+                  (* Total allocation tracked against max_memory bound *)
+                  ;
+
+comparison_op_instr = "(" , "cmp" , register , operand , ")" ;
+
+(* ================================================================== *)
+(* CAPABILITY-BASED I/O (Alternative to syscalls)                     *)
+(* ================================================================== *)
+
+capability_invoke = "(" , "capability" , capability_token
+                  , { restricted_expression }
+                  , ")"
+                  ;
+
+capability_token = identifier
+                 (* Examples: CAP_SENSOR_READ, CAP_LOG_WRITE *)
+                 (* Capabilities granted at deployment time *)
+                 (* Runtime enforces invocation budgets *)
+                 ;
+
+(* ================================================================== *)
+(* EXPRESSIONS (S-Expression Based)                                   *)
+(* ================================================================== *)
+
+expression = literal_expr
+           | variable_expr
+           | function_call_expr
+           | arithmetic_expr
+           | comparison_expr
+           | logical_expr
+           | memory_expr
+           | capability_invoke
+           ;
+
+literal_expr = number | string_lit | boolean ;
+variable_expr = identifier ;
+
+function_call_expr = "(" , identifier , { expression } , ")" ;
+
+arithmetic_expr = "(" , arithmetic_op , expression , expression , ")" ;
+arithmetic_op = "+" | "-" | "*" | "/" | "%" ;
+
+comparison_expr = "(" , comparison_op , expression , expression , ")" ;
+comparison_op = "=" | "!=" | "<" | ">" | "<=" | ">=" ;
+
+logical_expr = "(" , logical_op , expression , { expression } , ")" ;
+logical_op = "and" | "or" | "not" ;
+
+memory_expr = "(" , "mem" , expression , [ "+" , expression ] , ")" ;
+
+expression_stmt = expression ;
+
+(* ================================================================== *)
+(* DATA DEFINITIONS                                                   *)
+(* ================================================================== *)
+
+global_data_def = "(" , "def-data" , identifier , ":" , type_expr
+                  , [ expression ]
+                  , [ "(" , "deploy-visible" , boolean , ")" ]
+                  , ")"
+                ;
+
+local_data_def = "(" , "let" , identifier , [ ":" , type_expr ]
+                 , [ expression ]
+                 , ")"
+               ;
+
+data_directive = "(" , data_size , identifier , { data_value } , ")" ;
+data_size = "db" | "dw" | "dd" | "dq" ;
+data_value = string_lit | number | identifier ;
+
+(* ================================================================== *)
+(* ASSEMBLY CONSTRUCTS                                                *)
+(* ================================================================== *)
+
+assembly_label_def = identifier , ":" ;
+
+assembly_directive = "(" , directive_type , identifier , ")" ;
+directive_type = "target" | "section" | "global" | "extern" ;
+
+instruction = data_transfer_op
+            | arithmetic_instruction
+            | control_flow_op
+            | system_op
+            | stack_op
+            | memory_op
+            | checkpoint_op
+            ;
+
+data_transfer_op = "(" , ( "mov" | "lea" ) , register , operand , ")" ;
+
+arithmetic_instruction = "(" , arith_opcode , register , operand , ")" ;
+arith_opcode = "add" | "sub" | "mul" | "div" | "inc" | "dec" ;
+
+control_flow_op = control_comparison_op | jump_op ;
+control_comparison_op = "(" , "cmp" , register , operand , ")" ;
+jump_op = "(" , jump_opcode , identifier , ")" ;
+jump_opcode = "jmp" | "je" | "jne" | "jg" | "jl" | "jge" | "jle" ;
+
+(* SYSCALL: Only allowed in compile-time blocks *)
+(* Compilation ERROR if found in deploy-time block *)
+system_op = "(" , "syscall" , [ operand ] , ")" ;
+
+stack_op = "(" , ( "push" | "pop" ) , operand , ")" ;
+
+memory_op = "(" , ( "alloc" | "free" ) , register , [ number ] , ")" ;
+
+checkpoint_op = "(" , ( "commit" | "rollback" | "fail" ) , ")" ;
+
+operand = register | expression | memory_operand ;
+memory_operand = "(" , "mem" , register
+                 , [ "+" , register , [ "*" , number ] ]
+                 , [ "+" , number ]
+                 , ")"
+               ;
+
+(* ================================================================== *)
+(* HIGH-LEVEL CONSTRUCTS (Compile-Time Only)                          *)
+(* ================================================================== *)
+
+(* Reversible Execution - Development/Testing Feature *)
+transaction = "(" , "transaction" , statement_block
+              , [ checkpoint_op ]
+              , ")"
+            ;
+
+(* Self-Modifying Code - Compile-Time Metaprogramming *)
+metamorphic_if = "(" , "metamorphic-if" , expression
+                 , rewrite_action , statement_block
+                 , [ "(" , "else" , statement_block , ")" ]
+                 , ")"
+               ;
+
+rewrite_action = "(" , "rewrite-self" , ( identifier | string_lit ) , ")" ;
+
+(* ================================================================== *)
+(* FUNCTION DEFINITIONS WITH PROOF ANNOTATIONS                        *)
+(* ================================================================== *)
+
+function_def = "(" , "defun" , identifier , parameter_list
+               , [ return_type ]
+               , [ function_annotations ]
+               , statement_block
+               , ")"
+             ;
+
+function_annotations = { function_annotation } ;
+
+function_annotation = termination_proof
+                    | complexity_bound
+                    | purity_annotation
+                    | deployment_tag
+                    ;
+
+termination_proof = "(" , "prove-terminates"
+                  , [ termination_strategy ]
+                  , ")"
+                  ;
+
+termination_strategy = "(" , "strategy"
+                     , ( "bounded-loop"
+                       | "structural-recursion"  (* compile-time only *)
+                       | "well-founded-order"
+                       )
+                     , ")"
+                     ;
+
+complexity_bound = "(" , "complexity" , complexity_expr , ")" ;
+
+complexity_expr = "O(1)"                          (* constant *)
+                | "O(n)"                          (* linear *)
+                | "O(n^" , number , ")"           (* polynomial *)
+                | "O(log(n))"                     (* logarithmic *)
+                | "O(n*log(n))"                   (* linearithmic *)
+                ;
+
+purity_annotation = "(" , "pure" , ")"            (* no side effects *)
+                  | "(" , "idempotent" , ")"      (* repeatable *)
+                  ;
+
+deployment_tag = "(" , "deploy-target"
+               , ( "runtime-only" | "compile-only" | "both" )
+               , ")"
+               ;
+
+defmacro = "(" , "defmacro" , identifier , parameter_list
+           , statement_block
+           , ")"
+         (* Macros expand at compile time only *)
+         (* MUST NOT generate unbounded loops or recursion *)
+         ;
+
+parameter_list = "(" , [ parameter_sequence ] , ")" ;
+parameter_sequence = parameter , { parameter } ;
+parameter = identifier , [ ":" , type_expr ] ;
+return_type = ":" , type_expr ;
+
+function_call = "(" , "call" , identifier , argument_list , ")" ;
+argument_list = "(" , [ expression , { expression } ] , ")" ;
+
+(* ================================================================== *)
+(* FAULT TOLERANCE (Compile-Time/Development Only)                    *)
+(* ================================================================== *)
+
+try_catch = "(" , "try" , statement_block
+            , { catch_clause }
+            , [ finally_clause ]
+            , ")"
+          ;
+
+catch_clause = "(" , "catch" , [ exception_pattern ] , identifier
+               , statement_block
+               , ")"
+             ;
+
+finally_clause = "(" , "finally" , statement_block , ")" ;
+exception_pattern = identifier | string_lit ;
+
+(* ================================================================== *)
+(* CONTROL FLOW                                                       *)
+(* ================================================================== *)
+
+loop_stmt = while_loop | for_loop | bounded_loop ;
+
+while_loop = "(" , "while" , expression , statement_block , ")" ;
+           (* Only allowed in compile-time blocks *)
+
+for_loop = "(" , "for" , identifier , expression , statement_block , ")" ;
+         (* Only allowed in compile-time blocks *)
+
+(* Conditional Assembly *)
+conditional_assembly = "(" , "ifdef" , identifier
+                       , statement_block
+                       , [ "(" , "else" , statement_block , ")" ]
+                       , ")"
+                     ;
+
+(* ================================================================== *)
+(* MODULE SYSTEM                                                      *)
+(* ================================================================== *)
+
+module_def = "(" , "module" , identifier , module_body , ")" ;
+module_body = { module_item } ;
+module_item = import_stmt | export_stmt | top_level_form ;
+
+import_stmt = "(" , "use" , identifier , [ import_list ] , ")" ;
+import_list = "(" , { identifier } , ")" ;
+
+export_stmt = "(" , "export" , { identifier } , ")" ;
+
+package_decl = "(" , "package" , identifier , string_lit
+               , dependency_list
+               , [ deployment_manifest ]
+               , ")"
+             ;
+
+dependency_list = "(" , { dependency } , ")" ;
+dependency = "(" , identifier , string_lit , [ version_constraint ] , ")" ;
+version_constraint = "(" , comparison_op , string_lit , ")" ;
+
+deployment_manifest = "(" , "manifest"
+                    , { deployment_capability }
+                    , ")"
+                    ;
+
+deployment_capability = "(" , "grant" , capability_token
+                      , [ capability_budget ]
+                      , ")"
+                      ;
+
+capability_budget = "(" , "budget" , number , ")" ;
+
+(* ================================================================== *)
+(* TYPE SYSTEM                                                        *)
+(* ================================================================== *)
+
+type_expr = primitive_type | compound_type | user_type ;
+
+primitive_type = "u8" | "u16" | "u32" | "u64"
+               | "i8" | "i16" | "i32" | "i64"
+               | "f32" | "f64"
+               | "bool" | "string"
+               ;
+
+compound_type = array_type | pointer_type | struct_type | enum_type ;
+
+array_type = "(" , "array" , type_expr , number , ")"
+           (* Size must be compile-time constant in deploy code *)
+           ;
+
+pointer_type = "(" , "ptr" , type_expr , ")" ;
+
+struct_type = "(" , "struct" , { field_def } , ")" ;
+field_def = identifier , ":" , type_expr ;
+
+enum_type = "(" , "enum" , { identifier } , ")" ;
+
+user_type = identifier ;
+
+(* ================================================================== *)
+(* LEXICAL TOKENS                                                     *)
+(* ================================================================== *)
+
+register = "rax" | "rdi" | "rsi" | "rdx" | "rcx" | "rbx"
+         | "r8" | "r9" | "r10" | "r11" | "r12" | "r13" | "r14" | "r15"
+         | "rsp" | "rbp"
+         ;
+
+keyword = "add" | "alloc" | "and" | "array" | "bool" | "both"
+        | "bounded-for" | "bounds" | "budget" | "call" | "capability"
+        | "catch" | "cmp" | "commit" | "compile-only" | "compile-time"
+        | "complexity" | "constraints" | "db" | "dd" | "dec" | "def-data"
+        | "defmacro" | "defun" | "deploy-target" | "deploy-time"
+        | "deploy-visible" | "deployment" | "div" | "dq" | "dw" | "else"
+        | "embedded-hardened" | "enum" | "export" | "extern" | "f32" | "f64"
+        | "fail" | "false" | "finally" | "for" | "forbid" | "free" | "global"
+        | "grant" | "i16" | "i32" | "i64" | "i8" | "idempotent" | "ifdef"
+        | "inc" | "iot-secure" | "je" | "jg" | "jge" | "jl" | "jle" | "jmp"
+        | "jne" | "lea" | "let" | "manifest" | "max-call-depth"
+        | "max-execution-time" | "max-iterations" | "max-memory"
+        | "max-stack-depth" | "mem" | "metamorphic-if" | "module" | "mov"
+        | "mul" | "not" | "obfuscate" | "or" | "package" | "pop" | "profile"
+        | "prove-terminates" | "ptr" | "pure" | "push" | "require"
+        | "rewrite-self" | "rollback" | "runtime-only" | "section"
+        | "strategy" | "string" | "struct" | "sub" | "syscall" | "target"
+        | "transaction" | "true" | "try" | "u16" | "u32" | "u64" | "u8"
+        | "use" | "while"
+        ;
+
+identifier = letter , { letter | digit | "_" | "-" } ;
+letter = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j"
+       | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t"
+       | "u" | "v" | "w" | "x" | "y" | "z"
+       | "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J"
+       | "K" | "L" | "M" | "N" | "O" | "P" | "Q" | "R" | "S" | "T"
+       | "U" | "V" | "W" | "X" | "Y" | "Z"
+       ;
+
+digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+
+number = [ "-" ] , digit , { digit }
+       | [ "-" ] , "0x" , hex_digit , { hex_digit }
+       | [ "-" ] , "0b" , bin_digit , { bin_digit }
+       ;
+
+hex_digit = digit | "a" | "b" | "c" | "d" | "e" | "f"
+          | "A" | "B" | "C" | "D" | "E" | "F" ;
+
+bin_digit = "0" | "1" ;
+
+string_lit = '"' , { string_char } , '"' ;
+string_char = ? any character except '"' and '\' ?
+            | escape_sequence ;
+
+escape_sequence = "\\" , ( "n" | "t" | "r" | '"' | "\\" ) ;
+
+boolean = "true" | "false" ;
+
+comment = ";" , { ? any character except newline ? } , newline
+        | "(*" , { ? any character ? } , "*)"
+        ;
+
+(* ================================================================== *)
+(* SEMANTIC CONSTRAINTS (Enforced by Compiler)                        *)
+(* ================================================================== *)
+
+(* 1. PHASE SEPARATION:
+   - syscall, transaction, metamorphic-if: compile-time only
+   - while, for: compile-time only (use bounded-for in deployment)
+   - try-catch: compile-time only
+
+   2. DEPLOYMENT CODE RESTRICTIONS:
+   - All loops must be bounded-for with compile-time constant bounds
+   - All memory allocation must be compile-time constant size
+   - No recursion (call graph must be acyclic)
+   - No function pointers or indirect calls
+   - All functions must have termination proofs
+   - Type annotations required on all variables
+
+   3. CALL GRAPH CONSTRAINTS:
+   - Functions marked compile-only cannot be called from deploy-time code
+   - deploy-time functions can only call other deploy-time functions
+   - Maximum call depth enforced statically
+
+   4. RESOURCE TRACKING:
+   - Stack depth tracked at compile time
+   - Memory allocation summed at compile time
+   - Iteration counts multiplied across nested loops
+
+   5. OBFUSCATION:
+   - Semantically equivalent metamorphic variants generated
+   - Register allocation randomized per deployment
+   - Instruction sequences morphed while preserving semantics
+   - Unused decoy code paths inserted (never executed)
+*)
+
+(* ==================================================================== *)
+(*   END OF GRAMMAR                                                     *)
+(* ==================================================================== *)
