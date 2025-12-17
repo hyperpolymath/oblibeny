@@ -29,29 +29,19 @@
 #![deny(unsafe_code)]
 
 pub mod ast;
-pub mod callgraph;
 pub mod error;
 pub mod lexer;
 pub mod parser;
-pub mod phase;
-pub mod resources;
 pub mod span;
-pub mod termination;
 pub mod token;
-pub mod typeck;
 
 // Re-exports for convenience
 pub use ast::TopLevelForm;
-pub use callgraph::CallGraph;
 pub use error::{Error, Result};
 pub use lexer::Lexer;
 pub use parser::Parser;
-pub use phase::PhaseValidator;
-pub use resources::ResourceAnalyzer;
 pub use span::Span;
-pub use termination::TerminationChecker;
 pub use token::Token;
-pub use typeck::TypeChecker;
 
 /// Compiler version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
