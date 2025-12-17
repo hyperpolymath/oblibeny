@@ -189,6 +189,17 @@ pub enum Error {
         #[label("termination not proven")]
         span: Span,
     },
+
+    /// Duplicate definition
+    #[error("duplicate definition: {name}")]
+    #[diagnostic(code(oblibeny::resolve::duplicate))]
+    DuplicateDefinition {
+        /// Name that was redefined
+        name: String,
+        /// Location of the duplicate definition
+        #[label("duplicate definition")]
+        span: Span,
+    },
 }
 
 impl Error {
@@ -208,6 +219,7 @@ impl Error {
             Error::UndefinedVariable { span, .. } => *span,
             Error::CapabilityNotGranted { span, .. } => *span,
             Error::TerminationUnprovable { span, .. } => *span,
+            Error::DuplicateDefinition { span, .. } => *span,
         }
     }
 }
