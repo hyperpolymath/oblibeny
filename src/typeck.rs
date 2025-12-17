@@ -79,11 +79,6 @@ impl TypeChecker {
         checker
     }
 
-    /// Get collected errors.
-    pub fn get_errors(&self) -> &[Error] {
-        &self.errors
-    }
-
     /// Register built-in functions.
     fn register_builtins(&mut self) {
         // Arithmetic operators
@@ -206,7 +201,7 @@ impl TypeChecker {
     }
 
     /// Type check a top-level form.
-    pub fn check_top_level(&mut self, form: &TopLevelForm) {
+    fn check_top_level(&mut self, form: &TopLevelForm) {
         match form {
             TopLevelForm::Function(f) => {
                 self.check_function(f);

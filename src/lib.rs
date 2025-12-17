@@ -29,51 +29,19 @@
 #![deny(unsafe_code)]
 
 pub mod ast;
-pub mod callgraph;
-pub mod codegen;
-pub mod driver;
 pub mod error;
-pub mod hir;
-pub mod interpreter;
 pub mod lexer;
-pub mod lower;
-pub mod macro_expand;
-pub mod mir;
-pub mod opt;
 pub mod parser;
-pub mod phase;
-pub mod repl;
-pub mod resources;
 pub mod span;
-pub mod stdlib;
-pub mod symbol;
-pub mod termination;
 pub mod token;
-pub mod typeck;
 
 // Re-exports for convenience
 pub use ast::TopLevelForm;
-pub use callgraph::CallGraph;
-pub use codegen::CodeGenerator;
-pub use driver::{CompileOptions, CompileResult, Compiler};
 pub use error::{Error, Result};
-pub use hir::HirProgram;
-pub use interpreter::Interpreter;
 pub use lexer::Lexer;
-pub use lower::lower;
-pub use macro_expand::MacroExpander;
-pub use mir::{MirBuilder, MirFunction, MirProgram};
-pub use opt::{optimize, OptLevel};
 pub use parser::Parser;
-pub use phase::PhaseValidator;
-pub use repl::Repl;
-pub use resources::ResourceAnalyzer;
 pub use span::Span;
-pub use stdlib::StdLib;
-pub use symbol::{NameResolver, SymbolTable};
-pub use termination::TerminationChecker;
 pub use token::Token;
-pub use typeck::TypeChecker;
 
 /// Compiler version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
