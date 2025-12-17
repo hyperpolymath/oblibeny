@@ -29,6 +29,11 @@ impl<'a> Parser<'a> {
         Ok(forms)
     }
 
+    /// Parse a single expression (for REPL use)
+    pub fn parse_repl_expression(&mut self) -> Result<Expression> {
+        self.parse_expression()
+    }
+
     /// Parse a top-level form.
     fn parse_top_level(&mut self) -> Result<TopLevelForm> {
         let start = self.expect(Token::LParen)?;

@@ -200,26 +200,63 @@ pub enum Error {
         #[label("duplicate definition")]
         span: Span,
     },
+
+    /// I/O error
+    #[error("I/O error: {message}")]
+    #[diagnostic(code(oblibeny::io::error))]
+    IoError {
+        /// Error message
+        message: String,
+    },
+
+    /// Internal compiler error
+    #[error("internal compiler error: {message}")]
+    #[diagnostic(code(oblibeny::internal::error))]
+    InternalError {
+        /// Error message
+        message: String,
+    },
+
+    /// Runtime error during interpretation
+    #[error("runtime error: {message}")]
+    #[diagnostic(code(oblibeny::runtime::error))]
+    RuntimeError {
+        /// Error message
+        message: String,
+        /// Location in source
+        #[label("here")]
+        span: Span,
+    },
 }
 
 impl Error {
-    /// Get the span where the error occurred.
-    pub fn span(&self) -> Span {
+    /// Create a runtime error
+    pub fn runtime(message: String, span: Span) -> Self {
+        Error::RuntimeError { message, span }
+    }
+}
+
+impl Error {
+    /// Get the span where the error occurred, if available.
+    pub fn span(&self) -> Option<Span> {
         match self {
-            Error::UnexpectedChar { span, .. } => *span,
-            Error::UnterminatedString { span, .. } => *span,
-            Error::UnexpectedToken { span, .. } => *span,
-            Error::UnexpectedEof { span, .. } => *span,
-            Error::UnmatchedParen { span, .. } => *span,
-            Error::PhaseViolation { span, .. } => *span,
-            Error::RecursionDetected { span, .. } => *span,
-            Error::UnboundedLoop { span, .. } => *span,
-            Error::ResourceExceeded { span, .. } => *span,
-            Error::TypeMismatch { span, .. } => *span,
-            Error::UndefinedVariable { span, .. } => *span,
-            Error::CapabilityNotGranted { span, .. } => *span,
-            Error::TerminationUnprovable { span, .. } => *span,
-            Error::DuplicateDefinition { span, .. } => *span,
+            Error::UnexpectedChar { span, .. } => Some(*span),
+            Error::UnterminatedString { span, .. } => Some(*span),
+            Error::UnexpectedToken { span, .. } => Some(*span),
+            Error::UnexpectedEof { span, .. } => Some(*span),
+            Error::UnmatchedParen { span, .. } => Some(*span),
+            Error::PhaseViolation { span, .. } => Some(*span),
+            Error::RecursionDetected { span, .. } => Some(*span),
+            Error::UnboundedLoop { span, .. } => Some(*span),
+            Error::ResourceExceeded { span, .. } => Some(*span),
+            Error::TypeMismatch { span, .. } => Some(*span),
+            Error::UndefinedVariable { span, .. } => Some(*span),
+            Error::CapabilityNotGranted { span, .. } => Some(*span),
+            Error::TerminationUnprovable { span, .. } => Some(*span),
+            Error::DuplicateDefinition { span, .. } => Some(*span),
+            Error::RuntimeError { span, .. } => Some(*span),
+            Error::IoError { .. } => None,
+            Error::InternalError { .. } => None,
         }
     }
 }

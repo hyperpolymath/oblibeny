@@ -68,6 +68,11 @@ impl DeadCodeEliminator {
     fn remove_unreachable_blocks(&mut self, func: &mut MirFunction) {
         let original_count = func.blocks.len();
 
+        // Nothing to do if no blocks
+        if original_count == 0 {
+            return;
+        }
+
         // Create mapping from old block IDs to new ones
         let mut id_map: Vec<Option<BlockId>> = Vec::with_capacity(original_count);
         let mut new_id = 0u32;
