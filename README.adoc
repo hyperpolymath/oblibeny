@@ -1,6 +1,8 @@
-= Oblibeny
+= Oblíbený
+:toc: macro
+:toclevels: 2
 
-*Oblivious computing ecosystem - privacy-preserving computation tools*
+*Dual-Language Paradigm compiler for secure edge computing*
 
 Oblíbený Programming Language
 
@@ -745,6 +747,109 @@ Open Source Community for tools and libraries
 
 == Components
 
+== Overview
+
+Oblíbený implements a novel compilation model designed for anti-tamper resilience and provable security guarantees on edge devices:
+
+* **Master Language**: Turing-complete for development (macros, metaprogramming, unbounded computation)
+* **Deployment Subset**: Turing-incomplete for deployment (provably terminating, bounded resources)
+
+This dual-language paradigm enables developers to write expressive code that compiles down to a restricted, formally verifiable subset safe for deployment on constrained edge devices.
+
+== Key Features
+
+=== Security Model
+
+* **Capability-based I/O**: No syscalls in deployment; explicit capability tokens required
+* **Provable Termination**: Call graph acyclicity + bounded loops
+* **Resource Bounds**: Max iterations, memory, stack depth, execution time
+* **Semantic Obfuscation**: Metamorphic code generation for anti-tamper resilience
+
+=== Compilation Stages
+
+[source]
+----
+Source (.obl) → Lexer → Parser → AST → Type Checker → Phase Validator
+                                  ↓
+              HIR → MIR → LIR → Code Generator → Target Binary
+               ↓     ↓
+           Types   CFG + Optimizations
+----
+
+1. **Expansion** (Stage 0): Macro expansion, compile-time execution
+2. **Verification** (Stage 1): Type checking, termination proofs, resource analysis
+3. **Generation** (Stage 2): Optimization, obfuscation, code generation
+
+=== Target Domains
+
+* Edge computing nodes
+* IoT devices
+* Embedded systems
+* Sensor networks
+* Secure actuators
+
+== Quick Start
+
+[source,bash]
+----
+# Clone with submodules
+git clone --recursive https://github.com/hyperpolymath/oblibeny.git
+cd oblibeny
+
+# Build the compiler
+cargo build --release
+
+# Run the REPL (when available)
+./target/release/oblc repl
+
+# Compile a file (when available)
+./target/release/oblc build example.obl
+----
+
+=== Example Code
+
+[source,lisp]
+----
+;; Deployment-safe function with resource bounds
+(defun bounded-sum (arr)
+  #:deploy
+  #:max-iterations 1000
+  (let ((sum 0))
+    (bounded-for (i 0 (length arr))
+      (set! sum (+ sum (get arr i))))
+    sum))
+
+;; Compile-time metaprogramming
+(defmacro generate-handler (name)
+  #:compile
+  `(defun ,name (input)
+     #:deploy
+     (process input)))
+----
+
+== Project Structure
+
+[cols="1,3"]
+|===
+| Component | Description
+
+| `src/`
+| Oblíbený compiler (`oblc`) - Rust implementation
+
+| `grammar/`
+| EBNF language specification (v0.6)
+
+| `docs/`
+| Formal semantics and implementation specification
+
+| `wiki/`
+| User documentation and tutorials
+
+|===
+
+=== Ecosystem Submodules
+
+[cols="1,3"]
 |===
 | Repo | Description
 
@@ -759,18 +864,86 @@ Open Source Community for tools and libraries
 
 |===
 
-== What is Oblivious Computing?
+== Development Status
 
-Oblivious computing hides access patterns and data access from observers,
-providing strong privacy guarantees beyond encryption alone. These tools
-enable building privacy-preserving applications.
+[cols="1,1,2"]
+|===
+| Phase | Status | Description
 
-== Quick Start
+| Phase 0: Foundation
+| ✅ Complete
+| Grammar, compiler skeleton, RSR compliance
 
-```bash
-git clone --recursive https://github.com/hyperpolymath/oblibeny.git
-```
+| Phase 1: Core Compiler
+| 🔄 Q2 2025
+| Semantic analysis, code generation, optimizations
+
+| Phase 2: Verification
+| 📅 Q3 2025
+| Z3/SMT integration, formal proofs
+
+| Phase 3-7
+| 📅 2025-2026
+| Runtime, tooling, stdlib, ecosystem
+
+|===
+
+See link:ROADMAP.md[ROADMAP.md] for detailed milestones.
+
+== Documentation
+
+* link:wiki/Home.md[Wiki Home] - User documentation
+* link:wiki/Language-Overview.md[Language Overview] - Syntax and concepts
+* link:wiki/Dual-Language-Paradigm.md[Dual-Language Paradigm] - Core design
+* link:docs/oblibeny-semantics.md[Formal Semantics] - Mathematical specification
+* link:grammar/oblibeny-v0.6.ebnf[Grammar] - EBNF specification
+
+== Building from Source
+
+=== Requirements
+
+* Rust 1.75+ (MSRV)
+* Cargo
+
+=== Build Commands
+
+[source,bash]
+----
+# Development build
+cargo build
+
+# Release build (optimized)
+cargo build --release
+
+# Run tests
+cargo test
+
+# Generate documentation
+cargo doc --open
+----
 
 == License
 
-MIT OR Palimpsest-0.8
+This project is dual-licensed under your choice of:
+
+* **MIT License** - Permissive open source
+* **AGPL-3.0-or-later** - Copyleft for network services
+
+See link:LICENSE.txt[LICENSE.txt] for details.
+
+Additionally, this project encourages (but does not legally require) adherence to the https://github.com/hyperpolymath/palimpsest-license[Palimpsest principles] for consent-based digital interaction.
+
+== Contributing
+
+Contributions welcome! This project follows:
+
+* https://github.com/hyperpolymath/rhodium-standard-repositories[RSR (Rhodium Standard Repositories)] guidelines
+* SHA-pinned GitHub Actions
+* SPDX license headers on all files
+* OpenSSF Scorecard compliance
+
+== Acknowledgments
+
+Part of the https://github.com/hyperpolymath[hyperpolymath] ecosystem.
+
+Copyright 2024-2025 hyperpolymath / Jonathan D.A. Jewell

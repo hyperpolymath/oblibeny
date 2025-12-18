@@ -25,16 +25,16 @@
 
 (define project-context
   '((name . "oblibeny")
-    (tagline . "*Oblivious computing ecosystem - privacy-preserving computation tools*")
+    (tagline . "*Dual-Language Paradigm compiler for secure edge computing*")
     (version . "0.2.0")
-    (license . "AGPL-3.0-or-later")
+    (license . "MIT OR AGPL-3.0-or-later")
     (rsr-compliance . "gold-target")
 
     (tech-stack
-     ((primary . "Oblibeny (custom DSL) + Scheme")
+     ((primary . "Rust + Oblibeny DSL")
       (grammar . "EBNF v0.6 - Secure Edge Grammar")
       (ci-cd . "GitHub Actions + GitLab CI + Bitbucket Pipelines")
-      (security . "CodeQL + OSSF Scorecard")))))
+      (security . "Semgrep SAST + Dependabot + OpenSSF Scorecard")))))
 
 ;;;============================================================================
 ;;; CURRENT POSITION
@@ -42,7 +42,7 @@
 
 (define current-position
   '((phase . "v0.2 - Language Specification")
-    (overall-completion . 40)
+    (overall-completion . 45)
 
     (components
      ((rsr-compliance
@@ -59,9 +59,10 @@
                   proof annotations, and semantic obfuscation")))
 
       (documentation
-       ((status . "foundation")
-        (completion . 40)
-        (notes . "README, META/ECOSYSTEM/STATE.scm, grammar spec added")))
+       ((status . "aligned")
+        (completion . 60)
+        (notes . "README realigned with dual-language paradigm focus, comprehensive
+                  wiki, formal semantics, ROADMAP complete")))
 
       (testing
        ((status . "minimal")
@@ -217,7 +218,7 @@
 (define state-summary
   '((project . "oblibeny")
     (version . "0.2.0")
-    (overall-completion . 40)
+    (overall-completion . 45)
     (next-milestone . "v0.3 - Parser Implementation")
     (critical-blockers . 0)
     (high-priority-issues . 0)
