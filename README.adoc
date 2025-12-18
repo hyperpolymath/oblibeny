@@ -4,26 +4,11 @@
 
 Oblíbený Programming Language
 
-
-  
-
-
-  The First Programming Language with First-Class AI Integration and Distributed Formal Verification
-
-
   Proven • Secure • Sustainable
-
-
-  Quick Start •
-  Documentation •
-  White Papers •
-  Community •
-  Contributing
-
 
 What is Oblíbený?
 
-Oblíbený (Czech: "beloved" or "favorite") is a revolutionary programming language that fundamentally rethinks how we write, verify, and deploy software. It combines:
+Oblíbený (Czech: "beloved" or "favorite") is a programming language that fundamentally rethinks how we write, verify, and deploy software. It combines:
 
 
 🔐 Security by Design: Two-phase compilation ensures deployment-time code is provably terminating and resource-bounded
