@@ -15,7 +15,7 @@
   '((version . "0.2.0")
     (schema-version . "1.0")
     (created . "2025-12-15")
-    (updated . "2025-12-18")
+    (updated . "2025-12-17")
     (project . "oblibeny")
     (repo . "github.com/hyperpolymath/oblibeny")))
 
@@ -190,22 +190,7 @@
         "Verified all GitHub Actions are SHA-pinned"
         "Verified permissions declarations on all workflows"
         "Confirmed secrets have variable guards in mirror.yml"))
-      (notes . "Security review - all SCM files now RSR Gold compliant"))
-
-     ((date . "2025-12-18")
-      (session . "readme-realignment")
-      (accomplishments
-       ("Identified README.adoc misalignment with project direction"
-        "Fixed license: 'MIT OR Palimpsest-0.8' -> 'MIT OR AGPL-3.0-or-later'"
-        "Updated tagline: oblivious computing -> dual-language paradigm compiler"
-        "Added comprehensive project structure documentation"
-        "Added security model section (capability-based I/O, termination proofs)"
-        "Added compilation stages diagram"
-        "Added example code demonstrating deploy/compile phases"
-        "Added development status table with phase progress"
-        "Added build instructions and requirements"
-        "Verified compiler builds successfully"))
-      (notes . "README now properly reflects dual-language paradigm compiler focus")))))
+      (notes . "Security review - all SCM files now RSR Gold compliant")))))
 
 ;;;============================================================================
 ;;; HELPER FUNCTIONS (for Guile evaluation)
@@ -237,6 +222,6 @@
     (next-milestone . "v0.3 - Parser Implementation")
     (critical-blockers . 0)
     (high-priority-issues . 0)
-    (updated . "2025-12-18")))
+    (updated . "2025-12-17")))
 
 ;;; End of STATE.scm
