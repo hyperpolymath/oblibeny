@@ -1,0 +1,129 @@
+// SPDX-License-Identifier: MIT OR Palimpsest-0.8
+// SPDX-FileCopyrightText: 2025 Hyperpolymath
+
+= Oblibeny Roadmap
+:toc:
+:toclevels: 3
+
+== Project Status
+
+[IMPORTANT]
+====
+**Repository project specification - will be uploaded shortly**
+
+This meta-repository coordinates the Oblibeny ecosystem. Detailed specifications,
+architecture documents, and implementation roadmaps for each component will be
+added as the project develops.
+====
+
+== Ecosystem Components
+
+=== obli-transpiler-framework
+
+*Status:* Specification pending
+
+*Purpose:* Transform standard programs into oblivious equivalents that hide
+access patterns from observers.
+
+*Planned capabilities:*
+
+* [ ] Source-to-source transpilation for oblivious execution
+* [ ] Support for multiple target backends
+* [ ] Static analysis for access pattern detection
+* [ ] Optimization passes for oblivious code
+
+=== obli-riscv-dev-kit
+
+*Status:* Specification pending
+
+*Purpose:* RISC-V toolchain and development environment with native oblivious
+computing support.
+
+*Planned capabilities:*
+
+* [ ] RISC-V emulator with oblivious memory access
+* [ ] Custom ISA extensions for oblivious operations
+* [ ] Development toolchain (assembler, linker, debugger)
+* [ ] Hardware simulation for oblivious execution units
+
+=== obli-fs
+
+*Status:* Specification pending
+
+*Purpose:* Filesystem implementation providing oblivious access patterns,
+preventing observers from inferring file access behavior.
+
+*Planned capabilities:*
+
+* [ ] ORAM-based file storage
+* [ ] Path-oblivious directory traversal
+* [ ] Encrypted metadata with access pattern hiding
+* [ ] POSIX-compatible interface layer
+
+== Research Foundation
+
+Oblivious computing builds on established cryptographic research:
+
+* **Oblivious RAM (ORAM)** - Hides memory access patterns
+* **Oblivious Transfer (OT)** - Secure two-party computation primitive
+* **Path ORAM** - Efficient tree-based ORAM construction
+* **Circuit ORAM** - Optimized for smaller block sizes
+
+== Development Phases
+
+=== Phase 1: Foundation
+* [ ] Complete ecosystem specification
+* [ ] Define inter-component interfaces
+* [ ] Establish security model and threat assumptions
+* [ ] Set up development infrastructure
+
+=== Phase 2: Core Implementation
+* [ ] obli-fs basic ORAM backend
+* [ ] obli-transpiler-framework parsing and IR
+* [ ] obli-riscv-dev-kit emulator foundation
+
+=== Phase 3: Integration
+* [ ] Cross-component testing framework
+* [ ] Performance benchmarking suite
+* [ ] Security audit preparation
+
+=== Phase 4: Hardening
+* [ ] Formal verification of critical paths
+* [ ] Side-channel analysis and mitigation
+* [ ] Documentation and developer guides
+
+== Technology Stack
+
+Per the link:.claude/CLAUDE.md[Hyperpolymath Language Policy]:
+
+|===
+| Component | Primary Language | Notes
+
+| Core libraries
+| Rust
+| Performance-critical, memory-safe
+
+| Tooling/CLI
+| Rust
+| Consistent ecosystem
+
+| Configuration
+| Nickel
+| Type-safe configs
+
+| Build/Package
+| Guix, Nix
+| Reproducible builds
+
+| Scripts
+| Bash/POSIX
+| Minimal automation
+|===
+
+== Contributing
+
+Contribution guidelines will be established once specifications are finalized.
+
+== License
+
+MIT OR Palimpsest-0.8
