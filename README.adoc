@@ -1,35 +1,108 @@
+// SPDX-License-Identifier: MIT OR Palimpsest-0.8
+// SPDX-FileCopyrightText: 2025 Hyperpolymath
+
 = Oblibeny
+:toc:
+:toclevels: 2
 
 *Oblivious computing ecosystem - privacy-preserving computation tools*
+
+== Overview
+
+Oblibeny provides a coordinated suite of tools for building applications with
+strong access-pattern privacy guarantees. Unlike encryption alone, oblivious
+computing prevents observers from learning *what* data is accessed, *when* it
+is accessed, and *how often* - even if they can see all encrypted traffic.
+
+[NOTE]
+====
+**Repository project specification - will be uploaded shortly**
+
+See link:ROADMAP.adoc[ROADMAP.adoc] for development phases and planned capabilities.
+====
 
 == Components
 
 |===
-| Repo | Description
+| Repository | Description | Status
 
 | link:obli-transpiler-framework[obli-transpiler-framework]
 | Oblivious program transpiler framework
+| Specification pending
 
 | link:obli-riscv-dev-kit[obli-riscv-dev-kit]
-| RISC-V development kit with oblivious computing
+| RISC-V development kit with oblivious computing extensions
+| Specification pending
 
 | link:obli-fs[obli-fs]
 | Oblivious filesystem with privacy guarantees
+| Specification pending
 
 |===
 
 == What is Oblivious Computing?
 
-Oblivious computing hides access patterns and data access from observers,
-providing strong privacy guarantees beyond encryption alone. These tools
-enable building privacy-preserving applications.
+Traditional encryption protects data *content* but leaks *access patterns*.
+An observer watching encrypted traffic can learn:
+
+* Which files you access
+* How frequently you access them
+* The order of accesses
+* Correlations between accesses
+
+Oblivious computing techniques (ORAM, oblivious algorithms, path-hiding
+structures) eliminate these side channels. The observer learns nothing beyond
+the total volume of activity.
+
+=== Use Cases
+
+* **Private databases** - Query patterns reveal nothing about queries
+* **Secure file storage** - Access patterns hidden from storage providers
+* **Confidential computing** - Programs execute without leaking behavior
+* **Privacy-preserving analytics** - Compute on encrypted data obliviously
 
 == Quick Start
 
-```bash
+[source,bash]
+----
+# Clone with all submodules
 git clone --recursive https://github.com/hyperpolymath/oblibeny.git
-```
+cd oblibeny
+
+# If already cloned, initialize submodules
+git submodule update --init --recursive
+----
+
+== Repository Structure
+
+----
+oblibeny/
+├── README.adoc              # This file
+├── ROADMAP.adoc             # Development roadmap
+├── .claude/
+│   └── CLAUDE.md            # AI assistant language policy
+├── .github/
+│   └── workflows/           # CI/CD automation
+├── obli-transpiler-framework/  # [submodule]
+├── obli-riscv-dev-kit/         # [submodule]
+└── obli-fs/                    # [submodule]
+----
+
+== Technology Standards
+
+This project follows the link:.claude/CLAUDE.md[Hyperpolymath Language Policy]:
+
+* **Primary languages:** Rust, ReScript, Gleam
+* **Runtime:** Deno (not Node.js)
+* **Mobile:** Tauri 2.0+ or Dioxus (not React Native/Flutter)
+* **Packages:** Guix/Nix for reproducible builds
+* **Security:** SHA-256+, HTTPS only, no hardcoded secrets
 
 == License
 
 MIT OR Palimpsest-0.8
+
+== Links
+
+* link:ROADMAP.adoc[Development Roadmap]
+* https://github.com/hyperpolymath[Hyperpolymath Organization]
