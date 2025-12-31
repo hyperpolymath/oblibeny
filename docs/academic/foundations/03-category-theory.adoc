@@ -1,0 +1,485 @@
+// SPDX-License-Identifier: MIT OR Palimpsest-0.8
+// Copyright (c) 2024 Hyperpolymath
+
+= Categorical Semantics for Oblivious Computing
+:author: Oblibeny Project
+:revdate: 2024
+:toc: left
+:toclevels: 4
+:sectnums:
+:stem: latexmath
+:source-highlighter: rouge
+
+== Abstract
+
+This document develops the categorical foundations for oblivious computing,
+providing a compositional semantics for ORAM operations and enabling abstract
+reasoning about program transformations that preserve obliviousness.
+
+== Categories and Functors
+
+=== Definition: Category
+
+A *category* stem:[\mathbf{C}] consists of:
+
+* A class stem:[\text{Ob}(\mathbf{C})] of objects
+* For each pair stem:[A, B], a set stem:[\text{Hom}_\mathbf{C}(A, B)] of morphisms
+* Composition: stem:[\circ : \text{Hom}(B, C) \times \text{Hom}(A, B) \to \text{Hom}(A, C)]
+* Identity: stem:[\text{id}_A \in \text{Hom}(A, A)] for each object stem:[A]
+
+Subject to:
+* Associativity: stem:[(h \circ g) \circ f = h \circ (g \circ f)]
+* Identity laws: stem:[\text{id}_B \circ f = f = f \circ \text{id}_A]
+
+=== Relevant Categories
+
+==== Category of Types (stem:[\mathbf{Type}])
+
+* Objects: Types in our language
+* Morphisms: Type-preserving functions
+* Identity: Identity function
+* Composition: Function composition
+
+==== Category of Memory Configurations (stem:[\mathbf{Mem}])
+
+* Objects: Memory configurations stem:[\mu : A \rightharpoonup V]
+* Morphisms: Memory transitions stem:[\mu \to \mu']
+* Identity: No-op transition
+* Composition: Sequential transitions
+
+==== Category of Access Patterns (stem:[\mathbf{Acc}])
+
+* Objects: Access pattern types (address sequences)
+* Morphisms: Pattern transformations (obfuscation functions)
+* Identity: Identity pattern
+* Composition: Sequential pattern combination
+
+=== Definition: Functor
+
+A *functor* stem:[F : \mathbf{C} \to \mathbf{D}] consists of:
+
+* Object mapping: stem:[F : \text{Ob}(\mathbf{C}) \to \text{Ob}(\mathbf{D})]
+* Morphism mapping: stem:[F : \text{Hom}_\mathbf{C}(A, B) \to \text{Hom}_\mathbf{D}(FA, FB)]
+
+Preserving:
+* Identity: stem:[F(\text{id}_A) = \text{id}_{FA}]
+* Composition: stem:[F(g \circ f) = F(g) \circ F(f)]
+
+== The Obliviousness Functor
+
+=== Definition: Obliviousness Functor
+
+The *obliviousness functor* stem:[\mathcal{O} : \mathbf{Prog} \to \mathbf{OProg}] transforms
+standard programs to oblivious equivalents:
+
+[stem]
+++++
+\mathcal{O}(P) = P_{\text{obliv}}
+++++
+
+where:
+* stem:[\mathbf{Prog}] is the category of programs with memory access
+* stem:[\mathbf{OProg}] is the category of oblivious programs
+
+=== Theorem: Functor Laws for stem:[\mathcal{O}]
+
+The obliviousness transformation satisfies functor laws:
+
+1. stem:[\mathcal{O}(\text{id}) = \text{id}]
+2. stem:[\mathcal{O}(P_2 \circ P_1) \cong \mathcal{O}(P_2) \circ \mathcal{O}(P_1)]
+
+.Proof
+====
+**Identity**: The identity program performs no accesses, so obliviousness
+transformation leaves it unchanged.
+
+**Composition**: By the compositionality of ORAM operations. The access pattern
+of the composition is handled by the combined ORAM state. ∎
+====
+
+== Monads for Computational Effects
+
+=== Definition: Monad
+
+A *monad* on category stem:[\mathbf{C}] is a triple stem:[(T, \eta, \mu)] where:
+
+* stem:[T : \mathbf{C} \to \mathbf{C}] is an endofunctor
+* stem:[\eta : \text{Id} \Rightarrow T] is the unit (return)
+* stem:[\mu : T \circ T \Rightarrow T] is multiplication (join)
+
+Subject to:
+[stem]
+++++
+\mu \circ T\mu = \mu \circ \mu T \quad \text{(associativity)}
+++++
+[stem]
+++++
+\mu \circ T\eta = \text{id} = \mu \circ \eta T \quad \text{(unit laws)}
+++++
+
+=== The ORAM Monad
+
+Define the ORAM monad stem:[\text{ORAM}]:
+
+[stem]
+++++
+\text{ORAM}(A) = \text{State} \to (A \times \text{State} \times \text{AccessLog})
+++++
+
+==== Return
+
+[stem]
+++++
+\text{return}_A(a) = \lambda s. (a, s, \epsilon)
+++++
+
+where stem:[\epsilon] is the empty access log.
+
+==== Bind
+
+[stem]
+++++
+m \bind f = \lambda s. \text{let } (a, s', \ell) = m(s) \text{ in let } (b, s'', \ell') = f(a)(s') \text{ in } (b, s'', \ell \cdot \ell')
+++++
+
+=== Theorem: ORAM Monad Laws
+
+The ORAM monad satisfies the monad laws.
+
+.Proof
+====
+**Left identity**: stem:[\text{return}(a) \bind f = f(a)]
+[stem]
+++++
+(\lambda s. (a, s, \epsilon)) \bind f = \lambda s. (f(a))(s) = f(a)
+++++
+
+**Right identity**: stem:[m \bind \text{return} = m]
+[stem]
+++++
+m \bind (\lambda a. \lambda s. (a, s, \epsilon)) = \lambda s. \text{let } (a, s', \ell) = m(s) \text{ in } (a, s', \ell \cdot \epsilon) = m
+++++
+
+**Associativity**: stem:[(m \bind f) \bind g = m \bind (\lambda a. f(a) \bind g)]
+
+By straightforward calculation with state and log threading. ∎
+====
+
+== Kleisli Category for ORAM
+
+=== Definition: Kleisli Category
+
+The *Kleisli category* stem:[\mathbf{C}_T] for monad stem:[(T, \eta, \mu)] has:
+
+* Objects: Same as stem:[\mathbf{C}]
+* Morphisms: stem:[\text{Hom}_{\mathbf{C}_T}(A, B) = \text{Hom}_\mathbf{C}(A, TB)]
+* Composition: stem:[g \circ_T f = \mu \circ Tg \circ f]
+* Identity: stem:[\eta_A]
+
+=== Kleisli Category for ORAM
+
+In stem:[\mathbf{Type}_{\text{ORAM}}]:
+
+* Objects: Types
+* Morphisms stem:[A \to B]: Functions stem:[A \to \text{ORAM}(B)]
+* These are "oblivious computations"
+
+=== Theorem: Oblivious Computations Form a Category
+
+stem:[\mathbf{Type}_{\text{ORAM}}] satisfies category axioms.
+
+.Proof
+====
+Follows from the monad laws for ORAM. The Kleisli construction is categorical. ∎
+====
+
+== Natural Transformations
+
+=== Definition: Natural Transformation
+
+A *natural transformation* stem:[\alpha : F \Rightarrow G] between functors
+stem:[F, G : \mathbf{C} \to \mathbf{D}] is a family of morphisms:
+
+[stem]
+++++
+\alpha_A : FA \to GA
+++++
+
+such that for all stem:[f : A \to B]:
+
+[stem]
+++++
+\alpha_B \circ Ff = Gf \circ \alpha_A
+++++
+
+=== The Obliviousness Natural Transformation
+
+Let stem:[\text{Acc} : \mathbf{Prog} \to \mathbf{Pattern}] extract access patterns.
+
+The obliviousness property is expressed as:
+
+[stem]
+++++
+\text{Acc} \circ \mathcal{O} \Rightarrow \text{Uniform}
+++++
+
+where stem:[\text{Uniform}] is the constant functor to uniform distributions.
+
+=== Theorem: Obliviousness as Naturality
+
+ORAM security is equivalent to the existence of this natural transformation.
+
+.Proof
+====
+The naturality square:
+[stem]
+++++
+\begin{CD}
+\text{Acc}(\mathcal{O}(P_1)) @>{\text{Acc}(\mathcal{O}(f))}>> \text{Acc}(\mathcal{O}(P_2)) \\
+@V{\alpha_{P_1}}VV @VV{\alpha_{P_2}}V \\
+\text{Uniform} @>{\text{id}}>> \text{Uniform}
+\end{CD}
+++++
+
+This commutes iff access patterns are indistinguishable (security). ∎
+====
+
+== Cartesian Closed Categories
+
+=== Definition: Cartesian Closed Category (CCC)
+
+A category stem:[\mathbf{C}] is *cartesian closed* if it has:
+
+1. Terminal object stem:[1]
+2. Binary products stem:[A \times B]
+3. Exponentials stem:[B^A] (internal hom)
+
+=== stem:[\mathbf{Type}] is CCC
+
+* Terminal: stem:[\text{Unit}]
+* Products: Pair types stem:[(A, B)]
+* Exponentials: Function types stem:[A \to B]
+
+=== Theorem: Oblivious Type System is CCC
+
+The category of oblivious types with labeled security levels is CCC.
+
+.Proof
+====
+* Terminal: stem:[\text{Unit}^L]
+* Products: stem:[(A^{\ell_1} \times B^{\ell_2})^{\ell_1 \sqcup \ell_2}]
+* Exponentials: stem:[(A^{\ell_1} \to B^{\ell_2})^{\ell_1 \sqcup \ell_2}]
+
+The label lattice operations preserve CCC structure. ∎
+====
+
+== Traced Monoidal Categories
+
+=== Definition: Symmetric Monoidal Category
+
+A category with:
+* Tensor product stem:[\otimes : \mathbf{C} \times \mathbf{C} \to \mathbf{C}]
+* Unit object stem:[I]
+* Associator, unitors, and symmetry natural isomorphisms
+
+=== Definition: Trace
+
+A *trace* is an operation:
+
+[stem]
+++++
+\text{Tr}^U_{A,B} : \text{Hom}(A \otimes U, B \otimes U) \to \text{Hom}(A, B)
+++++
+
+satisfying naturality and coherence conditions.
+
+=== Application: Feedback in ORAM
+
+The trace models feedback loops in ORAM:
+
+[stem]
+++++
+\text{Tr}^{\text{State}}_{\text{Op}, \text{Result}} : (\text{Op} \times \text{State} \to \text{Result} \times \text{State}) \to (\text{Op} \to \text{Result})
+++++
+
+This "hides" the internal state while exposing only the interface.
+
+== Limits and Colimits
+
+=== Definition: Limit
+
+The *limit* of a diagram stem:[D : \mathbf{J} \to \mathbf{C}] is an object stem:[\lim D]
+with projections to each stem:[D(j)] satisfying a universal property.
+
+=== Products as Limits
+
+[stem]
+++++
+A \times B = \lim\left(\bullet \leftarrow \bullet \rightarrow \bullet\right)
+++++
+
+=== Pullbacks for Synchronization
+
+The pullback:
+
+[stem]
+++++
+\begin{CD}
+P @>>> A \\
+@VVV @VV{f}V \\
+B @>{g}>> C
+\end{CD}
+++++
+
+Models synchronized access where stem:[f] and stem:[g] must agree.
+
+=== Application: ORAM State Consistency
+
+[stem]
+++++
+\text{ConsistentState} = \text{ClientState} \times_{\text{PositionMap}} \text{ServerState}
+++++
+
+== Enriched Categories
+
+=== Definition: stem:[\mathbf{V}]-Enriched Category
+
+For monoidal category stem:[\mathbf{V}], a stem:[\mathbf{V}]-enriched category has:
+* Hom-objects stem:[\text{Hom}(A, B) \in \mathbf{V}] instead of sets
+
+=== Quantitative Categories
+
+For oblivious computing, enrich over stem:[([0,\infty], +, 0)]:
+
+[stem]
+++++
+\text{Hom}_\text{cost}(A, B) = \text{bandwidth cost of } A \to B
+++++
+
+=== Theorem: Cost Composition
+
+[stem]
+++++
+\text{cost}(g \circ f) \leq \text{cost}(f) + \text{cost}(g)
+++++
+
+This gives a categorical foundation for ORAM cost analysis.
+
+== Topos Theory
+
+=== Definition: Topos
+
+A *topos* is a category that behaves like stem:[\mathbf{Set}]:
+* Has finite limits
+* Is cartesian closed
+* Has a subobject classifier stem:[\Omega]
+
+=== The Topos of Security Types
+
+Security types form a presheaf topos:
+
+[stem]
+++++
+\mathbf{Sec} = \mathbf{Set}^{\mathcal{L}^{\text{op}}}
+++++
+
+where stem:[\mathcal{L}] is the security lattice viewed as a category.
+
+=== Subobject Classifier for Security
+
+[stem]
+++++
+\Omega(\ell) = \{\ell' \in \mathcal{L} : \ell' \sqsubseteq \ell\}
+++++
+
+=== Theorem: Security Predicates are Intuitionistic
+
+The internal logic of stem:[\mathbf{Sec}] is intuitionistic, matching
+the constructive nature of security proofs.
+
+== Coalgebras for Behavior
+
+=== Definition: Coalgebra
+
+For endofunctor stem:[F : \mathbf{C} \to \mathbf{C}], an *stem:[F]-coalgebra* is:
+
+[stem]
+++++
+(X, \gamma : X \to FX)
+++++
+
+=== ORAM Behavior as Coalgebra
+
+Define functor:
+[stem]
+++++
+F(X) = \text{Response} \times X^{\text{Operation}}
+++++
+
+An ORAM is a coalgebra:
+[stem]
+++++
+\gamma : \text{State} \to \text{Response} \times \text{State}^{\text{Operation}}
+++++
+
+=== Theorem: Bisimulation is Coalgebraic
+
+Two ORAMs are bisimilar (observationally equivalent) iff there exists
+a coalgebra morphism to a common quotient.
+
+.Proof
+====
+By the general theory of coalgebraic bisimulation. ∎
+====
+
+== 2-Categories for Program Refinement
+
+=== Definition: 2-Category
+
+A *2-category* has:
+* Objects (0-cells)
+* Morphisms (1-cells)
+* 2-morphisms between morphisms (2-cells)
+
+=== Refinement 2-Category
+
+* 0-cells: Abstract specifications
+* 1-cells: Implementations
+* 2-cells: Refinement relations stem:[P_1 \sqsubseteq P_2]
+
+=== Theorem: Obliviousness Preserves Refinement
+
+If stem:[P_1 \sqsubseteq P_2], then stem:[\mathcal{O}(P_1) \sqsubseteq \mathcal{O}(P_2)].
+
+.Proof
+====
+The obliviousness functor extends to a 2-functor preserving 2-cells. ∎
+====
+
+== Conclusion
+
+Categorical semantics provides:
+
+1. **Compositional reasoning** about oblivious programs
+2. **Abstract specifications** independent of implementation
+3. **Proof techniques** (naturality, universality)
+4. **Cost analysis** via enriched categories
+5. **Behavioral equivalence** via coalgebras
+
+This foundation enables the obli-transpiler-framework to perform
+semantics-preserving transformations.
+
+== References
+
+1. Mac Lane, S. (1971). "Categories for the Working Mathematician." Springer.
+2. Moggi, E. (1991). "Notions of Computation and Monads." Information and Computation.
+3. Jacobs, B. (2016). "Introduction to Coalgebra." Cambridge University Press.
+4. Abramsky, S. & Jung, A. (1994). "Domain Theory." Handbook of Logic in CS.
+
+== TODO
+
+// TODO: Develop double categorical structure for distributed ORAM
+// TODO: Add ∞-categorical treatment for homotopy type theory
+// TODO: Formalize the fibration of security levels
+// TODO: Develop operadic semantics for multi-party computation
+// TODO: Connect to game semantics for adversary modeling

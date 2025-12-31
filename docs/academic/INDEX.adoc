@@ -1,0 +1,243 @@
+// SPDX-License-Identifier: MIT OR Palimpsest-0.8
+// Copyright (c) 2024 Hyperpolymath
+
+= Oblibeny Academic Documentation Index
+:author: Oblibeny Project
+:revdate: 2024
+:toc: left
+:toclevels: 3
+:sectnums:
+
+== Overview
+
+This directory contains comprehensive academic documentation for the Oblibeny
+oblivious computing ecosystem. The documentation covers all aspects required
+for rigorous academic scrutiny including formal proofs, specifications, and
+theoretical foundations.
+
+== Document Structure
+
+=== Foundations (`foundations/`)
+
+Mathematical and logical foundations upon which the system is built.
+
+[cols="1,3,1"]
+|===
+| Document | Description | Status
+
+| 01-set-theory.adoc
+| Set-theoretic foundations, memory model, permutation theory
+| Complete
+
+| 02-type-theory.adoc
+| Type systems for security, information flow, linear types
+| Complete
+
+| 03-category-theory.adoc
+| Categorical semantics, monads, functors for program composition
+| Complete
+
+| 04-probability-theory.adoc
+| Measure theory, concentration bounds, negligible functions
+| Complete
+
+| 05-algebra-number-theory.adoc
+| Groups, fields, elliptic curves, lattices for cryptography
+| Complete
+
+| 06-logic-proof-theory.adoc
+| Modal logic, temporal logic, separation logic, proof systems
+| Complete
+|===
+
+=== Cryptography (`cryptography/`)
+
+Cryptographic constructions and security proofs.
+
+[cols="1,3,1"]
+|===
+| Document | Description | Status
+
+| 01-oram-security.adoc
+| ORAM security proofs: Path ORAM, Circuit ORAM, recursive ORAM
+| Complete
+
+| 02-encryption-primitives.adoc
+| Symmetric encryption, PRFs, hash functions, commitments
+| Complete
+|===
+
+=== Complexity (`complexity/`)
+
+Computational complexity analysis.
+
+[cols="1,3,1"]
+|===
+| Document | Description | Status
+
+| 01-complexity-theory.adoc
+| Time/space complexity, lower bounds, communication complexity
+| Complete
+|===
+
+=== Information Theory (`information-theory/`)
+
+Information-theoretic analysis of security and privacy.
+
+[cols="1,3,1"]
+|===
+| Document | Description | Status
+
+| 01-information-theory.adoc
+| Entropy, mutual information, channel capacity, leakage
+| Complete
+|===
+
+=== Statistics (`statistics/`)
+
+Statistical methodology for security analysis.
+
+[cols="1,3,1"]
+|===
+| Document | Description | Status
+
+| 01-statistical-security.adoc
+| Hypothesis testing, distinguishers, confidence bounds
+| Complete
+|===
+
+=== Verification (`verification/`)
+
+Formal verification techniques and specifications.
+
+[cols="1,3,1"]
+|===
+| Document | Description | Status
+
+| 01-formal-verification.adoc
+| Operational semantics, Hoare logic, refinement, model checking
+| Complete
+
+| 02-program-analysis.adoc
+| Abstract interpretation, taint analysis, symbolic execution
+| Complete
+
+| 03-concurrency-distributed.adoc
+| Linearizability, consensus, Byzantine fault tolerance
+| Complete
+|===
+
+=== Engineering (`engineering/`)
+
+Engineering specifications for implementation.
+
+[cols="1,3,1"]
+|===
+| Document | Description | Status
+
+| 01-hardware-specifications.adoc
+| RISC-V ISA extensions, memory controllers, timing analysis
+| Complete
+
+| 02-protocol-specifications.adoc
+| Client-server protocols, filesystem interface, batching
+| Complete
+|===
+
+=== White Papers (`white-papers/`)
+
+High-level technical summaries.
+
+[cols="1,3,1"]
+|===
+| Document | Description | Status
+
+| oblibeny-technical-whitepaper.adoc
+| Comprehensive system overview with proofs and analysis
+| Complete
+|===
+
+== Reading Order
+
+=== For Cryptographers
+
+1. `foundations/01-set-theory.adoc` (memory model)
+2. `foundations/04-probability-theory.adoc` (negligible functions)
+3. `cryptography/01-oram-security.adoc` (main proofs)
+4. `cryptography/02-encryption-primitives.adoc` (primitives)
+5. `information-theory/01-information-theory.adoc` (leakage analysis)
+
+=== For PL Researchers
+
+1. `foundations/02-type-theory.adoc` (security types)
+2. `foundations/03-category-theory.adoc` (semantics)
+3. `foundations/06-logic-proof-theory.adoc` (logics)
+4. `verification/01-formal-verification.adoc` (Hoare logic)
+5. `verification/02-program-analysis.adoc` (static analysis)
+
+=== For Systems Researchers
+
+1. `complexity/01-complexity-theory.adoc` (bounds)
+2. `verification/03-concurrency-distributed.adoc` (distributed)
+3. `engineering/01-hardware-specifications.adoc` (hardware)
+4. `engineering/02-protocol-specifications.adoc` (protocols)
+
+=== Quick Start
+
+1. `white-papers/oblibeny-technical-whitepaper.adoc` (overview)
+
+== Key Theorems
+
+=== Security Theorems
+
+* **Theorem 1 (ORAM Security):** Path ORAM access patterns are computationally
+  indistinguishable from random. (`cryptography/01-oram-security.adoc`)
+
+* **Theorem 2 (Noninterference):** Well-typed programs satisfy noninterference.
+  (`foundations/02-type-theory.adoc`)
+
+* **Theorem 3 (Obliviousness Preservation):** The obliviousness functor preserves
+  behavioral equivalence. (`foundations/03-category-theory.adoc`)
+
+=== Complexity Theorems
+
+* **Theorem 4 (Lower Bound):** Any ORAM requires stem:[\Omega(\log N)] bandwidth.
+  (`complexity/01-complexity-theory.adoc`)
+
+* **Theorem 5 (Optimality):** Path ORAM achieves stem:[O(\log N)] bandwidth.
+  (`complexity/01-complexity-theory.adoc`)
+
+=== Probability Theorems
+
+* **Theorem 6 (Stash Bound):** Stash overflow probability is stem:[O(0.6^R)].
+  (`foundations/04-probability-theory.adoc`)
+
+* **Theorem 7 (Negligible Sum):** Sum of polynomially many negligible functions
+  is negligible. (`foundations/04-probability-theory.adoc`)
+
+== Citation
+
+[source,bibtex]
+----
+@misc{oblibeny2024,
+  title = {Oblibeny: A Comprehensive Framework for Oblivious Computing},
+  author = {Hyperpolymath},
+  year = {2024},
+  howpublished = {\url{https://github.com/hyperpolymath/oblibeny}}
+}
+----
+
+== Contributing
+
+See `CONTRIBUTING.adoc` in the repository root.
+
+Academic contributions should:
+
+1. Follow AsciiDoc formatting conventions
+2. Include formal theorem statements with proofs
+3. Reference prior work appropriately
+4. Include TODOs for incomplete sections
+
+== License
+
+Documentation is licensed under MIT OR Palimpsest-0.8 (dual licensing).

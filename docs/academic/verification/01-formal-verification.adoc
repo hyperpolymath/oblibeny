@@ -1,0 +1,537 @@
+// SPDX-License-Identifier: MIT OR Palimpsest-0.8
+// Copyright (c) 2024 Hyperpolymath
+
+= Formal Verification of Oblivious Systems
+:author: Oblibeny Project
+:revdate: 2024
+:toc: left
+:toclevels: 4
+:sectnums:
+:stem: latexmath
+:source-highlighter: rouge
+
+== Abstract
+
+This document presents formal verification techniques for proving correctness
+and security of oblivious computing systems. We develop proof methodologies
+spanning operational semantics, Hoare logic, separation logic, and automated
+verification tools.
+
+== Operational Semantics
+
+=== Small-Step Semantics
+
+A *small-step* operational semantics defines relation:
+[stem]
+++++
+\langle e, \sigma \rangle \to \langle e', \sigma' \rangle
+++++
+
+where stem:[e] is expression, stem:[\sigma] is state (memory configuration).
+
+==== Memory Access Rules
+
+.READ
+[stem]
+++++
+\frac{\sigma(a) = v}{\langle \text{read}(a), \sigma \rangle \to \langle v, \sigma \rangle}
+++++
+
+.WRITE
+[stem]
+++++
+\frac{}{\langle \text{write}(a, v), \sigma \rangle \to \langle (), \sigma[a \mapsto v] \rangle}
+++++
+
+==== ORAM Access Rules
+
+.ORAM-READ
+[stem]
+++++
+\frac{\langle \text{ORAMAccess}(s, \text{read}, a), \sigma \rangle \to \langle (v, s', \text{pattern}), \sigma' \rangle}
+     {\langle \text{oread}(a), (s, \sigma) \rangle \to \langle v, (s', \sigma') \rangle}
+++++
+
+=== Large-Step (Big-Step) Semantics
+
+Relation stem:[\langle e, \sigma \rangle \Downarrow \langle v, \sigma' \rangle] for complete evaluation.
+
+=== Theorem: Semantic Equivalence
+
+Small-step and big-step semantics are equivalent:
+[stem]
+++++
+\langle e, \sigma \rangle \to^* \langle v, \sigma' \rangle \Leftrightarrow \langle e, \sigma \rangle \Downarrow \langle v, \sigma' \rangle
+++++
+
+.Proof
+====
+By induction on derivations in both directions. ∎
+====
+
+== Denotational Semantics
+
+=== Domain Theory
+
+A *Scott domain* stem:[D] is a directed-complete partial order (dcpo) with
+a least element stem:[\bot].
+
+=== Semantic Function
+
+For expression language stem:[\mathcal{E}]:
+[stem]
+++++
+\llbracket \cdot \rrbracket : \mathcal{E} \to (\text{Env} \to \text{Store} \to \text{Value} \times \text{Store})
+++++
+
+==== ORAM Semantics
+
+[stem]
+++++
+\llbracket \text{oread}(a) \rrbracket \rho \sigma =
+  \text{let } (v, s', p) = \text{ORAMRead}(\sigma.\text{oram}, a) \text{ in } (v, \sigma[\text{oram} \mapsto s'])
+++++
+
+=== Theorem: Denotational-Operational Correspondence
+
+For terminating programs:
+[stem]
+++++
+\langle e, \sigma \rangle \Downarrow \langle v, \sigma' \rangle \Leftrightarrow \llbracket e \rrbracket \sigma = (v, \sigma')
+++++
+
+== Hoare Logic
+
+=== Hoare Triples
+
+A *Hoare triple* stem:[\{P\} C \{Q\}] asserts:
+If precondition stem:[P] holds and stem:[C] terminates, then postcondition stem:[Q] holds.
+
+=== Partial Correctness Rules
+
+.ASSIGNMENT
+[stem]
+++++
+\frac{}{\{Q[e/x]\}\ x := e\ \{Q\}}
+++++
+
+.SEQUENCE
+[stem]
+++++
+\frac{\{P\} C_1 \{R\} \quad \{R\} C_2 \{Q\}}{\{P\} C_1; C_2 \{Q\}}
+++++
+
+.CONDITIONAL
+[stem]
+++++
+\frac{\{P \land B\} C_1 \{Q\} \quad \{P \land \neg B\} C_2 \{Q\}}{\{P\}\ \text{if } B \text{ then } C_1 \text{ else } C_2\ \{Q\}}
+++++
+
+.WHILE
+[stem]
+++++
+\frac{\{I \land B\} C \{I\}}{\{I\}\ \text{while } B \text{ do } C\ \{I \land \neg B\}}
+++++
+
+.CONSEQUENCE
+[stem]
+++++
+\frac{P' \Rightarrow P \quad \{P\} C \{Q\} \quad Q \Rightarrow Q'}{\{P'\} C \{Q'\}}
+++++
+
+=== ORAM-Specific Rules
+
+.ORAM-READ
+[stem]
+++++
+\frac{}{\{\text{pos}(a) = \ell \land \text{stored}(a, v)\}\ x := \text{oread}(a)\ \{x = v \land \text{pattern} = \text{Path}(\ell)\}}
+++++
+
+.ORAM-WRITE
+[stem]
+++++
+\frac{}{\{\text{pos}(a) = \ell\}\ \text{owrite}(a, v)\ \{\text{stored}(a, v) \land \exists \ell'. \text{pos}(a) = \ell'\}}
+++++
+
+=== Theorem: Soundness of Hoare Logic
+
+If stem:[\{P\} C \{Q\}] is derivable and stem:[\sigma \models P] and stem:[\langle C, \sigma \rangle \Downarrow \langle (), \sigma' \rangle], then stem:[\sigma' \models Q].
+
+.Proof
+====
+By induction on the derivation of stem:[\{P\} C \{Q\}]. ∎
+====
+
+== Separation Logic
+
+=== Spatial Assertions
+
+* stem:[\text{emp}] - empty heap
+* stem:[e \mapsto e'] - singleton heap cell
+* stem:[P * Q] - separating conjunction
+
+=== Frame Rule
+
+[stem]
+++++
+\frac{\{P\} C \{Q\}}{\{P * R\} C \{Q * R\}}
+++++
+
+provided stem:[\text{FV}(R) \cap \text{Modified}(C) = \emptyset].
+
+=== ORAM Separation Assertions
+
+.Block Ownership
+[stem]
+++++
+\text{block}(a, v) \Leftrightarrow a \mapsto_{\text{ORAM}} v
+++++
+
+.Tree Node Ownership
+[stem]
+++++
+\text{bucket}(n, B) \Leftrightarrow n \mapsto_{\text{tree}} B * |B| \leq Z
+++++
+
+.Stash Ownership
+[stem]
+++++
+\text{stash}(S) \Leftrightarrow *_{b \in S} \text{stashEntry}(b)
+++++
+
+=== Theorem: ORAM Invariant Preservation
+
+For well-formed ORAM state satisfying:
+[stem]
+++++
+\text{Inv} \equiv \forall b. \text{block}(b) \in \text{Path}(\text{pos}(b)) \cup \text{Stash}
+++++
+
+Every access preserves stem:[\text{Inv}].
+
+.Proof
+====
+By case analysis on read/write operations:
+
+1. Block is read from path/stash
+2. Block gets new random position
+3. Block is placed in stash
+4. Eviction respects path constraints ∎
+====
+
+== Refinement
+
+=== Definition: Refinement Relation
+
+Program stem:[P_2] refines stem:[P_1] (written stem:[P_1 \sqsubseteq P_2]) if:
+[stem]
+++++
+\forall \sigma, \sigma'. P_1(\sigma) = \sigma' \Rightarrow P_2(\sigma) = \sigma'
+++++
+
+=== ORAM Refinement
+
+Standard memory access is refined by ORAM:
+[stem]
+++++
+\text{read}(a) \sqsubseteq \text{oread}(a)
+++++
+
+meaning ORAM produces the same result as direct memory access.
+
+=== Theorem: Behavioral Equivalence
+
+For all observation contexts stem:[\mathcal{C}[-]]:
+[stem]
+++++
+\mathcal{C}[\text{read}] \approx_{\text{functional}} \mathcal{C}[\text{oread}]
+++++
+
+.Proof
+====
+By the correctness of ORAM: stem:[\text{oread}] returns the same value as stem:[\text{read}]. ∎
+====
+
+== Relational Verification
+
+=== Product Programs
+
+For proving relationships between two program executions:
+[stem]
+++++
+\{P\} C_1 \times C_2 \{Q\}
+++++
+
+=== Self-Composition for Obliviousness
+
+Obliviousness is a 2-safety property: relationship between two executions.
+
+[stem]
+++++
+\begin{aligned}
+&\{op_1 \neq op_2 \land \text{sameORAMState}\} \\
+&\text{ORAMAccess}(op_1) \times \text{ORAMAccess}(op_2) \\
+&\{\text{pattern}_1 \approx \text{pattern}_2\}
+\end{aligned}
+++++
+
+=== Theorem: Pattern Indistinguishability
+
+For any two operations stem:[op_1, op_2]:
+[stem]
+++++
+\text{Pattern}(\text{ORAMAccess}(op_1)) \sim_c \text{Pattern}(\text{ORAMAccess}(op_2))
+++++
+
+.Proof
+====
+Both patterns consist of accessing a uniformly random path.
+Random path selection is independent of the operation. ∎
+====
+
+== Invariant Proofs
+
+=== Path ORAM Invariants
+
+.Invariant 1: Block-Position Consistency
+[stem]
+++++
+I_1 \equiv \forall b \in \text{Data}. b \in \text{Path}(\text{pos}[b]) \cup \text{Stash}
+++++
+
+.Invariant 2: Bucket Capacity
+[stem]
+++++
+I_2 \equiv \forall n \in \text{Tree}. |\text{Bucket}[n]| \leq Z
+++++
+
+.Invariant 3: Position Map Freshness
+[stem]
+++++
+I_3 \equiv \forall b. \text{pos}[b] \xleftarrow{\$} [0, 2^L)
+++++
+
+=== Theorem: Invariant Induction
+
+For ORAM satisfying stem:[I_1 \land I_2 \land I_3] initially:
+[stem]
+++++
+\{I_1 \land I_2 \land I_3\}\ \text{Access}(op)\ \{I_1 \land I_2 \land I_3\}
+++++
+
+.Proof
+====
+**Preservation of stem:[I_1]:**
+After access to block stem:[b]:
+1. stem:[b] read into stash (was on path or stash)
+2. New position assigned: stem:[\text{pos}[b] \xleftarrow{\$}]
+3. Eviction places stem:[b] on stem:[\text{Path}(\text{pos}[b])] or keeps in stash
+
+**Preservation of stem:[I_2]:**
+Eviction writes at most stem:[Z] blocks per bucket.
+
+**Preservation of stem:[I_3]:**
+Each access assigns fresh random position. ∎
+====
+
+== Termination Proofs
+
+=== Well-Founded Relations
+
+A relation stem:[<] is *well-founded* if there are no infinite descending chains:
+[stem]
+++++
+\neg \exists (x_0, x_1, \ldots) : x_0 > x_1 > x_2 > \cdots
+++++
+
+=== Ranking Functions
+
+A *ranking function* stem:[\rho: \text{States} \to W] maps to well-ordered set stem:[W]
+such that each loop iteration decreases stem:[\rho].
+
+=== ORAM Termination
+
+.Theorem: Access Termination
+Each ORAM access terminates in stem:[O(\log N)] steps.
+
+.Proof
+====
+**Ranking function:** stem:[\rho = (\text{phase}, \text{node depth})]
+
+Lexicographic order:
+1. Phase: Read path (stem:[L+1] steps) → Evict (stem:[L+1] steps)
+2. Depth decreases within each phase
+
+Total: stem:[2(L+1) = O(\log N)] steps. ∎
+====
+
+== Model Checking
+
+=== State Space
+
+ORAM state space:
+[stem]
+++++
+\mathcal{S} = \text{Tree} \times \text{Stash} \times \text{PosMap} \times \text{Randomness}
+++++
+
+=== Properties to Verify
+
+.Safety: No Stash Overflow
+[stem]
+++++
+\Box (|\text{Stash}| \leq R)
+++++
+
+.Liveness: Operation Completion
+[stem]
+++++
+\text{request}(op) \Rightarrow \Diamond \text{response}(op)
+++++
+
+.Security: Pattern Uniformity
+[stem]
+++++
+\Box (\text{Pattern} \sim \text{Uniform})
+++++
+
+=== Bounded Model Checking
+
+For stem:[N] blocks and stem:[k] operations, state space is:
+[stem]
+++++
+|\mathcal{S}| \leq N^N \cdot Z^{2^L} \cdot N^R \cdot 2^{k \cdot \lambda}
+++++
+
+Tractable for small stem:[N] via SAT/SMT solving.
+
+== Interactive Theorem Provers
+
+=== Coq Formalization
+
+.ORAM Type Definition
+[source,coq]
+----
+Inductive ORAMState : Type :=
+  | mkORAM : Tree -> Stash -> PosMap -> ORAMState.
+
+Definition Access (s : ORAMState) (op : Operation) : ORAMState * Value * Pattern :=
+  let (tree, stash, pos) := s in
+  let leaf := pos (addr op) in
+  let newPos := randomLeaf tt in
+  let path := readPath tree leaf in
+  let stash' := path ++ stash in
+  let result := lookup (addr op) stash' in
+  let stash'' := update stash' op in
+  let (tree', stash''') := evict tree stash'' newPos in
+  (mkORAM tree' stash''' (update pos (addr op) newPos), result, Path leaf).
+----
+
+=== Isabelle/HOL Formalization
+
+.ORAM Locale
+[source,isabelle]
+----
+locale ORAM =
+  fixes N :: nat -- "number of blocks"
+  fixes Z :: nat -- "bucket size"
+  assumes Z_pos: "Z > 0"
+  assumes N_pos: "N > 0"
+begin
+
+definition L :: nat where "L = Discrete.log N"
+
+theorem access_security:
+  assumes "valid_state s"
+  shows "pattern (access s op1) = pattern (access s op2)"
+proof -
+  have "pattern (access s op) = Path (random_leaf ())"
+    by (simp add: access_def)
+  thus ?thesis by simp
+qed
+
+end
+----
+
+== Symbolic Execution
+
+=== Path Conditions
+
+Symbolic execution maintains:
+[stem]
+++++
+(\text{pc}, \sigma_{\text{sym}}, \text{path condition})
+++++
+
+=== ORAM Symbolic Analysis
+
+For input stem:[\text{op} = (type, addr, data)]:
+[stem]
+++++
+\text{Pattern} = \text{Path}(\alpha) \quad \text{where } \alpha \text{ is symbolic fresh variable}
+++++
+
+**Result:** Pattern is independent of symbolic inputs.
+
+== Verified Compilation
+
+=== CompCert-Style Verification
+
+Compiler pass stem:[\mathcal{C}] is verified if:
+[stem]
+++++
+\forall P. \text{Behavior}(\mathcal{C}(P)) \subseteq \text{Behavior}(P)
+++++
+
+=== Oblivious Compiler Correctness
+
+For oblivious compiler stem:[\mathcal{O}]:
+
+1. **Functional correctness:** stem:[\text{Output}(\mathcal{O}(P)) = \text{Output}(P)]
+2. **Obliviousness:** stem:[\text{Pattern}(\mathcal{O}(P)(x_1)) \approx_c \text{Pattern}(\mathcal{O}(P)(x_2))]
+
+== Concurrency Verification
+
+=== Concurrent Separation Logic
+
+.Parallel Composition
+[stem]
+++++
+\frac{\{P_1\} C_1 \{Q_1\} \quad \{P_2\} C_2 \{Q_2\}}{\{P_1 * P_2\} C_1 \| C_2 \{Q_1 * Q_2\}}
+++++
+
+=== Lock-Free ORAM Verification
+
+For concurrent ORAM with atomic operations:
+[stem]
+++++
+\text{atomic} \{\ \text{read path; update stash; evict}\ \}
+++++
+
+Verification requires linearizability proof.
+
+== Conclusion
+
+Formal verification of oblivious systems employs:
+
+1. **Operational semantics** for precise behavior definition
+2. **Hoare logic** for functional correctness
+3. **Separation logic** for memory safety
+4. **Relational verification** for obliviousness (2-safety)
+5. **Model checking** for exhaustive state exploration
+6. **Theorem provers** for machine-checked proofs
+
+== References
+
+1. Winskel, G. (1993). "The Formal Semantics of Programming Languages."
+2. Reynolds, J. (2002). "Separation Logic: A Logic for Shared Mutable Data Structures."
+3. Barthe, G. et al. (2011). "Relational Verification of Higher-Order Programs."
+4. Bertot, Y. & Castéran, P. (2004). "Interactive Theorem Proving and Program Development."
+
+== TODO
+
+// TODO: Complete Coq formalization of Path ORAM
+// TODO: Add Isabelle proof of stash overflow bound
+// TODO: Develop rely-guarantee reasoning for concurrent ORAM
+// TODO: Add verified extraction to Rust
+// TODO: Formalize information-theoretic security in CertiCrypt

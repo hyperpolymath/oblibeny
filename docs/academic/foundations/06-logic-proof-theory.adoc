@@ -1,0 +1,538 @@
+// SPDX-License-Identifier: MIT OR Palimpsest-0.8
+// Copyright (c) 2024 Hyperpolymath
+
+= Logic and Proof Theory for Oblivious Computing
+:author: Oblibeny Project
+:revdate: 2024
+:toc: left
+:toclevels: 4
+:sectnums:
+:stem: latexmath
+:source-highlighter: rouge
+
+== Abstract
+
+This document develops the logical foundations for reasoning about oblivious
+computing systems. We cover propositional and predicate logic, modal logics
+for security, and proof systems for verification.
+
+== Propositional Logic
+
+=== Syntax
+
+.Formulas
+[stem]
+++++
+\phi ::= p \mid \bot \mid \neg \phi \mid \phi_1 \land \phi_2 \mid \phi_1 \lor \phi_2 \mid \phi_1 \to \phi_2
+++++
+
+=== Natural Deduction
+
+.Introduction and Elimination Rules
+[stem]
+++++
+\frac{\phi \quad \psi}{\phi \land \psi} \land I \qquad
+\frac{\phi \land \psi}{\phi} \land E_1 \qquad
+\frac{\phi \land \psi}{\psi} \land E_2
+++++
+
+[stem]
+++++
+\frac{[\phi] \vdots \psi}{\phi \to \psi} \to I \qquad
+\frac{\phi \to \psi \quad \phi}{\psi} \to E
+++++
+
+=== Theorem: Soundness and Completeness
+
+For propositional logic:
+[stem]
+++++
+\Gamma \vdash \phi \Leftrightarrow \Gamma \models \phi
+++++
+
+== First-Order Logic
+
+=== Syntax
+
+.Terms
+[stem]
+++++
+t ::= x \mid c \mid f(t_1, \ldots, t_n)
+++++
+
+.Formulas
+[stem]
+++++
+\phi ::= P(t_1, \ldots, t_n) \mid t_1 = t_2 \mid \neg \phi \mid \phi_1 \land \phi_2 \mid \forall x. \phi \mid \exists x. \phi
+++++
+
+=== Quantifier Rules
+
+[stem]
+++++
+\frac{\phi[t/x]}{\exists x. \phi} \exists I \qquad
+\frac{\exists x. \phi \quad [a] \vdots \psi}{\psi} \exists E \text{ (}a\text{ fresh)}
+++++
+
+[stem]
+++++
+\frac{\phi[a/x]}{\forall x. \phi} \forall I \text{ (}a\text{ fresh)} \qquad
+\frac{\forall x. \phi}{\phi[t/x]} \forall E
+++++
+
+=== Security Properties in FOL
+
+.Obliviousness Property
+[stem]
+++++
+\forall op_1, op_2. \text{Pattern}(\text{Access}(op_1)) = \text{Pattern}(\text{Access}(op_2))
+++++
+
+.Correctness Property
+[stem]
+++++
+\forall op, s, s'. \text{Execute}(s, op) = s' \to \text{Result}(s', op) = \text{Expected}(s, op)
+++++
+
+== Modal Logic
+
+=== Syntax
+
+.Modal Formulas
+[stem]
+++++
+\phi ::= p \mid \neg \phi \mid \phi_1 \land \phi_2 \mid \Box \phi \mid \Diamond \phi
+++++
+
+=== Kripke Semantics
+
+A Kripke model stem:[\mathcal{M} = (W, R, V)] where:
+* stem:[W] = worlds
+* stem:[R \subseteq W \times W] = accessibility relation
+* stem:[V: \text{Prop} \to \mathcal{P}(W)] = valuation
+
+.Satisfaction
+[stem]
+++++
+\mathcal{M}, w \models \Box \phi \Leftrightarrow \forall v. (wRv \to \mathcal{M}, v \models \phi)
+++++
+
+=== Application: Knowledge and Security
+
+.Epistemic Logic for Security
+[stem]
+++++
+K_A \phi \quad \text{``Agent } A \text{ knows } \phi\text{''}
+++++
+
+**Security condition:**
+[stem]
+++++
+\neg K_{\text{Adv}} \text{AccessedBlock}
+++++
+
+The adversary does not know which block was accessed.
+
+== Temporal Logic
+
+=== Linear Temporal Logic (LTL)
+
+.Syntax
+[stem]
+++++
+\phi ::= p \mid \neg \phi \mid \phi_1 \land \phi_2 \mid X\phi \mid F\phi \mid G\phi \mid \phi_1 \, U \, \phi_2
+++++
+
+.Semantics
+* stem:[X\phi] - Next: stem:[\phi] holds in next state
+* stem:[F\phi] - Eventually: stem:[\phi] holds sometime
+* stem:[G\phi] - Always: stem:[\phi] holds forever
+* stem:[\phi_1 \, U \, \phi_2] - Until: stem:[\phi_1] holds until stem:[\phi_2]
+
+=== ORAM Safety Properties
+
+.Stash Never Overflows
+[stem]
+++++
+G(|\text{Stash}| < R)
+++++
+
+.Every Request Completes
+[stem]
+++++
+G(\text{Request} \to F\text{Response})
+++++
+
+=== Computation Tree Logic (CTL)
+
+.Branching Semantics
+[stem]
+++++
+\phi ::= \ldots \mid EX\phi \mid AX\phi \mid EF\phi \mid AF\phi \mid EG\phi \mid AG\phi
+++++
+
+* stem:[E] - there exists a path
+* stem:[A] - for all paths
+
+.Security as CTL
+[stem]
+++++
+AG(\text{Secure})
+++++
+
+On all paths, always secure.
+
+== Separation Logic
+
+=== Spatial Connectives
+
+* stem:[\text{emp}] - empty heap
+* stem:[e \mapsto e'] - singleton heap
+* stem:[P * Q] - separating conjunction
+* stem:[P \mathrel{-\!\!*} Q] - separating implication (magic wand)
+
+=== Frame Rule
+
+[stem]
+++++
+\frac{\{P\} C \{Q\}}{\{P * R\} C \{Q * R\}}
+++++
+
+=== ORAM Resource Assertions
+
+.Block Ownership
+[stem]
+++++
+\text{block}(a) \equiv a \mapsto_{ORAM} \_ * \text{pos}(a) \mapsto \_
+++++
+
+.Stash Contains Block
+[stem]
+++++
+\text{inStash}(b) \equiv \exists S. \text{stash}(S) * b \in S
+++++
+
+.Tree Ownership
+[stem]
+++++
+\text{tree}(T) \equiv *_{n \in T} \text{bucket}(n)
+++++
+
+== Hoare Logic
+
+=== Partial Correctness
+
+[stem]
+++++
+\{P\} C \{Q\}
+++++
+
+If stem:[P] holds and stem:[C] terminates, then stem:[Q] holds.
+
+=== Total Correctness
+
+[stem]
+++++
+[P] C [Q]
+++++
+
+If stem:[P] holds, then stem:[C] terminates and stem:[Q] holds.
+
+=== ORAM-Specific Rules
+
+.ORAM Access
+[stem]
+++++
+\frac{}{\{\text{block}(a, v) * \text{pos}(a, \ell)\}\ x := \text{oread}(a)\ \{x = v * \text{pos}(a, \ell') * \ell' \xleftarrow{\$}\}}
+++++
+
+== Sequent Calculus
+
+=== Gentzen's LK
+
+.Sequent
+[stem]
+++++
+\Gamma \vdash \Delta
+++++
+
+where stem:[\Gamma, \Delta] are multisets of formulas.
+
+.Cut Rule
+[stem]
+++++
+\frac{\Gamma \vdash \Delta, A \quad A, \Gamma' \vdash \Delta'}{\Gamma, \Gamma' \vdash \Delta, \Delta'} \text{Cut}
+++++
+
+=== Theorem: Cut Elimination
+
+Every proof with Cut can be transformed to a cut-free proof.
+
+**Consequence:** Subformula property; only subformulas of goal appear in proof.
+
+=== Application: Security Proof Search
+
+Cut-free proofs enable systematic proof search for security properties.
+
+== Intuitionistic Logic
+
+=== Constructive Interpretation
+
+* stem:[\phi \lor \psi]: We can construct proof of stem:[\phi] or proof of stem:[\psi]
+* stem:[\exists x. \phi]: We can construct witness stem:[t] with proof of stem:[\phi[t/x]]
+
+=== BHK Interpretation
+
+* Proof of stem:[A \to B]: Method transforming proofs of stem:[A] to proofs of stem:[B]
+* No stem:[\neg\neg A \to A] in general
+
+=== Application: Verified Extraction
+
+Constructive proofs extract to executable programs (Curry-Howard).
+
+== Linear Logic
+
+=== Resource Sensitivity
+
+.Multiplicatives
+[stem]
+++++
+A \otimes B \quad \text{(both)} \qquad A \mathrel{\wp} B \quad \text{(par)}
+++++
+
+.Additives
+[stem]
+++++
+A \oplus B \quad \text{(choice)} \qquad A \mathop{\&} B \quad \text{(with)}
+++++
+
+.Exponentials
+[stem]
+++++
+!A \quad \text{(of course)} \qquad ?A \quad \text{(why not)}
+++++
+
+=== Application: ORAM Resources
+
+.Linear ORAM State
+[stem]
+++++
+\text{ORAMState} \multimap \text{ORAMState} \otimes \text{Result}
+++++
+
+ORAM state is consumed and reproduced (linear usage).
+
+.Stash Block
+[stem]
+++++
+\text{StashEntry}(b) : \text{linear}
+++++
+
+Each stash entry used exactly once.
+
+== Proof Theory
+
+=== Definition: Proof System
+
+A proof system stem:[\Pi] for language stem:[L] is a polynomial-time relation:
+[stem]
+++++
+\Pi(x, \pi) = 1 \Leftrightarrow \pi \text{ is a valid } \Pi\text{-proof of } x
+++++
+
+=== Theorem: Soundness
+
+[stem]
+++++
+\exists \pi. \Pi(x, \pi) = 1 \Rightarrow x \in L
+++++
+
+=== Theorem: Completeness
+
+[stem]
+++++
+x \in L \Rightarrow \exists \pi. \Pi(x, \pi) = 1
+++++
+
+=== Zero-Knowledge Proofs
+
+Proof system with additional property:
+
+**Zero-knowledge:** Verifier learns nothing beyond validity.
+
+=== Application: ORAM Correctness Proofs
+
+Prove ORAM access was correct without revealing the operation:
+[stem]
+++++
+\text{ZK.Prove}(\text{op}, \text{witness} : \text{Correct}(\text{op}, \text{pattern}))
+++++
+
+== Gödel's Theorems
+
+=== First Incompleteness Theorem
+
+For any consistent, sufficiently strong system stem:[T]:
+[stem]
+++++
+\exists \phi. (T \nvdash \phi \land T \nvdash \neg\phi)
+++++
+
+=== Second Incompleteness Theorem
+
+[stem]
+++++
+T \nvdash \text{Con}(T)
+++++
+
+=== Implications for Verification
+
+* Cannot prove all true security properties within any single system
+* Need meta-level reasoning for completeness arguments
+
+== Automated Reasoning
+
+=== SAT Solving
+
+Propositional satisfiability:
+[stem]
+++++
+\text{SAT}(\phi) = 1 \Leftrightarrow \exists \text{assignment } \sigma. \sigma \models \phi
+++++
+
+=== SMT Solving
+
+Satisfiability Modulo Theories:
+[stem]
+++++
+\text{SMT}(\phi, T) = 1 \Leftrightarrow \exists \sigma. T \cup \{\phi[\sigma]\} \text{ is consistent}
+++++
+
+=== Application: ORAM Verification
+
+.Bounded Model Checking
+[source]
+----
+Assert: forall t in [0, k]:
+    StashSize(t) < R
+Encode as SMT formula
+Check satisfiability of negation
+----
+
+== Non-Classical Logics
+
+=== Fuzzy Logic
+
+Degrees of truth in [0,1].
+
+[stem]
+++++
+\mu(A \land B) = \min(\mu(A), \mu(B))
+++++
+
+=== Application: Probabilistic Security
+
+Security holds with probability stem:[1 - \text{negl}(\lambda)]:
+[stem]
+++++
+\mu(\text{Secure}) \geq 1 - 2^{-\lambda}
+++++
+
+=== Many-Valued Logic
+
+For security levels stem:[\{L, M, H\}]:
+[stem]
+++++
+\text{level}(\text{data}) \sqsubseteq \text{level}(\text{output})
+++++
+
+== Proof Assistants
+
+=== Coq
+
+.ORAM Correctness Theorem
+[source,coq]
+----
+Theorem oram_correct : forall s op v,
+  lookup (oram_access s op) (addr op) = v <->
+  (op = Read /\ lookup s (addr op) = v) \/
+  (op = Write v).
+Proof.
+  intros s op v.
+  destruct op; simpl; split; auto.
+Qed.
+----
+
+=== Lean
+
+.Path ORAM Security
+[source,lean]
+----
+theorem path_oram_secure :
+  ∀ op₁ op₂ s,
+    distribution (pattern (access s op₁)) =
+    distribution (pattern (access s op₂)) := by
+  intro op₁ op₂ s
+  simp [access, pattern]
+  -- Both patterns are uniformly random leaves
+  rfl
+----
+
+=== Isabelle/HOL
+
+.Stash Bound
+[source,isabelle]
+----
+theorem stash_bound:
+  assumes "valid_state s"
+  shows "prob_event (λs'. size (stash s') > R) ≤ 14 * 0.6002^R"
+proof -
+  (* Proof using balls-into-bins analysis *)
+qed
+----
+
+== Logical Frameworks
+
+=== LF (Logical Framework)
+
+Dependent types for encoding logics.
+
+.Encoding Propositional Logic
+[source,twelf]
+----
+prop : type.
+pf : prop -> type.  % proofs
+
+imp : prop -> prop -> prop.
+imp_i : (pf A -> pf B) -> pf (imp A B).
+imp_e : pf (imp A B) -> pf A -> pf B.
+----
+
+=== Application: Generic Security Proofs
+
+Encode security logic once; instantiate for different systems.
+
+== Conclusion
+
+Logical foundations provide:
+
+1. **Precise specification** of security properties
+2. **Proof methods** for verification
+3. **Automation** via SAT/SMT solving
+4. **Machine-checked** proofs in Coq/Lean/Isabelle
+5. **Resource reasoning** via linear/separation logic
+
+== References
+
+1. Girard, J.-Y. (1987). "Linear Logic." Theoretical Computer Science.
+2. Reynolds, J. (2002). "Separation Logic."
+3. Nipkow, T. et al. (2002). "Isabelle/HOL: A Proof Assistant for Higher-Order Logic."
+4. Coquand, T. & Huet, G. (1988). "The Calculus of Constructions."
+
+== TODO
+
+// TODO: Develop custom logic for obliviousness
+// TODO: Formalize in Coq/Lean repository
+// TODO: Add probabilistic logic for computational security
+// TODO: Develop game logic for adversary modeling
+// TODO: Add concurrent separation logic for parallel ORAM

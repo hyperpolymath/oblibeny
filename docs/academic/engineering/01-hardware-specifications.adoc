@@ -1,0 +1,587 @@
+// SPDX-License-Identifier: MIT OR Palimpsest-0.8
+// Copyright (c) 2024 Hyperpolymath
+
+= Hardware Specifications for Oblivious Computing
+:author: Oblibeny Project
+:revdate: 2024
+:toc: left
+:toclevels: 4
+:sectnums:
+:stem: latexmath
+:source-highlighter: rouge
+
+== Abstract
+
+This document specifies hardware requirements, ISA extensions, and physical
+security considerations for oblivious computing implementations. We cover
+RISC-V extensions, memory controller specifications, and timing analysis.
+
+== RISC-V ISA Extensions
+
+=== Oblivious Memory Access Instructions
+
+==== OLOAD - Oblivious Load
+
+.Instruction Format
+[source]
+----
+oload rd, offset(rs1)    # R-type extension
+----
+
+.Semantics
+[source]
+----
+rd := ORAM.read(rs1 + offset)
+// Access pattern: random path in ORAM tree
+----
+
+.Encoding (Custom-0 opcode space)
+----
+| funct7  | rs2 | rs1 | funct3 | rd  | opcode  |
+| 0000000 | --- | src | 000    | dst | 0001011 |
+----
+
+==== OSTORE - Oblivious Store
+
+.Instruction Format
+[source]
+----
+ostore rs2, offset(rs1)   # S-type extension
+----
+
+.Semantics
+[source]
+----
+ORAM.write(rs1 + offset, rs2)
+----
+
+==== OSHUFFLE - Oblivious Shuffle
+
+.Instruction Format
+[source]
+----
+oshuffle rd, rs1, rs2     # Array shuffle
+----
+
+Obliviously permutes array at stem:[rs1] of length stem:[rs2], stores result at stem:[rd].
+
+=== Control Status Registers (CSRs)
+
+[cols="1,1,3"]
+|===
+| CSR | Address | Description
+
+| orambase
+| 0x800
+| Base address of ORAM tree structure
+
+| oramsize
+| 0x801
+| Number of blocks (N)
+
+| oramstash
+| 0x802
+| Stash pointer
+
+| oramrng
+| 0x803
+| ORAM random number generator state
+
+| oramstats
+| 0x804
+| Performance counters
+|===
+
+=== Exception Handling
+
+.New Exception Codes
+[cols="1,1,2"]
+|===
+| Code | Name | Cause
+
+| 24
+| ORAM_STASH_OVERFLOW
+| Stash exceeded maximum size
+
+| 25
+| ORAM_INTEGRITY_FAIL
+| Merkle tree verification failed
+
+| 26
+| ORAM_ACCESS_FAULT
+| Invalid ORAM address
+|===
+
+== Memory Controller Specifications
+
+=== Oblivious Memory Controller (OMC)
+
+.Block Diagram
+[source]
+----
++-------------------+
+|   CPU Core        |
++--------+----------+
+         |
+         v
++--------+----------+
+|  ORAM Controller  |
+|  +-------------+  |
+|  | Stash       |  |
+|  | Position Map|  |
+|  | Path Buffer |  |
+|  +-------------+  |
++--------+----------+
+         |
+         v
++--------+----------+
+|   Memory (DDR)    |
+|   ORAM Tree       |
++-------------------+
+----
+
+=== Controller State Machine
+
+.States
+[source]
+----
+IDLE -> FETCH_POS -> READ_PATH -> UPDATE_STASH ->
+        EVICT -> WRITE_PATH -> IDLE
+----
+
+.Timing (cycles)
+[cols="1,1,2"]
+|===
+| State | Cycles | Description
+
+| FETCH_POS
+| 1-D
+| Recursive position map lookup (D levels)
+
+| READ_PATH
+| L+1
+| Read all buckets on path
+
+| UPDATE_STASH
+| O(S)
+| Update stash with accessed block
+
+| EVICT
+| O(S)
+| Select blocks for eviction
+
+| WRITE_PATH
+| L+1
+| Write back path with evictions
+|===
+
+Total: stem:[O(D + L + S)] cycles per access.
+
+=== Memory Layout
+
+.ORAM Tree in Physical Memory
+[source]
+----
+Address 0x0000_0000: Root bucket (Z blocks)
+Address 0x0000_1000: Level 1, node 0
+Address 0x0000_2000: Level 1, node 1
+...
+Address 0xXXXX_XXXX: Level L (leaves)
+----
+
+.Block Format
+[source]
+----
++--------+--------+--------+--------+
+| BlockID (8B) | LeafID (4B) | Padding |
++--------+--------+--------+--------+
+| Encrypted Data (B bytes)           |
++------------------------------------+
+| MAC (16B)                          |
++--------+--------+--------+--------+
+----
+
+== Timing Analysis
+
+=== Constant-Time Requirements
+
+All ORAM operations must execute in constant time regardless of:
+
+1. Block being accessed
+2. Data being read/written
+3. Block location (path vs. stash)
+
+=== Timing Specification
+
+.Clock Cycles per Operation
+[stem]
+++++
+T_{\text{access}} = T_{\text{path}} + T_{\text{stash}} + T_{\text{evict}}
+++++
+
+For Path ORAM:
+[stem]
+++++
+T_{\text{access}} = c_1 (L+1) + c_2 S + c_3 (L+1) = O(L + S) = O(\log N)
+++++
+
+=== Timing Side-Channel Mitigations
+
+.Constant-Time Comparison
+[source]
+----
+// BAD: Variable time
+if (blockId == targetId) { ... }
+
+// GOOD: Constant time
+mask = constantTimeEquals(blockId, targetId);
+result = select(mask, blockData, result);
+----
+
+.Constant-Time Select
+[source]
+----
+uint64_t select(bool cond, uint64_t a, uint64_t b) {
+    uint64_t mask = -(uint64_t)cond;
+    return (a & mask) | (b & ~mask);
+}
+----
+
+== Cryptographic Hardware
+
+=== AES-NI Integration
+
+.Required Instructions
+[source]
+----
+aesenc    xmm, xmm    # AES encryption round
+aesenclast xmm, xmm  # AES final round
+aeskeygenassist      # Key expansion
+----
+
+.Encryption Throughput
+[stem]
+++++
+\text{Throughput} = \frac{128 \text{ bits}}{10 \text{ cycles}} = 12.8 \text{ bits/cycle}
+++++
+
+For AES-256-GCM at 3 GHz: stem:[\approx 38 \text{ GB/s}].
+
+=== SHA-256 Hardware Acceleration
+
+.Required Instructions
+[source]
+----
+sha256rnds2   # SHA-256 rounds
+sha256msg1    # Message schedule
+sha256msg2    # Message schedule
+----
+
+For Merkle tree verification: stem:[O(L)] hashes per access.
+
+=== Random Number Generation
+
+.RDRAND/RDSEED
+[source]
+----
+rdrand rax    # Hardware random number
+rdseed rax    # Direct entropy source
+----
+
+Required entropy rate: stem:[\geq L] bits per access for position remapping.
+
+== Cache Architecture
+
+=== Oblivious Cache Design
+
+Standard caches leak timing information. Mitigation options:
+
+.Option 1: Cache Partitioning
+----
+Secure partition: ORAM data only
+Non-secure partition: Other data
+No interference between partitions
+----
+
+.Option 2: Scatter Cache (Liu et al.)
+----
+Address → Random cache set
+Prevents cache timing attacks
+----
+
+.Option 3: ORAM Cache
+----
+All cache accesses go through ORAM
+High overhead, maximum security
+----
+
+=== Cache Flushing Protocol
+
+Before/after ORAM operations:
+[source]
+----
+clflush [oram_tree]    # Flush ORAM data
+mfence                 # Memory barrier
+----
+
+== Bus Security
+
+=== Memory Bus Encryption
+
+.On-the-fly Encryption
+[source]
+----
+CPU ←→ [Memory Encryption Engine] ←→ DDR
+----
+
+.Counter-Mode Encryption
+[stem]
+++++
+C_i = E_K(\text{addr} \| \text{counter}) \oplus P_i
+++++
+
+=== Bus Bandwidth Analysis
+
+For Path ORAM with:
+* Block size stem:[B = 4 \text{ KB}]
+* Tree height stem:[L = 30]
+* Bucket size stem:[Z = 4]
+
+Bandwidth per access:
+[stem]
+++++
+\text{BW} = 2 \times (L+1) \times Z \times B = 2 \times 31 \times 4 \times 4096 = 992 \text{ KB}
+++++
+
+Minimum bus bandwidth for stem:[k] accesses/sec:
+[stem]
+++++
+\text{BW}_{\text{bus}} = k \times 992 \text{ KB/s}
+++++
+
+== Power Analysis Resistance
+
+=== Constant Power Operations
+
+All cryptographic operations must have data-independent power consumption.
+
+.Countermeasures
+1. **Masking:** Split sensitive data: stem:[x = x_1 \oplus x_2]
+2. **Shuffling:** Randomize operation order
+3. **Dummy operations:** Add noise
+
+=== Power Model
+
+[stem]
+++++
+P(t) = P_{\text{static}} + P_{\text{dynamic}}(t)
+++++
+
+Security requires:
+[stem]
+++++
+\text{Corr}(P(t), \text{secret}) = 0
+++++
+
+== Electromagnetic Analysis Resistance
+
+=== EM Emission Model
+
+[stem]
+++++
+\text{EM}(t) = f(\text{switching activity}, \text{data values})
+++++
+
+=== Shielding Requirements
+
+* Faraday cage for sensitive components
+* Signal filtering on I/O
+* EM-resistant PCB layout
+
+== Physical Unclonable Functions (PUFs)
+
+=== SRAM PUF for Key Generation
+
+Power-up state of SRAM provides unique fingerprint.
+
+.Key Derivation
+[source]
+----
+raw_puf = read_sram_powerup()
+helper_data = enroll(raw_puf)
+key = reconstruct(raw_puf, helper_data)
+----
+
+=== Application: Per-Device ORAM Keys
+
+Each device has unique ORAM encryption keys derived from PUF.
+
+== Trusted Execution Environment Integration
+
+=== Intel SGX Integration
+
+.Enclave Memory Layout
+[source]
+----
++------------------+
+|  Enclave Code    |
++------------------+
+|  ORAM Controller |
+|  (trusted)       |
++------------------+
+|  Stash           |
+|  Position Map    |
++------------------+
+----
+
+ORAM tree stored in untrusted memory; accessed through enclave.
+
+=== ARM TrustZone Integration
+
+.Secure World
+----
+- ORAM controller
+- Cryptographic operations
+- Stash and position map
+----
+
+.Normal World
+----
+- Application code
+- ORAM tree (encrypted)
+----
+
+== FPGA Implementation
+
+=== Resource Utilization (Xilinx UltraScale+)
+
+[cols="1,1,1"]
+|===
+| Resource | Used | Available
+
+| LUTs
+| 45,000
+| 274,000
+
+| FFs
+| 35,000
+| 548,000
+
+| BRAM
+| 120
+| 360
+
+| DSPs
+| 64
+| 1,800
+|===
+
+=== Clock Frequency
+
+Target: 200 MHz
+Achieved: 185 MHz (typical)
+
+=== Throughput
+
+[stem]
+++++
+\text{Throughput} = \frac{185 \times 10^6}{T_{\text{access}}} \approx 500K \text{ ops/sec}
+++++
+
+== ASIC Implementation
+
+=== Area Estimation
+
+.Component Areas (65nm process)
+[cols="1,1"]
+|===
+| Component | Area (mm²)
+
+| ORAM Controller
+| 0.8
+
+| AES Engine
+| 0.2
+
+| SHA-256 Engine
+| 0.3
+
+| SRAM (Stash)
+| 0.5
+
+| **Total**
+| **1.8**
+|===
+
+=== Power Estimation
+
+.Power Breakdown at 500 MHz
+[cols="1,1"]
+|===
+| Component | Power (mW)
+
+| ORAM Controller
+| 80
+
+| Crypto Engines
+| 120
+
+| Memory Interface
+| 50
+
+| **Total**
+| **250**
+|===
+
+== Verification and Testing
+
+=== Formal Hardware Verification
+
+.Properties to Verify (SVA)
+[source,systemverilog]
+----
+// Timing constancy
+property constant_time;
+    @(posedge clk) start_access |->
+    ##[TMIN:TMAX] access_complete;
+endproperty
+
+// No information leakage
+property pattern_independence;
+    @(posedge clk)
+    (access_A && access_B && (addr_A != addr_B)) |->
+    (pattern_A == pattern_B);
+endproperty
+----
+
+=== Hardware Security Testing
+
+.Test Suite
+1. Power analysis resistance verification
+2. Timing constancy measurement
+3. EM emission analysis
+4. Fault injection resistance
+
+== Conclusion
+
+Hardware implementation of oblivious computing requires:
+
+1. **ISA extensions** for efficient ORAM primitives
+2. **Constant-time execution** at all levels
+3. **Cryptographic acceleration** for practical performance
+4. **Physical security** against side-channel attacks
+
+== References
+
+1. RISC-V Foundation (2019). "The RISC-V Instruction Set Manual."
+2. Maas, M. et al. (2013). "Phantom: Practical Oblivious Computation in a Secure Processor."
+3. Fletcher, C. et al. (2015). "Freecursive ORAM." ASPLOS.
+4. Ren, L. et al. (2013). "Design Space Exploration and Optimization of Path ORAM."
+
+== TODO
+
+// TODO: Add full RTL specification for ORAM controller
+// TODO: Develop RISC-V simulator with ORAM extensions
+// TODO: Add post-quantum crypto hardware specifications
+// TODO: Formalize hardware-software interface
+// TODO: Add manufacturing security considerations

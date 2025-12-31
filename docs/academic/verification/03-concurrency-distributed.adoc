@@ -1,0 +1,535 @@
+// SPDX-License-Identifier: MIT OR Palimpsest-0.8
+// Copyright (c) 2024 Hyperpolymath
+
+= Concurrency and Distributed Systems Theory
+:author: Oblibeny Project
+:revdate: 2024
+:toc: left
+:toclevels: 4
+:sectnums:
+:stem: latexmath
+:source-highlighter: rouge
+
+== Abstract
+
+This document develops the theory of concurrent and distributed oblivious
+computing. We cover consistency models, consensus protocols, and security
+in multi-party settings.
+
+== Process Calculi
+
+=== CCS (Calculus of Communicating Systems)
+
+.Syntax
+[stem]
+++++
+P ::= 0 \mid a.P \mid \bar{a}.P \mid P_1 + P_2 \mid P_1 | P_2 \mid P \backslash a \mid \text{rec } X. P
+++++
+
+.Semantics (Labeled Transition System)
+[stem]
+++++
+a.P \xrightarrow{a} P \qquad \bar{a}.P \xrightarrow{\bar{a}} P \qquad
+\frac{P \xrightarrow{a} P' \quad Q \xrightarrow{\bar{a}} Q'}{P | Q \xrightarrow{\tau} P' | Q'}
+++++
+
+=== CSP (Communicating Sequential Processes)
+
+.ORAM Process
+[source]
+----
+ORAM = μX. read?addr → (
+    path_read!leaf(addr) →
+    data!result →
+    evict →
+    path_write!path →
+    X
+)
+----
+
+=== π-Calculus
+
+.Mobility
+[stem]
+++++
+P ::= \ldots \mid \bar{x}\langle y \rangle. P \mid x(y). P \mid (\nu a) P
+++++
+
+Enables channel passing for dynamic ORAM topology.
+
+== Linearizability
+
+=== Definition: Linearizability
+
+A concurrent execution is *linearizable* if operations appear to execute
+atomically at some point between invocation and response.
+
+.Formal Definition
+[stem]
+++++
+\forall H \in \text{Histories}: \exists S \in \text{Sequential Histories}. H \sqsubseteq S
+++++
+
+where stem:[H \sqsubseteq S] means stem:[H] can be reordered to stem:[S] preserving per-process order.
+
+=== Theorem: ORAM Linearizability
+
+Single-client ORAM is trivially linearizable (sequential execution).
+
+For multi-client ORAM with proper locking:
+[stem]
+++++
+\text{Lock}(b) \to \text{Access}(b) \to \text{Unlock}(b)
+++++
+
+forms a linearization point at Access.
+
+.Proof
+====
+Each operation holds exclusive lock during access.
+Operations are totally ordered by lock acquisition.
+This total order is a valid linearization. ∎
+====
+
+== Consensus
+
+=== FLP Impossibility
+
+.Theorem (Fischer-Lynch-Paterson)
+No deterministic consensus protocol can tolerate even one crash failure
+in an asynchronous system.
+
+=== Paxos
+
+.Phases
+1. **Prepare:** Proposer sends stem:[\text{prepare}(n)]
+2. **Promise:** Acceptors respond with promises
+3. **Accept:** Proposer sends stem:[\text{accept}(n, v)]
+4. **Learn:** Value is learned when majority accepts
+
+=== ORAM Consensus
+
+For distributed ORAM state (position map, stash):
+[source]
+----
+Consensus(position_update) {
+    propose(block_id, new_leaf)
+    await majority_accept
+    apply_locally
+}
+----
+
+=== Theorem: ORAM State Consistency
+
+With Paxos consensus on position map updates:
+[stem]
+++++
+\forall \text{clients } C_1, C_2: \text{pos}_{C_1} = \text{pos}_{C_2}
+++++
+
+after synchronization.
+
+== Byzantine Fault Tolerance
+
+=== Definition: Byzantine Failure
+
+A *Byzantine* node may behave arbitrarily (including maliciously).
+
+=== PBFT (Practical Byzantine Fault Tolerance)
+
+Tolerates stem:[f] Byzantine failures with stem:[3f + 1] nodes.
+
+.Phases
+1. **Pre-prepare:** Primary broadcasts stem:[\langle \text{PRE-PREPARE}, v, n, D(m) \rangle_\sigma]
+2. **Prepare:** Replicas broadcast stem:[\langle \text{PREPARE}, v, n, D(m), i \rangle_\sigma]
+3. **Commit:** Replicas broadcast stem:[\langle \text{COMMIT}, v, n, D(m), i \rangle_\sigma]
+
+=== Byzantine ORAM
+
+For stem:[n = 3f + 1] servers, each storing ORAM tree:
+
+.Protocol
+[source]
+----
+client:
+    send_to_all(PathReadRequest(leaf))
+    responses = await_2f+1_matching()
+    verify_merkle(responses)
+    process_locally()
+    send_to_all(PathWriteRequest(path))
+    await_2f+1_acks()
+----
+
+=== Theorem: Byzantine ORAM Security
+
+With stem:[3f+1] servers and stem:[f] Byzantine:
+1. **Safety:** Correct servers maintain consistent ORAM state
+2. **Liveness:** Operations complete if stem:[\leq f] Byzantine
+3. **Security:** Byzantine servers learn nothing about access patterns
+
+== Shared Memory Models
+
+=== Sequential Consistency
+
+.Definition
+[stem]
+++++
+\text{SC}: \exists \text{ total order on all operations respecting program order}
+++++
+
+=== Total Store Order (TSO)
+
+x86 memory model: stores buffered, loads may pass stores.
+
+=== Release Consistency
+
+.Acquire-Release Semantics
+[stem]
+++++
+\text{Acquire}(l) \to \text{access} \to \text{Release}(l)
+++++
+
+All accesses between acquire/release are atomic.
+
+=== ORAM Memory Model
+
+ORAM operations are inherently sequential per block:
+[source]
+----
+read(b) --hb--> write(b)  // happens-before
+----
+
+Concurrent accesses to different blocks are independent.
+
+== Lock-Free Data Structures
+
+=== Compare-and-Swap (CAS)
+
+.Atomic Primitive
+[source]
+----
+CAS(addr, expected, new):
+    atomically:
+        if *addr == expected:
+            *addr = new
+            return true
+        else:
+            return false
+----
+
+=== Lock-Free ORAM Position Map
+
+.CAS-Based Update
+[source]
+----
+function UpdatePosition(block_id, new_leaf):
+    loop:
+        old = pos[block_id]
+        if CAS(&pos[block_id], old, new_leaf):
+            return old
+        // Retry on conflict
+----
+
+=== ABA Problem
+
+.Problem
+CAS succeeds even if value changed A→B→A.
+
+.Solution
+Version counters:
+[source]
+----
+struct VersionedPtr {
+    ptr: *mut T,
+    version: u64,
+}
+----
+
+== Transactional Memory
+
+=== Software Transactional Memory (STM)
+
+.Transaction Syntax
+[source]
+----
+atomic {
+    x = oread(arr, i)
+    owrite(arr, j, x + 1)
+}
+----
+
+=== Conflict Detection
+
+.Optimistic Concurrency
+[source]
+----
+transaction:
+    read_set = {}
+    write_set = {}
+
+    on_read(addr):
+        read_set.add(addr, version[addr])
+        return value[addr]
+
+    on_write(addr, val):
+        write_set.add(addr, val)
+
+    on_commit:
+        for (addr, ver) in read_set:
+            if version[addr] != ver:
+                abort()
+        for (addr, val) in write_set:
+            value[addr] = val
+            version[addr]++
+----
+
+=== ORAM Transactions
+
+.Atomic ORAM Batch
+[source]
+----
+atomic_batch {
+    v1 = oread(a1)
+    v2 = oread(a2)
+    owrite(a3, v1 + v2)
+}
+// All accesses commit or none
+----
+
+== Distributed ORAM
+
+=== Partitioned ORAM
+
+Partition data across stem:[k] servers:
+[stem]
+++++
+\text{server}_i \text{ stores blocks } b : h(b) \mod k = i
+++++
+
+Each server runs independent ORAM.
+
+=== Replicated ORAM
+
+All servers store complete ORAM:
+* **Reads:** Query any server
+* **Writes:** Consensus for consistency
+
+=== Theorem: Distributed ORAM Bandwidth
+
+For stem:[k] servers with partitioning:
+[stem]
+++++
+\text{Bandwidth per server} = O\left(\frac{\log(N/k)}{k}\right)
+++++
+
+Total system bandwidth: stem:[O(\log(N/k))]
+
+== Gossip Protocols
+
+=== Epidemic Information Dissemination
+
+.Push Gossip
+[source]
+----
+every Δ time units:
+    peer = random_node()
+    send(peer, my_state)
+
+on_receive(state):
+    my_state = merge(my_state, state)
+----
+
+=== ORAM State Synchronization
+
+.Position Map Gossip
+[source]
+----
+state = { block_id -> (leaf, version) }
+
+merge(s1, s2):
+    for block in union(s1.keys, s2.keys):
+        if s1[block].version > s2[block].version:
+            result[block] = s1[block]
+        else:
+            result[block] = s2[block]
+----
+
+=== Convergence Theorem
+
+With stem:[n] nodes and push-pull gossip:
+[stem]
+++++
+\Pr[\text{all nodes consistent}] \geq 1 - n \cdot e^{-c \log n}
+++++
+
+after stem:[O(\log n)] rounds.
+
+== Failure Detection
+
+=== Unreliable Failure Detectors
+
+.Properties
+* **Completeness:** Every failed node is eventually suspected
+* **Accuracy:** Correct nodes are not suspected forever
+
+=== φ Accrual Failure Detector
+
+Probability of failure based on heartbeat history:
+[stem]
+++++
+\phi(t) = -\log_{10}(1 - F(t - t_{\text{last}}))
+++++
+
+where stem:[F] is the CDF of inter-arrival times.
+
+=== ORAM Node Failure
+
+.Recovery Protocol
+[source]
+----
+on_detect_failure(server_i):
+    // Redistribute server_i's data
+    for block in server_i.blocks:
+        new_server = consistent_hash(block, remaining_servers)
+        replicate(block, new_server)
+
+    // Update position maps
+    broadcast_position_update()
+----
+
+== Causal Consistency
+
+=== Definition: Causality
+
+Operation stem:[a] *causally precedes* stem:[b] (stem:[a \prec b]) if:
+1. stem:[a] and stem:[b] in same thread and stem:[a] before stem:[b], or
+2. stem:[a] is send and stem:[b] is corresponding receive, or
+3. stem:[\exists c. a \prec c \land c \prec b]
+
+=== Vector Clocks
+
+.Update Rules
+[source]
+----
+on_local_event():
+    vc[self]++
+
+on_send(msg):
+    vc[self]++
+    attach(msg, vc)
+
+on_receive(msg, vc_sender):
+    for i in nodes:
+        vc[i] = max(vc[i], vc_sender[i])
+    vc[self]++
+----
+
+=== ORAM with Causal Ordering
+
+.Causal ORAM Access
+[source]
+----
+struct ORAMOp {
+    op: Operation,
+    vc: VectorClock,
+}
+
+execute(op):
+    await_dependencies(op.vc)
+    result = oram.access(op.op)
+    return (result, current_vc())
+----
+
+== Multi-Party Computation
+
+=== Secret Sharing
+
+.Shamir's Secret Sharing
+[stem]
+++++
+s = a_0, \quad \text{share}_i = p(i) = a_0 + a_1 i + \cdots + a_{t-1} i^{t-1}
+++++
+
+Reconstructable with stem:[t] shares.
+
+=== Distributed ORAM via MPC
+
+.Protocol
+[source]
+----
+// Position map stored as secret shares
+pos_shares = Shamir.share(pos)
+
+// Access via MPC
+mpc_protocol:
+    reconstructed_pos = MPC.reconstruct(pos_shares, accessed_block)
+    path = MPC.read_path(tree_shares, reconstructed_pos)
+    new_pos = MPC.random()
+    MPC.update(pos_shares, accessed_block, new_pos)
+    MPC.evict_and_write(tree_shares, path)
+----
+
+=== Theorem: MPC ORAM Security
+
+Against semi-honest adversary controlling stem:[t-1] parties:
+[stem]
+++++
+\text{View}_{\text{Adv}} \approx_c \text{Simulate}(1^\lambda)
+++++
+
+No information about access pattern is leaked.
+
+== Secure Communication
+
+=== TLS Channel Binding
+
+Bind ORAM session to TLS channel:
+[source]
+----
+session_key = KDF(tls_exporter, "ORAM", client_id, server_id)
+----
+
+=== Onion Routing for ORAM
+
+.Layered Encryption
+[source]
+----
+route = [node_1, node_2, node_3, server]
+payload = Enc_server(oram_request)
+for node in reversed(route[:-1]):
+    payload = Enc_node(next_hop, payload)
+
+send(route[0], payload)
+----
+
+=== Theorem: Anonymous ORAM
+
+With onion routing through stem:[k] nodes:
+* **Sender anonymity:** Server doesn't know client
+* **Pattern obliviousness:** ORAM hides access patterns
+* **Combined:** Full access privacy
+
+== Conclusion
+
+Concurrent and distributed ORAM requires:
+
+1. **Linearizability** for correctness
+2. **Consensus** for distributed state
+3. **Byzantine tolerance** for malicious settings
+4. **Causal consistency** for efficiency
+5. **MPC** for multi-party security
+
+== References
+
+1. Lynch, N. (1996). "Distributed Algorithms." Morgan Kaufmann.
+2. Herlihy, M. & Shavit, N. (2008). "The Art of Multiprocessor Programming."
+3. Castro, M. & Liskov, B. (1999). "Practical Byzantine Fault Tolerance."
+4. Goldreich, O. (2004). "Foundations of Cryptography: Volume 2."
+
+== TODO
+
+// TODO: Develop Byzantine ORAM protocol in detail
+// TODO: Add formal verification of distributed ORAM
+// TODO: Implement STM-based ORAM transactions
+// TODO: Add network partition analysis
+// TODO: Develop leader election for ORAM servers

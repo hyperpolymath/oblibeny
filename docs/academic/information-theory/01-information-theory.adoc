@@ -1,0 +1,490 @@
+// SPDX-License-Identifier: MIT OR Palimpsest-0.8
+// Copyright (c) 2024 Hyperpolymath
+
+= Information Theory for Security and Privacy
+:author: Oblibeny Project
+:revdate: 2024
+:toc: left
+:toclevels: 4
+:sectnums:
+:stem: latexmath
+:source-highlighter: rouge
+
+== Abstract
+
+This document develops information-theoretic foundations for analyzing security
+and privacy in oblivious computing. We establish entropy bounds, channel capacity
+limits, and information leakage quantification.
+
+== Entropy
+
+=== Definition: Shannon Entropy
+
+For discrete random variable stem:[X] with distribution stem:[p]:
+[stem]
+++++
+H(X) = -\sum_{x} p(x) \log_2 p(x) = \mathbb{E}[-\log_2 p(X)]
+++++
+
+=== Properties of Entropy
+
+1. **Non-negativity:** stem:[H(X) \geq 0]
+2. **Maximum:** stem:[H(X) \leq \log_2 |X|] with equality iff stem:[X] is uniform
+3. **Conditioning reduces entropy:** stem:[H(X|Y) \leq H(X)]
+
+=== Definition: Joint Entropy
+
+[stem]
+++++
+H(X, Y) = -\sum_{x,y} p(x,y) \log_2 p(x,y)
+++++
+
+=== Definition: Conditional Entropy
+
+[stem]
+++++
+H(X|Y) = H(X, Y) - H(Y) = \sum_y p(y) H(X|Y=y)
+++++
+
+=== Chain Rule
+
+[stem]
+++++
+H(X_1, \ldots, X_n) = \sum_{i=1}^n H(X_i | X_1, \ldots, X_{i-1})
+++++
+
+== Mutual Information
+
+=== Definition: Mutual Information
+
+[stem]
+++++
+I(X; Y) = H(X) - H(X|Y) = H(Y) - H(Y|X) = H(X) + H(Y) - H(X, Y)
+++++
+
+=== Properties
+
+1. **Symmetry:** stem:[I(X; Y) = I(Y; X)]
+2. **Non-negativity:** stem:[I(X; Y) \geq 0]
+3. **Independence:** stem:[I(X; Y) = 0 \Leftrightarrow X \perp Y]
+
+=== Interpretation for Security
+
+stem:[I(\text{Secret}; \text{Observation})] = information leaked about secret.
+
+**Perfect security:** stem:[I(\text{Secret}; \text{Ciphertext}) = 0]
+
+== Min-Entropy and Rényi Entropy
+
+=== Definition: Min-Entropy
+
+[stem]
+++++
+H_\infty(X) = -\log_2 \max_x p(x)
+++++
+
+=== Definition: Rényi Entropy
+
+For stem:[\alpha > 0, \alpha \neq 1]:
+[stem]
+++++
+H_\alpha(X) = \frac{1}{1-\alpha} \log_2 \sum_x p(x)^\alpha
+++++
+
+=== Relationship
+
+[stem]
+++++
+H_\infty(X) \leq H(X) \leq H_0(X) = \log_2 |\text{supp}(X)|
+++++
+
+=== Application: Guessing Entropy
+
+Min-entropy determines the probability of guessing stem:[X] in one try:
+[stem]
+++++
+\Pr[\text{guess } X] = 2^{-H_\infty(X)}
+++++
+
+== Channel Capacity
+
+=== Definition: Discrete Memoryless Channel
+
+A channel stem:[W: \mathcal{X} \to \mathcal{Y}] with transition probabilities stem:[W(y|x)].
+
+=== Definition: Channel Capacity
+
+[stem]
+++++
+C = \max_{p(x)} I(X; Y)
+++++
+
+=== Theorem: Shannon's Noisy Channel Coding Theorem
+
+For channel with capacity stem:[C]:
+* Rates stem:[R < C] are achievable with arbitrarily small error
+* Rates stem:[R > C] have error bounded away from 0
+
+=== Application: Covert Channel Capacity
+
+The side channel from ORAM access patterns has capacity:
+[stem]
+++++
+C_{\text{side}} = I(\text{Operation}; \text{Pattern})
+++++
+
+**Secure ORAM:** stem:[C_{\text{side}} = \text{negl}(\lambda)]
+
+== Differential Privacy
+
+=== Definition: stem:[(\epsilon, \delta)]-Differential Privacy
+
+Mechanism stem:[\mathcal{M}] is stem:[(\epsilon, \delta)]-DP if for all adjacent stem:[D, D']:
+[stem]
+++++
+\Pr[\mathcal{M}(D) \in S] \leq e^\epsilon \Pr[\mathcal{M}(D') \in S] + \delta
+++++
+
+=== Theorem: Composition
+
+Sequential composition of stem:[k] stem:[(\epsilon, \delta)]-DP mechanisms is stem:[(k\epsilon, k\delta)]-DP.
+
+**Advanced composition:** stem:[(\sqrt{2k \ln(1/\delta')}\epsilon + k\epsilon(e^\epsilon - 1), k\delta + \delta')]-DP.
+
+=== Application: Private ORAM
+
+ORAM with random padding achieves stem:[(\epsilon, 0)]-DP for access patterns
+with appropriate noise addition.
+
+== Information Leakage
+
+=== Definition: Leakage Function
+
+For secret stem:[S] and observation stem:[O]:
+[stem]
+++++
+\mathcal{L}(S, O) = I(S; O) = H(S) - H(S|O)
+++++
+
+=== Definition: min-Entropy Leakage
+
+[stem]
+++++
+\mathcal{L}_\infty(S, O) = H_\infty(S) - H_\infty(S|O)
+++++
+
+=== Theorem: Leakage Chain Rule
+
+For sequential observations stem:[O_1, O_2]:
+[stem]
+++++
+\mathcal{L}(S; O_1, O_2) = \mathcal{L}(S; O_1) + \mathcal{L}(S; O_2 | O_1)
+++++
+
+=== Application: ORAM Leakage Analysis
+
+For stem:[m] ORAM accesses:
+[stem]
+++++
+\mathcal{L}(\text{Ops}; \text{Patterns}) \leq m \cdot \mathcal{L}_{\text{single}}
+++++
+
+where stem:[\mathcal{L}_{\text{single}} = \text{negl}(\lambda)] for secure ORAM.
+
+== Data Processing Inequality
+
+=== Theorem: Data Processing Inequality
+
+For Markov chain stem:[X \to Y \to Z]:
+[stem]
+++++
+I(X; Z) \leq I(X; Y)
+++++
+
+Equality iff stem:[Z] is a sufficient statistic for stem:[X].
+
+=== Corollary: Encryption Cannot Increase Information
+
+For ciphertext stem:[C = \text{Enc}(M)]:
+[stem]
+++++
+I(\text{Key}; C) \leq I(\text{Key}; M)
+++++
+
+=== Application: ORAM Security
+
+[stem]
+++++
+\text{Operations} \to \text{ORAM State} \to \text{Access Pattern}
+++++
+
+By DPI:
+[stem]
+++++
+I(\text{Ops}; \text{Pattern}) \leq I(\text{Ops}; \text{State})
+++++
+
+If ORAM state reveals nothing, neither does pattern.
+
+== Source Coding
+
+=== Theorem: Source Coding Theorem
+
+For source stem:[X] with entropy stem:[H(X)]:
+* Compression to stem:[H(X) + \epsilon] bits is achievable
+* Compression below stem:[H(X)] bits loses information
+
+=== Application: Position Map Compression
+
+Position map has entropy:
+[stem]
+++++
+H(\text{pos}) = N \cdot \log_2 N
+++++
+
+Compression below this loses position information (violates obliviousness).
+
+== Rate-Distortion Theory
+
+=== Definition: Rate-Distortion Function
+
+For source stem:[X] and distortion measure stem:[d]:
+[stem]
+++++
+R(D) = \min_{p(\hat{x}|x): \mathbb{E}[d(X, \hat{X})] \leq D} I(X; \hat{X})
+++++
+
+=== Application: Lossy ORAM
+
+Trade-off between:
+* Bandwidth (rate)
+* Accuracy of access pattern hiding (distortion)
+
+== Entropy of Access Patterns
+
+=== Theorem: Access Pattern Entropy
+
+For stem:[m] accesses to stem:[N] blocks with uniform access distribution:
+[stem]
+++++
+H(\text{Pattern}) = m \cdot \log_2 N
+++++
+
+=== Theorem: Path ORAM Pattern Entropy
+
+Path ORAM produces patterns with entropy:
+[stem]
+++++
+H(\text{Physical Pattern}) = m \cdot \log_2 N
+++++
+
+same as uniform access (obliviousness achieved).
+
+.Proof
+====
+Each access maps to a uniformly random leaf (position map).
+Leaf choices are independent across accesses.
+Total entropy: stem:[m \cdot L = m \cdot \log_2 N]. ∎
+====
+
+== Conditional Entropy Bounds
+
+=== Fano's Inequality
+
+For estimator stem:[\hat{X}] of stem:[X] with error stem:[P_e = \Pr[\hat{X} \neq X]]:
+[stem]
+++++
+H(X|\hat{X}) \leq H_b(P_e) + P_e \log_2(|X| - 1)
+++++
+
+where stem:[H_b] is binary entropy.
+
+=== Application: Attack Success Probability
+
+If adversary recovers operation stem:[\hat{op}] from pattern:
+[stem]
+++++
+P_e \geq \frac{H(\text{Op} | \text{Pattern}) - 1}{\log_2 N}
+++++
+
+For secure ORAM, stem:[H(\text{Op} | \text{Pattern}) \approx H(\text{Op})],
+so stem:[P_e \approx 1 - 1/N].
+
+== Typical Sequences
+
+=== Definition: Typical Set
+
+For stem:[\epsilon > 0], the typical set stem:[A_\epsilon^{(n)}] is:
+[stem]
+++++
+A_\epsilon^{(n)} = \left\{x^n : \left|\frac{1}{n}\log_2 \frac{1}{p(x^n)} - H(X)\right| < \epsilon\right\}
+++++
+
+=== Asymptotic Equipartition Property (AEP)
+
+For i.i.d. stem:[X_1, \ldots, X_n]:
+[stem]
+++++
+\Pr[X^n \in A_\epsilon^{(n)}] \to 1 \quad \text{as } n \to \infty
+++++
+
+=== Application: Long Access Sequences
+
+For long ORAM access sequences, access patterns concentrate on typical set
+of size stem:[2^{mH} \approx 2^{m \log N} = N^m] (all patterns equally likely).
+
+== Secrecy Capacity
+
+=== Wiretap Channel Model
+
+* Main channel: stem:[X \to Y] (legitimate receiver)
+* Eavesdropper channel: stem:[X \to Z]
+
+=== Definition: Secrecy Capacity
+
+[stem]
+++++
+C_s = \max_{p(x)} [I(X; Y) - I(X; Z)]
+++++
+
+=== Application: ORAM as Wiretap Channel
+
+* stem:[X] = operations
+* stem:[Y] = results (to client)
+* stem:[Z] = access patterns (to adversary)
+
+ORAM provides stem:[I(X; Z) = \text{negl}(\lambda)], maximizing stem:[C_s].
+
+== Quantitative Information Flow
+
+=== Definition: g-Leakage
+
+For gain function stem:[g: \mathcal{W} \times \mathcal{X} \to [0, 1]]:
+[stem]
+++++
+V_g(X) = \max_w \sum_x p(x) g(w, x) \quad \text{(prior vulnerability)}
+++++
+
+[stem]
+++++
+V_g(X|Y) = \sum_y p(y) \max_w \sum_x p(x|y) g(w, x) \quad \text{(posterior)}
+++++
+
+=== Multiplicative Leakage
+
+[stem]
+++++
+\mathcal{L}_g(X \to Y) = \log_2 \frac{V_g(X|Y)}{V_g(X)}
+++++
+
+=== Application: ORAM Gain Function
+
+For attack success:
+[stem]
+++++
+g(w, op) = \mathbf{1}[w = op]
+++++
+
+ORAM ensures stem:[\mathcal{L}_g = \text{negl}(\lambda)].
+
+== Kolmogorov Complexity
+
+=== Definition: Kolmogorov Complexity
+
+[stem]
+++++
+K(x) = \min\{|p| : U(p) = x\}
+++++
+
+where stem:[U] is a universal Turing machine.
+
+=== Relationship to Entropy
+
+For most stem:[x] drawn from stem:[X]:
+[stem]
+++++
+K(x) \approx H(X)
+++++
+
+=== Application: Incompressibility of Secure Patterns
+
+Secure ORAM patterns have:
+[stem]
+++++
+K(\text{pattern}) \approx m \log N
+++++
+
+(incompressible, revealing nothing about operations).
+
+== Fisher Information
+
+=== Definition: Fisher Information
+
+For parameter stem:[\theta] and observation stem:[X]:
+[stem]
+++++
+I(\theta) = \mathbb{E}\left[\left(\frac{\partial}{\partial\theta} \log p(X|\theta)\right)^2\right]
+++++
+
+=== Cramér-Rao Bound
+
+For any unbiased estimator stem:[\hat{\theta}]:
+[stem]
+++++
+\text{Var}(\hat{\theta}) \geq \frac{1}{I(\theta)}
+++++
+
+=== Application: Parameter Estimation from Side Channels
+
+Lower bounds on adversary's estimation accuracy for access frequencies.
+
+== Continuous Entropy
+
+=== Definition: Differential Entropy
+
+For continuous stem:[X] with density stem:[f]:
+[stem]
+++++
+h(X) = -\int f(x) \log_2 f(x) \, dx
+++++
+
+=== Gaussian Maximum Entropy
+
+Among distributions with variance stem:[\sigma^2]:
+[stem]
+++++
+h(X) \leq \frac{1}{2} \log_2(2\pi e \sigma^2)
+++++
+
+with equality for Gaussian.
+
+=== Application: Timing Side Channels
+
+Access times modeled as continuous; Gaussian assumption provides entropy bounds.
+
+== Conclusion
+
+Information-theoretic analysis provides:
+
+1. **Leakage quantification:** stem:[I(\text{Secret}; \text{Observable})]
+2. **Lower bounds:** Entropy limits on compression/security
+3. **Upper bounds:** Channel capacity limits adversary
+4. **Composition:** Chain rules for multi-access analysis
+
+ORAM security is characterized by near-zero mutual information between
+operations and access patterns.
+
+== References
+
+1. Cover, T. & Thomas, J. (2006). "Elements of Information Theory." Wiley.
+2. MacKay, D. (2003). "Information Theory, Inference, and Learning Algorithms."
+3. Smith, G. (2009). "On the Foundations of Quantitative Information Flow." FOSSACS.
+4. Wyner, A. (1975). "The Wire-Tap Channel." Bell System Tech. J.
+
+== TODO
+
+// TODO: Add network information theory for distributed ORAM
+// TODO: Develop rate-distortion analysis for approximate ORAM
+// TODO: Add secure computation information-theoretic bounds
+// TODO: Formalize side-channel capacity under timing constraints
+// TODO: Add Rényi differential privacy analysis

@@ -1,0 +1,494 @@
+// SPDX-License-Identifier: MIT OR Palimpsest-0.8
+// Copyright (c) 2024 Hyperpolymath
+
+= Algebraic and Number-Theoretic Foundations
+:author: Oblibeny Project
+:revdate: 2024
+:toc: left
+:toclevels: 4
+:sectnums:
+:stem: latexmath
+:source-highlighter: rouge
+
+== Abstract
+
+This document establishes the algebraic structures and number-theoretic foundations
+essential for cryptographic constructions in the Oblibeny ecosystem. We cover
+groups, rings, fields, and their applications to cryptographic primitives.
+
+== Group Theory
+
+=== Definition: Group
+
+A *group* stem:[(G, \cdot)] is a set stem:[G] with binary operation stem:[\cdot] satisfying:
+
+1. **Closure:** stem:[\forall a, b \in G: a \cdot b \in G]
+2. **Associativity:** stem:[\forall a, b, c \in G: (a \cdot b) \cdot c = a \cdot (b \cdot c)]
+3. **Identity:** stem:[\exists e \in G: \forall a \in G: e \cdot a = a \cdot e = a]
+4. **Inverses:** stem:[\forall a \in G: \exists a^{-1} \in G: a \cdot a^{-1} = a^{-1} \cdot a = e]
+
+=== Definition: Abelian Group
+
+A group is *abelian* (commutative) if:
+[stem]
+++++
+\forall a, b \in G: a \cdot b = b \cdot a
+++++
+
+=== Definition: Cyclic Group
+
+A group stem:[G] is *cyclic* if:
+[stem]
+++++
+\exists g \in G: G = \{g^n : n \in \mathbb{Z}\} = \langle g \rangle
+++++
+
+The element stem:[g] is called a *generator*.
+
+=== Theorem: Lagrange's Theorem
+
+For finite group stem:[G] and subgroup stem:[H \leq G]:
+[stem]
+++++
+|H| \text{ divides } |G|
+++++
+
+.Proof
+====
+The cosets stem:[gH = \{gh : h \in H\}] partition stem:[G], each with cardinality stem:[|H|].
+Thus stem:[|G| = |G:H| \cdot |H|]. ∎
+====
+
+=== Corollary: Element Order Divides Group Order
+
+For stem:[a \in G] with stem:[|G| < \infty]:
+[stem]
+++++
+\text{ord}(a) \text{ divides } |G|
+++++
+
+=== Theorem: Fermat's Little Theorem
+
+For prime stem:[p] and stem:[a \not\equiv 0 \pmod{p}]:
+[stem]
+++++
+a^{p-1} \equiv 1 \pmod{p}
+++++
+
+.Proof
+====
+stem:[(\mathbb{Z}/p\mathbb{Z})^*] has order stem:[p-1]. By Lagrange, stem:[a^{p-1} = 1]. ∎
+====
+
+=== Theorem: Euler's Theorem
+
+For stem:[\gcd(a, n) = 1]:
+[stem]
+++++
+a^{\phi(n)} \equiv 1 \pmod{n}
+++++
+
+where stem:[\phi] is Euler's totient function.
+
+== Finite Fields
+
+=== Definition: Field
+
+A *field* stem:[(F, +, \cdot)] is a set with two operations such that:
+
+1. stem:[(F, +)] is an abelian group with identity stem:[0]
+2. stem:[(F \setminus \{0\}, \cdot)] is an abelian group with identity stem:[1]
+3. Distributivity: stem:[a \cdot (b + c) = a \cdot b + a \cdot c]
+
+=== Theorem: Finite Field Existence and Uniqueness
+
+For each prime power stem:[q = p^n]:
+1. There exists a field stem:[\mathbb{F}_q] of order stem:[q]
+2. This field is unique up to isomorphism
+
+=== Definition: Prime Field
+
+stem:[\mathbb{F}_p = \mathbb{Z}/p\mathbb{Z}] for prime stem:[p].
+
+=== Definition: Extension Field
+
+stem:[\mathbb{F}_{p^n}] is constructed as:
+[stem]
+++++
+\mathbb{F}_{p^n} \cong \mathbb{F}_p[x] / (f(x))
+++++
+
+where stem:[f(x)] is an irreducible polynomial of degree stem:[n] over stem:[\mathbb{F}_p].
+
+=== Theorem: Multiplicative Group is Cyclic
+
+For any finite field stem:[\mathbb{F}_q]:
+[stem]
+++++
+\mathbb{F}_q^* = \mathbb{F}_q \setminus \{0\} \cong \mathbb{Z}/(q-1)\mathbb{Z}
+++++
+
+.Proof
+====
+A polynomial of degree stem:[d] over a field has at most stem:[d] roots.
+
+For each stem:[d | (q-1)], the polynomial stem:[x^d - 1] has exactly stem:[d] roots
+(since stem:[x^{q-1} - 1 = \prod_{d | q-1} \Phi_d(x)]).
+
+By counting, there exist elements of order stem:[q-1] (primitive roots). ∎
+====
+
+== Elliptic Curves
+
+=== Definition: Elliptic Curve
+
+An *elliptic curve* over field stem:[K] is:
+[stem]
+++++
+E: y^2 = x^3 + ax + b \quad \text{with } 4a^3 + 27b^2 \neq 0
+++++
+
+The condition ensures the curve is non-singular.
+
+=== Definition: Point Addition
+
+For points stem:[P = (x_1, y_1), Q = (x_2, y_2)] on stem:[E]:
+
+**Case 1:** stem:[P \neq Q]
+[stem]
+++++
+\lambda = \frac{y_2 - y_1}{x_2 - x_1}, \quad x_3 = \lambda^2 - x_1 - x_2, \quad y_3 = \lambda(x_1 - x_3) - y_1
+++++
+
+**Case 2:** stem:[P = Q] (doubling)
+[stem]
+++++
+\lambda = \frac{3x_1^2 + a}{2y_1}, \quad x_3 = \lambda^2 - 2x_1, \quad y_3 = \lambda(x_1 - x_3) - y_1
+++++
+
+=== Theorem: Elliptic Curve Group Law
+
+stem:[(E(K), +)] forms an abelian group with:
+* Identity: Point at infinity stem:[\mathcal{O}]
+* Inverse: stem:[-P = (x, -y)] for stem:[P = (x, y)]
+
+.Proof Sketch
+====
+Associativity is verified by extensive algebraic calculation (or via
+the theory of divisors on algebraic curves). ∎
+====
+
+=== Theorem: Hasse's Theorem
+
+For elliptic curve stem:[E] over stem:[\mathbb{F}_p]:
+[stem]
+++++
+|#E(\mathbb{F}_p) - (p + 1)| \leq 2\sqrt{p}
+++++
+
+=== Theorem: Elliptic Curve Discrete Log Problem (ECDLP)
+
+Given stem:[P, Q = nP] on curve stem:[E], finding stem:[n] is believed hard.
+
+**Best known attack:** stem:[O(\sqrt{p})] via Pollard's rho (for prime-order subgroups).
+
+== Bilinear Pairings
+
+=== Definition: Bilinear Pairing
+
+A *bilinear pairing* is a map:
+[stem]
+++++
+e: G_1 \times G_2 \to G_T
+++++
+
+where stem:[G_1, G_2, G_T] are cyclic groups of prime order stem:[p], satisfying:
+
+1. **Bilinearity:** stem:[e(aP, bQ) = e(P, Q)^{ab}]
+2. **Non-degeneracy:** stem:[e(g_1, g_2) \neq 1] for generators stem:[g_1, g_2]
+3. **Computability:** stem:[e] is efficiently computable
+
+=== Weil Pairing
+
+For elliptic curve stem:[E] with stem:[n]-torsion points stem:[E[n]]:
+[stem]
+++++
+e_n: E[n] \times E[n] \to \mu_n
+++++
+
+where stem:[\mu_n] is the group of stem:[n]-th roots of unity.
+
+=== Tate Pairing
+
+Alternative pairing with better computational properties:
+[stem]
+++++
+\tau: E[n] \times E/nE \to K^* / (K^*)^n
+++++
+
+=== Application: Identity-Based Encryption
+
+Pairings enable identity-based cryptography:
+[stem]
+++++
+\text{Encrypt}(ID, m) = (rP, m \oplus H(e(H'(ID), Q)^r))
+++++
+
+== Lattices
+
+=== Definition: Lattice
+
+A *lattice* in stem:[\mathbb{R}^n] is:
+[stem]
+++++
+\mathcal{L}(B) = \{Bx : x \in \mathbb{Z}^m\}
+++++
+
+for basis matrix stem:[B \in \mathbb{R}^{n \times m}].
+
+=== Definition: Shortest Vector Problem (SVP)
+
+Given lattice stem:[\mathcal{L}], find shortest non-zero vector:
+[stem]
+++++
+\min_{v \in \mathcal{L} \setminus \{0\}} \|v\|
+++++
+
+=== Definition: Learning With Errors (LWE)
+
+Given stem:[(A, As + e)] where:
+* stem:[A \in \mathbb{Z}_q^{m \times n}] uniform random
+* stem:[s \in \mathbb{Z}_q^n] secret
+* stem:[e \in \mathbb{Z}^m] small error
+
+Distinguish from uniform stem:[(A, u)].
+
+=== Theorem: LWE Hardness (Regev)
+
+LWE is at least as hard as worst-case lattice problems (GapSVP, SIVP)
+for appropriate parameters.
+
+=== Application: Post-Quantum ORAM
+
+LWE-based encryption provides quantum resistance for ORAM block encryption.
+
+== Quadratic Residues
+
+=== Definition: Quadratic Residue
+
+stem:[a] is a *quadratic residue* modulo stem:[n] if:
+[stem]
+++++
+\exists x: x^2 \equiv a \pmod{n}
+++++
+
+=== Legendre Symbol
+
+For odd prime stem:[p]:
+[stem]
+++++
+\left(\frac{a}{p}\right) = \begin{cases}
+1 & \text{if } a \text{ is a QR mod } p \\
+-1 & \text{if } a \text{ is a NQR mod } p \\
+0 & \text{if } p | a
+\end{cases}
+++++
+
+=== Theorem: Euler's Criterion
+
+[stem]
+++++
+\left(\frac{a}{p}\right) \equiv a^{(p-1)/2} \pmod{p}
+++++
+
+=== Jacobi Symbol
+
+Extension to composite moduli:
+[stem]
+++++
+\left(\frac{a}{n}\right) = \prod_{i=1}^k \left(\frac{a}{p_i}\right)^{e_i}
+++++
+
+for stem:[n = \prod p_i^{e_i}].
+
+=== Application: Quadratic Residuosity Assumption
+
+**QRA:** Given stem:[N = pq] (Blum integer), distinguishing QR from NQR is hard.
+
+Basis for Goldwasser-Micali encryption.
+
+== Chinese Remainder Theorem
+
+=== Theorem: CRT
+
+For pairwise coprime stem:[n_1, \ldots, n_k]:
+[stem]
+++++
+\mathbb{Z}/(n_1 \cdots n_k)\mathbb{Z} \cong \mathbb{Z}/n_1\mathbb{Z} \times \cdots \times \mathbb{Z}/n_k\mathbb{Z}
+++++
+
+The isomorphism is:
+[stem]
+++++
+x \mapsto (x \mod n_1, \ldots, x \mod n_k)
+++++
+
+=== Constructive CRT
+
+Given stem:[a_i = x \mod n_i], reconstruct stem:[x]:
+[stem]
+++++
+x = \sum_{i=1}^k a_i M_i N_i \mod N
+++++
+
+where stem:[N = \prod n_i], stem:[M_i = N/n_i], stem:[N_i = M_i^{-1} \mod n_i].
+
+=== Application: RSA Optimization (CRT-RSA)
+
+Compute stem:[m^d \mod N] via:
+1. stem:[m_p = m^{d \mod (p-1)} \mod p]
+2. stem:[m_q = m^{d \mod (q-1)} \mod q]
+3. Combine using CRT
+
+Speedup: ~4x (operations on half-size moduli).
+
+== Primality and Factoring
+
+=== Miller-Rabin Primality Test
+
+For odd stem:[n-1 = 2^s \cdot d]:
+
+.Algorithm
+[source]
+----
+function isProbablyPrime(n, k):
+    write n-1 = 2^s · d
+    repeat k times:
+        a ← random(2, n-2)
+        x = a^d mod n
+        if x == 1 or x == n-1: continue
+        for r = 1 to s-1:
+            x = x² mod n
+            if x == n-1: break
+        if x ≠ n-1: return composite
+    return probably prime
+----
+
+**Error probability:** stem:[\leq 4^{-k}] for stem:[k] iterations.
+
+=== Integer Factorization
+
+**Best known algorithms:**
+
+[cols="1,1,1"]
+|===
+| Algorithm | Time Complexity | Notes
+
+| Trial division
+| stem:[O(\sqrt{n})]
+| Simple but slow
+
+| Pollard's rho
+| stem:[O(n^{1/4})]
+| Probabilistic
+
+| Quadratic sieve
+| stem:[L[1/2, 1]]
+| Sub-exponential
+
+| Number field sieve
+| stem:[L[1/3, (64/9)^{1/3}]]
+| Best for large stem:[n]
+|===
+
+where stem:[L[\alpha, c] = \exp(c(\ln n)^\alpha (\ln \ln n)^{1-\alpha})].
+
+=== Quantum Factoring (Shor's Algorithm)
+
+Time: stem:[O((\log n)^3)] on quantum computer.
+
+**Implication:** RSA, DH, ECDH broken by quantum computers.
+
+== Ring-LWE
+
+=== Definition: Ring-LWE
+
+Work in polynomial ring stem:[R_q = \mathbb{Z}_q[x]/(x^n + 1)]:
+
+Given stem:[(a, as + e)] where:
+* stem:[a \in R_q] uniform
+* stem:[s, e \in R_q] with small coefficients
+
+Distinguish from uniform pair.
+
+=== Theorem: Ring-LWE Hardness
+
+Ring-LWE is at least as hard as ideal lattice problems.
+
+=== Application: Efficient Encryption
+
+Ring structure enables:
+* stem:[O(n \log n)] operations via NTT
+* Compact keys (~1 KB vs ~1 MB for plain LWE)
+
+== Polynomial Arithmetic
+
+=== Fast Multiplication (NTT)
+
+**Number Theoretic Transform:** FFT over stem:[\mathbb{Z}_p]:
+[stem]
+++++
+\text{NTT}: \mathbb{Z}_p^n \to \mathbb{Z}_p^n
+++++
+
+Requires stem:[p \equiv 1 \pmod{n}] (for stem:[n]-th roots of unity).
+
+**Complexity:** stem:[O(n \log n)] multiplications in stem:[\mathbb{Z}_p].
+
+=== Application: ORAM Position Map Update
+
+Polynomial operations for batch position map manipulation.
+
+== Algebraic Hash Functions
+
+=== Subset Sum Hash
+
+[stem]
+++++
+H(m_1, \ldots, m_n) = \sum_{i=1}^n m_i a_i \mod M
+++++
+
+Security based on subset sum problem.
+
+=== Lattice-Based Hash
+
+[stem]
+++++
+H(x) = Ax \mod q
+++++
+
+for stem:[A \in \mathbb{Z}_q^{m \times n}]. Collision-resistance from SIS.
+
+== Conclusion
+
+The algebraic structures presented provide:
+
+1. **Discrete log hardness** for key agreement and signatures
+2. **Factoring hardness** for RSA-based schemes
+3. **Lattice hardness** for post-quantum security
+4. **Efficient arithmetic** via FFT/NTT
+
+== References
+
+1. Shoup, V. (2009). "A Computational Introduction to Number Theory and Algebra."
+2. Washington, L. (2008). "Elliptic Curves: Number Theory and Cryptography."
+3. Peikert, C. (2016). "A Decade of Lattice Cryptography." Found. & Trends.
+4. Galbraith, S. (2012). "Mathematics of Public Key Cryptography." Cambridge.
+
+== TODO
+
+// TODO: Add isogeny-based cryptography (SIDH/SIKE)
+// TODO: Formalize ideal class groups for class group cryptography
+// TODO: Add algebraic geometry codes for secret sharing
+// TODO: Develop Gröbner basis attacks analysis
+// TODO: Add multivariate polynomial cryptography
