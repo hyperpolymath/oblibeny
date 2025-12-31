@@ -10,6 +10,57 @@ use crate::error::Error;
 use crate::oir::*;
 use std::fmt::Write;
 
+/// Validate that an identifier is safe for code generation
+///
+/// Returns an error if the identifier contains characters that could
+/// enable code injection attacks.
+fn validate_identifier(name: &str) -> Result<(), Error> {
+    if name.is_empty() {
+        return Err(Error::codegen("empty identifier"));
+    }
+
+    // First character must be letter or underscore
+    let first = name.chars().next().unwrap();
+    if !first.is_ascii_alphabetic() && first != '_' {
+        return Err(Error::codegen(format!(
+            "invalid identifier '{}': must start with letter or underscore",
+            name
+        )));
+    }
+
+    // Rest must be alphanumeric or underscore
+    for c in name.chars() {
+        if !c.is_ascii_alphanumeric() && c != '_' {
+            return Err(Error::codegen(format!(
+                "invalid identifier '{}': contains forbidden character '{}'",
+                name, c
+            )));
+        }
+    }
+
+    // Check for Rust reserved keywords that could cause issues
+    const DANGEROUS_NAMES: &[&str] = &[
+        "unsafe", "asm", "extern", "mod", "crate", "self", "super",
+        "macro_rules", "include", "include_str", "include_bytes",
+    ];
+    if DANGEROUS_NAMES.contains(&name) {
+        return Err(Error::codegen(format!(
+            "identifier '{}' is reserved and cannot be used",
+            name
+        )));
+    }
+
+    Ok(())
+}
+
+/// Sanitize an identifier for safe code generation
+///
+/// Validates and returns the identifier, or returns an error.
+fn sanitize_ident(name: &str) -> Result<&str, Error> {
+    validate_identifier(name)?;
+    Ok(name)
+}
+
 /// Code generator state
 pub struct CodeGenerator {
     indent: usize,
@@ -264,7 +315,10 @@ impl CodeGenerator {
         match expr {
             Expr::Lit(lit) => self.emit_literal(lit)?,
 
-            Expr::Var(name) => write!(self.output, "{}", name)?,
+            Expr::Var(name) => {
+                let safe_name = sanitize_ident(name)?;
+                write!(self.output, "{}", safe_name)?;
+            }
 
             Expr::Binop(op, lhs, rhs) => {
                 write!(self.output, "(")?;
@@ -280,7 +334,8 @@ impl CodeGenerator {
             }
 
             Expr::Call(name, args) => {
-                write!(self.output, "{}(", name)?;
+                let safe_name = sanitize_ident(name)?;
+                write!(self.output, "{}(", safe_name)?;
                 for (i, arg) in args.iter().enumerate() {
                     if i > 0 {
                         write!(self.output, ", ")?;
@@ -298,8 +353,9 @@ impl CodeGenerator {
             }
 
             Expr::Field(obj, field) => {
+                let safe_field = sanitize_ident(field)?;
                 self.emit_expr(obj)?;
-                write!(self.output, ".{}", field)?;
+                write!(self.output, ".{}", safe_field)?;
             }
 
             Expr::Cmov(cond, then_val, else_val) => {
@@ -324,12 +380,14 @@ impl CodeGenerator {
             }
 
             Expr::Struct(name, fields) => {
-                write!(self.output, "{} {{", name)?;
+                let safe_name = sanitize_ident(name)?;
+                write!(self.output, "{} {{", safe_name)?;
                 for (i, (fname, fval)) in fields.iter().enumerate() {
+                    let safe_fname = sanitize_ident(fname)?;
                     if i > 0 {
                         write!(self.output, ",")?;
                     }
-                    write!(self.output, " {}: ", fname)?;
+                    write!(self.output, " {}: ", safe_fname)?;
                     self.emit_expr(fval)?;
                 }
                 write!(self.output, " }}")?;

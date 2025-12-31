@@ -410,11 +410,18 @@ and check_stmt state env stmt =
   | SAssign (lhs, rhs) ->
     let lhs_at = check_expr state env lhs in
     let rhs_at = check_expr state env rhs in
+    (* Check type compatibility *)
     if not (types_equal lhs_at.typ rhs_at.typ) then
       report state.diags (type_mismatch
         ~expected:(type_to_string lhs_at.typ)
         ~found:(type_to_string rhs_at.typ)
-        rhs.expr_loc)
+        rhs.expr_loc);
+    (* CRITICAL: Check security label - cannot assign high to low (information leak) *)
+    if not (security_leq rhs_at.security lhs_at.security) then
+      report state.diags (information_leak
+        ~from_label:(security_to_string rhs_at.security)
+        ~to_label:(security_to_string lhs_at.security)
+        stmt.stmt_loc)
 
   | SOramWrite (arr, idx, value) ->
     let arr_at = check_expr state env arr in

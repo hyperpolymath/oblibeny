@@ -7,7 +7,20 @@
 
 use super::OramBlock;
 use crate::constant_time::{ct_lookup, ct_store};
-use subtle::{Choice, ConditionallySelectable};
+use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
+
+/// Constant-time equality check for u64
+/// Returns 0xFF if equal, 0x00 otherwise
+#[inline]
+fn ct_eq_u64(a: u64, b: u64) -> u8 {
+    // XOR gives 0 if equal, use subtle's ct_eq for the comparison
+    let diff = a ^ b;
+    // Check if all bits are zero in constant time
+    let is_zero = diff | diff.wrapping_neg();
+    let high_bit = (is_zero >> 63) as u8;
+    // If diff was 0, high_bit is 0, so we return 1; else return 0
+    high_bit ^ 1
+}
 
 /// Number of blocks per bucket (Z parameter in Path ORAM)
 pub const BUCKET_SIZE: usize = 4;
@@ -86,26 +99,35 @@ impl<T: OramBlock> Bucket<T> {
 
     /// Read and remove entry with given address (constant-time)
     ///
+    /// This operation is constant-time: it always accesses all entries
+    /// and uses conditional selection to hide which entry matched.
+    ///
     /// Returns the data if found, None otherwise.
     /// The entry is marked as empty.
     pub fn read_and_remove(&mut self, addr: u64) -> Option<T>
     where
         T: ConditionallySelectable + Clone,
     {
-        let mut found = false;
         let mut result = T::default();
+        let mut found_mask = 0u8;
 
+        // Process ALL entries to maintain constant-time behavior
         for entry in &mut self.entries {
-            let matches = entry.addr == addr;
-            if matches {
-                found = true;
-                result = entry.data.clone();
-                entry.addr = u64::MAX;
-                entry.data = T::default();
-            }
+            // Constant-time comparison using XOR and OR reduction
+            let addr_match = ct_eq_u64(entry.addr, addr);
+            let choice = Choice::from(addr_match);
+
+            // Conditionally select result (only updates if match)
+            result.conditional_assign(&entry.data, choice);
+            found_mask |= addr_match;
+
+            // Conditionally clear entry
+            let empty_addr = u64::conditional_select(&entry.addr, &u64::MAX, choice);
+            entry.addr = empty_addr;
+            entry.data.conditional_assign(&T::default(), choice);
         }
 
-        if found {
+        if found_mask != 0 {
             Some(result)
         } else {
             None
@@ -113,16 +135,29 @@ impl<T: OramBlock> Bucket<T> {
     }
 
     /// Read entry with given address without removing (constant-time)
+    ///
+    /// This operation is constant-time: it always accesses all entries
+    /// and uses conditional selection to hide which entry matched.
     pub fn read(&self, addr: u64) -> Option<T>
     where
         T: ConditionallySelectable + Clone,
     {
+        let mut result = T::default();
+        let mut found_mask = 0u8;
+
+        // Process ALL entries to maintain constant-time behavior
         for entry in &self.entries {
-            if entry.addr == addr {
-                return Some(entry.data.clone());
-            }
+            let addr_match = ct_eq_u64(entry.addr, addr);
+            let choice = Choice::from(addr_match);
+            result.conditional_assign(&entry.data, choice);
+            found_mask |= addr_match;
         }
-        None
+
+        if found_mask != 0 {
+            Some(result)
+        } else {
+            None
+        }
     }
 
     /// Get entries as slice
