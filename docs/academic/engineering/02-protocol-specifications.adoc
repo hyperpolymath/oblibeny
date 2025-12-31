@@ -1,0 +1,574 @@
+// SPDX-License-Identifier: MIT OR Palimpsest-0.8
+// Copyright (c) 2024 Hyperpolymath
+
+= Protocol Specifications for Oblivious Systems
+:author: Oblibeny Project
+:revdate: 2024
+:toc: left
+:toclevels: 4
+:sectnums:
+:stem: latexmath
+:source-highlighter: rouge
+
+== Abstract
+
+This document specifies communication protocols for the Oblibeny ecosystem,
+including client-server ORAM protocols, filesystem interfaces, and
+inter-component messaging.
+
+== Path ORAM Protocol
+
+=== Protocol Overview
+
+.Participants
+* **Client (C):** Trusted party with limited storage
+* **Server (S):** Untrusted storage with large capacity
+
+.Security Goals
+* **Confidentiality:** Server learns nothing about data
+* **Obliviousness:** Server learns nothing about access patterns
+
+=== Message Formats
+
+==== Access Request
+
+.Structure
+[source]
+----
+AccessRequest {
+    request_id: u64,           // Unique identifier
+    operation: enum { Read, Write },
+    logical_addr: u64,         // Block ID (encrypted)
+    data: Option<[u8; BLOCK_SIZE]>,  // For writes
+    mac: [u8; 16],             // Authentication
+}
+----
+
+==== Path Read Request
+
+.Structure
+[source]
+----
+PathReadRequest {
+    request_id: u64,
+    leaf_id: u64,              // Target leaf (looks random to server)
+}
+----
+
+==== Path Read Response
+
+.Structure
+[source]
+----
+PathReadResponse {
+    request_id: u64,
+    buckets: Vec<Bucket>,      // L+1 buckets on path
+    merkle_siblings: Vec<[u8; 32]>,  // For verification
+}
+----
+
+==== Path Write Request
+
+.Structure
+[source]
+----
+PathWriteRequest {
+    request_id: u64,
+    leaf_id: u64,
+    buckets: Vec<Bucket>,      // Updated buckets
+    new_root: [u8; 32],        // New Merkle root
+}
+----
+
+=== Protocol State Machine
+
+.Client State Machine
+[source]
+----
+           ┌──────────────────────────────────────┐
+           │                                      │
+           v                                      │
+┌──────────────────┐                              │
+│      IDLE        │                              │
+└────────┬─────────┘                              │
+         │ AccessRequest                          │
+         v                                        │
+┌──────────────────┐                              │
+│  FETCH_POSITION  │──────────────────────────────┤
+└────────┬─────────┘  (recursive ORAM access)     │
+         │                                        │
+         v                                        │
+┌──────────────────┐                              │
+│   SEND_PATH_REQ  │                              │
+└────────┬─────────┘                              │
+         │ PathReadRequest                        │
+         v                                        │
+┌──────────────────┐                              │
+│   AWAIT_PATH     │                              │
+└────────┬─────────┘                              │
+         │ PathReadResponse                       │
+         v                                        │
+┌──────────────────┐                              │
+│  PROCESS_PATH    │ (decrypt, update stash)      │
+└────────┬─────────┘                              │
+         │                                        │
+         v                                        │
+┌──────────────────┐                              │
+│   EVICT_STASH    │ (select blocks for path)     │
+└────────┬─────────┘                              │
+         │                                        │
+         v                                        │
+┌──────────────────┐                              │
+│  SEND_PATH_WRITE │                              │
+└────────┬─────────┘                              │
+         │ PathWriteRequest                       │
+         v                                        │
+┌──────────────────┐                              │
+│   AWAIT_ACK      │                              │
+└────────┬─────────┘                              │
+         │ WriteAck                               │
+         └────────────────────────────────────────┘
+----
+
+=== Cryptographic Operations
+
+==== Block Encryption
+
+.Encrypt Block
+[source]
+----
+function EncryptBlock(block_id, data, key):
+    nonce = block_id || access_counter[block_id]
+    ciphertext = AES-256-GCM.Encrypt(key, nonce, data)
+    access_counter[block_id]++
+    return ciphertext
+----
+
+==== Merkle Tree Update
+
+.Update Path
+[source]
+----
+function UpdateMerkleTree(path, new_buckets):
+    for i = L downto 0:
+        left = (i == L) ? Hash(new_buckets[i]) : children[2i]
+        right = (i == L) ? Hash(sibling[i]) : children[2i+1]
+        new_hash[i] = Hash(left || right)
+    return new_hash[0]  // New root
+----
+
+=== Protocol Invariants
+
+.I1: Position Map Consistency
+[stem]
+++++
+\forall b. \text{block } b \text{ is on Path}(\text{pos}[b]) \cup \text{Stash}
+++++
+
+.I2: Bucket Capacity
+[stem]
+++++
+\forall n \in \text{Tree}. |\text{Bucket}[n]| \leq Z
+++++
+
+.I3: Merkle Root Integrity
+[stem]
+++++
+\text{Root} = \text{Hash}(\text{entire tree})
+++++
+
+=== Error Handling
+
+.Error Codes
+[cols="1,1,2"]
+|===
+| Code | Name | Recovery
+
+| E001
+| MERKLE_VERIFY_FAIL
+| Abort, report tampering
+
+| E002
+| STASH_OVERFLOW
+| Increase stash, retry
+
+| E003
+| TIMEOUT
+| Retry with backoff
+
+| E004
+| INVALID_LEAF
+| Protocol error, abort
+|===
+
+== Oblivious Filesystem Protocol (obli-fs)
+
+=== POSIX-Compatible Interface
+
+.Supported Operations
+[cols="1,2,2"]
+|===
+| Operation | POSIX Call | Oblivious Implementation
+
+| Read
+| read(fd, buf, count)
+| ORAM read for each block
+
+| Write
+| write(fd, buf, count)
+| ORAM write for each block
+
+| Open
+| open(path, flags)
+| Oblivious path traversal
+
+| Stat
+| stat(path, buf)
+| Oblivious metadata lookup
+
+| Readdir
+| readdir(dir)
+| Oblivious directory scan
+|===
+
+=== Inode Structure
+
+.Oblivious Inode
+[source]
+----
+struct OblInode {
+    inode_number: u64,
+    mode: u16,
+    uid: u32,
+    gid: u32,
+    size: u64,
+    atime: u64,
+    mtime: u64,
+    ctime: u64,
+    block_pointers: [u64; 12],      // Direct blocks
+    indirect_pointer: u64,           // Single indirect
+    double_indirect: u64,            // Double indirect
+    triple_indirect: u64,            // Triple indirect
+    // Padding to block size
+}
+----
+
+=== Path Resolution
+
+.Oblivious Path Lookup
+[source]
+----
+function ResolvePath(path):
+    components = path.split('/')
+    current_inode = ROOT_INODE
+
+    for component in components:
+        // Read directory (obliviously)
+        dir_data = ORAM.read(current_inode.block_pointers)
+
+        // Oblivious search (scan all entries)
+        found = false
+        for entry in dir_data:
+            match = constantTimeEquals(entry.name, component)
+            current_inode = select(match, entry.inode, current_inode)
+            found = found | match
+
+        // Always perform same number of reads (padding)
+        for i in range(MAX_DIR_ENTRIES - len(dir_data)):
+            ORAM.read(DUMMY_BLOCK)
+
+    return current_inode
+----
+
+=== Metadata Encryption
+
+.Encrypted Metadata Block
+[source]
+----
+struct EncryptedMetadata {
+    nonce: [u8; 12],
+    ciphertext: [u8; METADATA_SIZE],  // Encrypted inode
+    tag: [u8; 16],                    // GCM tag
+}
+----
+
+== Inter-Component Protocol
+
+=== Transpiler ↔ Runtime
+
+.Compilation Request
+[source]
+----
+message CompileRequest {
+    source_code: bytes,
+    target: enum { ORAM, Circuit, Native },
+    options: CompileOptions,
+}
+
+message CompileResponse {
+    success: bool,
+    bytecode: bytes,
+    access_pattern_analysis: AccessPatternInfo,
+    warnings: Vec<Warning>,
+}
+----
+
+=== Runtime ↔ ORAM Backend
+
+.ORAM Operation Message
+[source]
+----
+message ORAMOp {
+    op_id: u64,
+    op_type: enum { Read, Write, BatchRead, BatchWrite },
+    addresses: Vec<u64>,
+    data: Option<Vec<bytes>>,
+}
+
+message ORAMResult {
+    op_id: u64,
+    success: bool,
+    data: Vec<bytes>,
+    bandwidth_used: u64,
+}
+----
+
+== Batch ORAM Protocol
+
+=== Motivation
+
+Multiple accesses can share path reads, reducing bandwidth.
+
+=== Batch Access Protocol
+
+.Client
+[source]
+----
+function BatchAccess(ops: Vec<Operation>):
+    // Collect all required leaves
+    leaves = ops.map(op => pos[op.addr])
+
+    // Merge overlapping paths
+    unique_paths = deduplicate_paths(leaves)
+
+    // Single round of path reads
+    for path in unique_paths:
+        read_path(path)
+
+    // Process all operations locally
+    for op in ops:
+        process_in_stash(op)
+
+    // Eviction for all paths
+    for path in unique_paths:
+        evict_and_write(path)
+----
+
+=== Complexity Improvement
+
+[stem]
+++++
+\text{Bandwidth}_{batch}(k) = O(k \cdot L) \text{ vs } O(k \cdot L) \text{ individual}
+++++
+
+With path merging:
+[stem]
+++++
+\text{Bandwidth}_{merged}(k) \leq O(k \cdot L / \text{merge factor})
+++++
+
+== Write-Only ORAM Protocol
+
+=== Motivation
+
+For append-only logs, full ORAM is overkill.
+
+=== Write-Only Protocol
+
+.Client
+[source]
+----
+function ObliviousWrite(addr, data):
+    // Random position for new block
+    leaf = random_leaf()
+    pos[addr] = leaf
+
+    // Encrypt and send
+    ciphertext = Encrypt(data)
+    server.write(leaf, ciphertext)
+
+    // Periodic shuffling (background)
+    if should_shuffle():
+        shuffle_subtree(random_subtree())
+----
+
+=== Security
+
+Writes are unlinkable due to random positioning and encryption.
+
+== Concurrent ORAM Protocol
+
+=== Multi-Client Model
+
+Multiple clients accessing shared ORAM with mutual distrust.
+
+=== Locking Protocol
+
+.Optimistic Concurrency
+[source]
+----
+function ConcurrentAccess(op):
+    version = read_version(op.addr)
+    path = read_path_optimistic(pos[op.addr])
+
+    result = process_locally(path, op)
+
+    // Try to commit
+    if commit(op.addr, version, new_path):
+        return result
+    else:
+        // Conflict: retry
+        return ConcurrentAccess(op)
+----
+
+=== Conflict Resolution
+
+.Version Vector
+[source]
+----
+struct VersionVector {
+    client_id: u64,
+    version: u64,
+    timestamp: u64,
+}
+
+function ResolveConflict(v1, v2):
+    if v1.timestamp > v2.timestamp:
+        return v1
+    else:
+        return v2
+----
+
+== Network Layer
+
+=== Transport Security
+
+.TLS 1.3 Configuration
+[source]
+----
+cipher_suites:
+  - TLS_AES_256_GCM_SHA384
+  - TLS_CHACHA20_POLY1305_SHA256
+key_exchange:
+  - X25519
+signature:
+  - Ed25519
+----
+
+=== Traffic Analysis Resistance
+
+.Constant-Rate Padding
+[source]
+----
+function SendWithPadding(message):
+    padded = pad_to_fixed_size(message, MAX_MESSAGE_SIZE)
+
+    // Add dummy messages to maintain constant rate
+    while not_time_for_real_message():
+        send(generate_dummy())
+
+    send(padded)
+----
+
+=== Bandwidth Overhead
+
+[cols="1,1,1"]
+|===
+| Component | Overhead | Notes
+
+| TLS
+| +5-10%
+| Handshake + record overhead
+
+| Padding
+| Variable
+| Up to 100% for sparse traffic
+
+| Merkle proofs
+| +O(L·32 bytes)
+| Per access
+|===
+
+== Performance Metrics
+
+=== Latency Breakdown
+
+.Single Access (1KB block, N=2^30)
+[cols="1,1"]
+|===
+| Phase | Latency
+
+| Network RTT
+| 20 ms
+
+| Path read (31 buckets × 4 blocks × 1KB)
+| 5 ms
+
+| Client processing
+| 1 ms
+
+| Path write
+| 5 ms
+
+| **Total**
+| **31 ms**
+|===
+
+=== Throughput
+
+[stem]
+++++
+\text{Throughput} = \frac{1}{T_{\text{access}}} = \frac{1}{31 \text{ ms}} \approx 32 \text{ ops/sec (sequential)}
+++++
+
+With pipelining and batching: 1000+ ops/sec achievable.
+
+== Protocol Versioning
+
+=== Version Negotiation
+
+.Handshake
+[source]
+----
+Client → Server: ClientHello { versions: [3, 2, 1], capabilities: [...] }
+Server → Client: ServerHello { version: 3, selected_capabilities: [...] }
+----
+
+=== Backward Compatibility
+
+Each major version must support reading from previous version.
+
+== Conclusion
+
+The protocol specifications enable:
+
+1. **Secure client-server communication** for ORAM
+2. **POSIX-compatible filesystem interface**
+3. **Efficient batching** for multiple accesses
+4. **Concurrent access** for multi-client scenarios
+5. **Network-level security** against traffic analysis
+
+== References
+
+1. Stefanov, E. et al. (2013). "Path ORAM Protocol."
+2. Bindschaedler, V. et al. (2015). "Oblivious Storage."
+3. Sahin, C. et al. (2016). "TaoStore: Overcoming Asynchronicity in ORAM."
+4. Dauterman, E. et al. (2020). "Practical ORAM Protocols."
+
+== TODO
+
+// TODO: Add formal protocol verification in ProVerif
+// TODO: Specify multi-party computation integration
+// TODO: Add protocol for distributed ORAM
+// TODO: Develop streaming access protocol
+// TODO: Add recovery protocol for crashes

@@ -1,0 +1,458 @@
+// SPDX-License-Identifier: MIT OR Palimpsest-0.8
+// Copyright (c) 2024 Hyperpolymath
+
+= Cryptographic Primitives and Their Security
+:author: Oblibeny Project
+:revdate: 2024
+:toc: left
+:toclevels: 4
+:sectnums:
+:stem: latexmath
+:source-highlighter: rouge
+
+== Abstract
+
+This document specifies the cryptographic primitives required for the Oblibeny
+ecosystem and provides security proofs under standard assumptions.
+
+== Symmetric Encryption
+
+=== Definition: Symmetric Encryption Scheme
+
+A symmetric encryption scheme stem:[\Pi = (\text{Gen}, \text{Enc}, \text{Dec})] consists of:
+
+* stem:[\text{Gen}(1^\lambda) \to k]: Key generation
+* stem:[\text{Enc}_k(m) \to c]: Encryption
+* stem:[\text{Dec}_k(c) \to m]: Decryption
+
+**Correctness:** stem:[\forall k \leftarrow \text{Gen}(1^\lambda), \forall m: \text{Dec}_k(\text{Enc}_k(m)) = m]
+
+=== Definition: IND-CPA Security
+
+For all PPT adversaries stem:[\mathcal{A}]:
+
+[stem]
+++++
+\text{Adv}^{\text{IND-CPA}}_{\Pi}(\mathcal{A}) = \left| \Pr[\text{Exp}^{\text{IND-CPA-1}}_\Pi(\mathcal{A}) = 1] - \Pr[\text{Exp}^{\text{IND-CPA-0}}_\Pi(\mathcal{A}) = 1] \right| \leq \text{negl}(\lambda)
+++++
+
+.Experiment stem:[\text{Exp}^{\text{IND-CPA-b}}_\Pi(\mathcal{A})]
+[source]
+----
+k ← Gen(1^λ)
+(m₀, m₁, state) ← A^{Enc_k(·)}(1^λ)     // A gets encryption oracle
+c* ← Enc_k(m_b)
+b' ← A^{Enc_k(·)}(c*, state)
+return b'
+----
+
+=== AES-256-GCM Specification
+
+**Parameters:**
+* Key size: 256 bits
+* Block size: 128 bits
+* Nonce size: 96 bits
+* Tag size: 128 bits
+
+**Security Claim:** AES-256-GCM is IND-CPA and INT-CTXT secure under the
+assumption that AES is a secure PRP.
+
+.Theorem: AES-GCM Security
+====
+AES-GCM achieves:
+[stem]
+++++
+\text{Adv}^{\text{IND-CPA}} \leq \frac{q^2}{2^{128}} + \text{Adv}^{\text{PRP}}_{\text{AES}}
+++++
+
+where stem:[q] is the number of encryption queries.
+====
+
+=== ChaCha20-Poly1305 Specification
+
+**Parameters:**
+* Key size: 256 bits
+* Nonce size: 96 bits
+* Tag size: 128 bits
+
+**Security:** Based on hardness of distinguishing ChaCha20 from random.
+
+== Pseudorandom Functions
+
+=== Definition: Pseudorandom Function (PRF)
+
+A keyed function family stem:[\{F_k : \{0,1\}^n \to \{0,1\}^m\}_{k \in \mathcal{K}}]
+is a PRF if:
+
+[stem]
+++++
+\left| \Pr_{k}[D^{F_k}(1^\lambda) = 1] - \Pr_{f \xleftarrow{\$} \text{Func}}[D^{f}(1^\lambda) = 1] \right| \leq \text{negl}(\lambda)
+++++
+
+for all PPT distinguishers stem:[D].
+
+=== Theorem: PRF from PRP
+
+If stem:[P] is a secure PRP on stem:[n] bits, then stem:[P] is also a secure PRF
+with advantage loss:
+
+[stem]
+++++
+\text{Adv}^{\text{PRF}} \leq \text{Adv}^{\text{PRP}} + \frac{q^2}{2^{n+1}}
+++++
+
+.Proof (PRP/PRF Switching Lemma)
+====
+The difference between a random permutation and random function is detectable
+only when a collision occurs in the outputs.
+
+For stem:[q] queries, collision probability is bounded by:
+[stem]
+++++
+\Pr[\text{collision}] \leq \binom{q}{2} \cdot \frac{1}{2^n} = \frac{q(q-1)}{2^{n+1}} \leq \frac{q^2}{2^{n+1}}
+++++
+∎
+====
+
+== Hash Functions
+
+=== Definition: Collision Resistance
+
+A hash function stem:[H : \{0,1\}^* \to \{0,1\}^n] is collision-resistant if:
+
+[stem]
+++++
+\Pr[\mathcal{A}(1^\lambda) \to (x, x') : x \neq x' \land H(x) = H(x')] \leq \text{negl}(\lambda)
+++++
+
+=== SHA-256 Specification
+
+**Output size:** 256 bits
+**Block size:** 512 bits
+**Security:** 128-bit collision resistance (birthday bound)
+
+=== BLAKE3 Specification
+
+**Output size:** Variable (default 256 bits)
+**Security:** Based on Bao tree hashing
+
+**Advantage for ORAM:** Parallelizable tree structure matches Path ORAM
+
+== Key Derivation
+
+=== HKDF (HMAC-based KDF)
+
+.HKDF-Extract
+[stem]
+++++
+\text{PRK} = \text{HMAC-Hash}(\text{salt}, \text{IKM})
+++++
+
+.HKDF-Expand
+[stem]
+++++
+\text{OKM} = \text{HMAC-Hash}(\text{PRK}, \text{info} \| 0x01) \| \text{HMAC-Hash}(\text{PRK}, T_1 \| \text{info} \| 0x02) \| \cdots
+++++
+
+=== Theorem: HKDF Security
+
+If HMAC is a secure PRF, then HKDF is a secure KDF in the random oracle model.
+
+== Commitment Schemes
+
+=== Definition: Commitment Scheme
+
+A commitment scheme stem:[(\text{Commit}, \text{Open})] has:
+
+* **Hiding:** stem:[\text{Commit}(m; r)] reveals nothing about stem:[m]
+* **Binding:** Cannot open to different message
+
+=== Pedersen Commitment
+
+For group stem:[\mathbb{G}] with generators stem:[g, h] (discrete log between unknown):
+
+[stem]
+++++
+\text{Commit}(m; r) = g^m h^r
+++++
+
+.Theorem: Pedersen Security
+====
+* **Perfectly hiding:** stem:[g^m h^r] is uniform for random stem:[r]
+* **Computationally binding:** Opening to two values implies solving DL
+====
+
+=== Application: Position Map Commitment
+
+Commit to position map to enable verification:
+[stem]
+++++
+C = \text{Commit}(\text{pos}; r)
+++++
+
+Server cannot learn positions; client cannot change them dishonestly.
+
+== Zero-Knowledge Proofs
+
+=== Definition: Zero-Knowledge Proof System
+
+A proof system stem:[(P, V)] for language stem:[L] is zero-knowledge if:
+
+1. **Completeness:** stem:[x \in L \Rightarrow \Pr[V \text{ accepts}] = 1]
+2. **Soundness:** stem:[x \notin L \Rightarrow \Pr[V \text{ accepts}] \leq \text{negl}(\lambda)]
+3. **Zero-knowledge:** stem:[\exists] simulator stem:[\mathcal{S}] s.t. stem:[\text{View}_V(P, x, w) \approx \mathcal{S}(x)]
+
+=== Schnorr Protocol
+
+For proving knowledge of discrete log stem:[w] where stem:[h = g^w]:
+
+.Protocol
+[source]
+----
+Prover                              Verifier
+------                              --------
+r ← Z_q
+R = g^r            ─────R─────>
+                   <────c─────      c ← Z_q
+s = r + cw         ─────s─────>
+                                    check: g^s = R · h^c
+----
+
+=== Theorem: Schnorr is HVZK
+
+Schnorr protocol is honest-verifier zero-knowledge.
+
+.Proof
+====
+**Simulator:** On input stem:[h]:
+1. Pick random stem:[s, c \xleftarrow{\$} \mathbb{Z}_q]
+2. Compute stem:[R = g^s / h^c]
+3. Output transcript stem:[(R, c, s)]
+
+The simulated transcript has identical distribution to real transcript
+when verifier is honest (chooses stem:[c] uniformly). ∎
+====
+
+=== Application: Proof of Correct ORAM Access
+
+Prove that an ORAM access was performed correctly without revealing the operation:
+
+[stem]
+++++
+\text{ZK-Prove}\{(op, \text{addr}, \text{data}): \text{Access}(op, \text{addr}, \text{data}) = c\}
+++++
+
+== Merkle Trees
+
+=== Definition: Merkle Tree
+
+A Merkle tree over data stem:[D = (d_1, \ldots, d_n)] is:
+
+[stem]
+++++
+\text{Root} = H(\text{Node}_L \| \text{Node}_R)
+++++
+
+recursively, with leaves stem:[\text{Leaf}_i = H(d_i)].
+
+=== Membership Proof
+
+To prove stem:[d_i \in D]:
+* Provide sibling hashes on path to root
+* Verifier recomputes root
+
+=== Theorem: Merkle Tree Security
+
+If stem:[H] is collision-resistant, then Merkle proofs are unforgeable.
+
+.Proof
+====
+To create a false proof, adversary must either:
+1. Find stem:[d' \neq d_i] with same leaf hash (collision)
+2. Find internal collision on path to root
+
+Both require breaking collision resistance. ∎
+====
+
+=== Application: ORAM Integrity
+
+Store ORAM tree as Merkle tree:
+* Server cannot tamper with blocks
+* Client verifies integrity with stem:[O(\log N)] hashes
+
+== Authenticated Encryption
+
+=== Definition: AEAD (Authenticated Encryption with Associated Data)
+
+An AEAD scheme has:
+* stem:[\text{Enc}_k(n, a, m) \to c]: Nonce, associated data, message to ciphertext
+* stem:[\text{Dec}_k(n, a, c) \to m \text{ or } \bot]: Decrypt or reject
+
+**Security notions:**
+* IND-CPA: Ciphertext indistinguishability
+* INT-CTXT: Ciphertext integrity
+
+=== Theorem: AES-GCM is AEAD
+
+AES-GCM achieves both IND-CPA and INT-CTXT under PRP assumption for AES.
+
+== Oblivious Primitives
+
+=== Oblivious Comparison
+
+Compare stem:[a] and stem:[b] without revealing which is larger:
+
+.Oblivious Min/Max
+[source]
+----
+function OMin(a, b):
+    cmp = (a < b)  // computed obliviously via garbled circuit
+    return cmp * a + (1 - cmp) * b
+----
+
+=== Oblivious Sorting
+
+Sort array without revealing comparisons.
+
+.Theorem: Bitonic Sort is Oblivious
+====
+Bitonic sort has a fixed comparison pattern independent of input values.
+Time: stem:[O(n \log^2 n)] comparisons.
+====
+
+.Theorem: AKS Sorting Network
+====
+Optimal stem:[O(n \log n)] oblivious sorting exists (AKS network).
+Note: Large constants make this impractical; bitonic preferred.
+====
+
+=== Oblivious Shuffling
+
+.Fisher-Yates (Non-Oblivious)
+[source]
+----
+for i = n-1 downto 1:
+    j = random(0, i)
+    swap(arr[i], arr[j])  // reveals which positions swapped
+----
+
+.Oblivious Shuffle via Sorting
+[source]
+----
+for i = 0 to n-1:
+    key[i] = random()
+oblivious_sort(arr, key)  // sort by random keys
+----
+
+=== Theorem: Oblivious Shuffle Security
+
+Oblivious shuffling produces a uniformly random permutation indistinguishable
+from any other permutation.
+
+.Proof
+====
+1. Random keys are assigned independently
+2. Oblivious sort does not reveal comparison results
+3. Final permutation depends only on relative key order
+4. Keys are uniform stem:[\Rightarrow] permutation is uniform ∎
+====
+
+== Assumptions
+
+=== Standard Assumptions Used
+
+[cols="1,2"]
+|===
+| Assumption | Description
+
+| DDH
+| Decisional Diffie-Hellman: stem:[(g, g^a, g^b, g^{ab}) \approx_c (g, g^a, g^b, g^c)]
+
+| CDH
+| Computational DH: Given stem:[(g, g^a, g^b)], hard to compute stem:[g^{ab}]
+
+| DL
+| Discrete Log: Given stem:[(g, g^a)], hard to compute stem:[a]
+
+| RSA
+| Given stem:[(N, e, y)], hard to compute stem:[x] s.t. stem:[x^e = y \mod N]
+
+| LWE
+| Learning With Errors: Noisy linear equations over stem:[\mathbb{Z}_q]
+
+| AES-PRP
+| AES is indistinguishable from random permutation
+|===
+
+=== Assumption Relationships
+
+[stem]
+++++
+\text{DL} \Leftarrow \text{CDH} \Leftarrow \text{DDH}
+++++
+
+DDH is the strongest (most useful, most likely to be false).
+
+== Concrete Security
+
+=== Security Levels
+
+[cols="1,1,1"]
+|===
+| Level | Symmetric | Asymmetric
+
+| 128-bit | AES-128 | 3072-bit RSA, P-256
+| 192-bit | AES-192 | 7680-bit RSA, P-384
+| 256-bit | AES-256 | 15360-bit RSA, P-521
+|===
+
+=== ORAM Block Encryption
+
+For Path ORAM with stem:[N = 2^{30}] blocks:
+* Use AES-256-GCM
+* Nonce: Concatenate (block ID, access counter)
+* Security: 128-bit post-quantum hybrid recommended
+
+== Post-Quantum Considerations
+
+=== Threat Model
+
+Quantum computers threaten:
+* RSA, DH, ECDH (Shor's algorithm)
+* Symmetric key search (Grover's algorithm, halves security)
+
+=== Post-Quantum ORAM
+
+For quantum resistance:
+* Double symmetric key sizes (256-bit minimum)
+* Use lattice-based encryption (Kyber) for key exchange
+* Hash-based signatures (SPHINCS+) for authentication
+
+=== Theorem: ORAM Security in Quantum Random Oracle Model
+
+Path ORAM remains secure in the QROM if:
+1. Encryption is post-quantum IND-CPA
+2. Hash function is collapsing
+
+== Conclusion
+
+The cryptographic primitives specified provide:
+
+1. **Confidentiality**: IND-CPA encryption hides block contents
+2. **Integrity**: Merkle trees prevent tampering
+3. **Obliviousness**: Fixed access patterns hide operations
+4. **Efficiency**: Practical for filesystem-scale deployment
+
+== References
+
+1. Katz, J. & Lindell, Y. (2020). "Introduction to Modern Cryptography." CRC Press.
+2. Boneh, D. & Shoup, V. (2023). "A Graduate Course in Applied Cryptography."
+3. NIST (2023). "Post-Quantum Cryptography Standardization."
+
+== TODO
+
+// TODO: Add proofs for OPRF (Oblivious PRF) used in private set intersection
+// TODO: Formalize garbled circuit security for oblivious comparison
+// TODO: Add threshold cryptography for distributed ORAM
+// TODO: Specify homomorphic encryption integration
+// TODO: Add verifiable delay functions for time-based security

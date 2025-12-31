@@ -1,0 +1,609 @@
+// SPDX-License-Identifier: MIT OR Palimpsest-0.8
+// Copyright (c) 2024 Hyperpolymath
+
+= Program Analysis and Abstract Interpretation
+:author: Oblibeny Project
+:revdate: 2024
+:toc: left
+:toclevels: 4
+:sectnums:
+:stem: latexmath
+:source-highlighter: rouge
+
+== Abstract
+
+This document presents program analysis techniques for oblivious computing,
+including abstract interpretation for access pattern analysis, taint tracking
+for information flow, and static analysis for security verification.
+
+== Abstract Interpretation Framework
+
+=== Concrete Semantics
+
+The *concrete semantics* stem:[\llbracket P \rrbracket : \mathcal{P}(\Sigma) \to \mathcal{P}(\Sigma)]
+maps sets of states to sets of states.
+
+=== Abstract Domain
+
+An *abstract domain* is a complete lattice stem:[(A, \sqsubseteq, \sqcup, \sqcap, \top, \bot)]
+with abstraction and concretization:
+
+[stem]
+++++
+\alpha : \mathcal{P}(\Sigma) \to A \qquad \gamma : A \to \mathcal{P}(\Sigma)
+++++
+
+=== Galois Connection
+
+stem:[(\alpha, \gamma)] form a Galois connection if:
+[stem]
+++++
+\alpha(C) \sqsubseteq A \Leftrightarrow C \subseteq \gamma(A)
+++++
+
+=== Abstract Semantics
+
+The *abstract semantics* stem:[\llbracket P \rrbracket^\# : A \to A] safely approximates:
+[stem]
+++++
+\alpha(\llbracket P \rrbracket(C)) \sqsubseteq \llbracket P \rrbracket^\#(\alpha(C))
+++++
+
+=== Theorem: Soundness
+
+If abstract semantics is sound, then:
+[stem]
+++++
+\llbracket P \rrbracket(C) \subseteq \gamma(\llbracket P \rrbracket^\#(\alpha(C)))
+++++
+
+== Access Pattern Analysis
+
+=== Concrete Access Patterns
+
+.Concrete Domain
+[stem]
+++++
+\mathcal{C} = \mathcal{P}(\text{Address Sequences})
+++++
+
+=== Abstract Access Pattern Domain
+
+.Abstract Domain
+[source]
+----
+AccessPattern :=
+    | Constant(addr)          // Always same address
+    | DataDependent(var)      // Depends on variable
+    | Uniform(range)          // Uniformly distributed
+    | Unknown                 // Cannot determine
+----
+
+.Lattice Order
+[source]
+----
+⊥ ⊑ Constant ⊑ Uniform ⊑ Unknown = ⊤
+⊥ ⊑ DataDependent ⊑ Unknown = ⊤
+----
+
+=== Transfer Functions
+
+.Array Access
+[source]
+----
+analyze(arr[i]):
+    if is_constant(i):
+        return Constant(arr_base + i)
+    elif is_secret(i):
+        return DataDependent(i)
+    else:
+        return Unknown
+----
+
+.ORAM Access
+[source]
+----
+analyze(oread(arr, i)):
+    return Uniform(leaves)  // ORAM makes it uniform
+----
+
+=== Obliviousness Checker
+
+.Verification
+[source]
+----
+function CheckOblivious(program):
+    for access in CollectAccesses(program):
+        pattern = analyze(access)
+        if pattern == DataDependent(secret_var):
+            report_vulnerability(access, secret_var)
+    return no_vulnerabilities
+----
+
+== Information Flow Analysis
+
+=== Security Lattice
+
+[stem]
+++++
+\text{Low} \sqsubseteq \text{High}
+++++
+
+* Low: Public data
+* High: Secret data
+
+=== Taint Propagation Rules
+
+.Assignment
+[stem]
+++++
+\frac{\Gamma \vdash e : \ell}{\Gamma \vdash x := e : \Gamma[x \mapsto \ell]}
+++++
+
+.Binary Operation
+[stem]
+++++
+\frac{\Gamma \vdash e_1 : \ell_1 \quad \Gamma \vdash e_2 : \ell_2}{\Gamma \vdash e_1 \oplus e_2 : \ell_1 \sqcup \ell_2}
+++++
+
+.Array Access
+[stem]
+++++
+\frac{\Gamma \vdash i : \ell_i \quad \Gamma \vdash arr : \ell_a}{\Gamma \vdash arr[i] : \ell_a \sqcup \ell_i}
+++++
+
+=== Implicit Flows
+
+.Conditional
+[stem]
+++++
+\frac{\Gamma \vdash c : \ell_c \quad \Gamma; \ell_c \vdash s_1 \quad \Gamma; \ell_c \vdash s_2}
+     {\Gamma \vdash \text{if } c \text{ then } s_1 \text{ else } s_2}
+++++
+
+In branches, the program counter is tainted with stem:[\ell_c].
+
+=== Access Pattern Taint
+
+.Memory Access Leak
+[source]
+----
+if (secret) {
+    x = arr[0];  // Access to arr[0] leaks secret!
+} else {
+    x = arr[1];  // Access to arr[1] leaks secret!
+}
+----
+
+Analysis detects: Access pattern depends on `secret`.
+
+== Data Flow Analysis
+
+=== Reaching Definitions
+
+.Domain
+[stem]
+++++
+D = \mathcal{P}(\text{Definitions})
+++++
+
+.Transfer Functions
+[stem]
+++++
+\text{out}[n] = \text{gen}[n] \cup (\text{in}[n] - \text{kill}[n])
+++++
+
+.Application
+Identify which secret definitions reach memory accesses.
+
+=== Live Variable Analysis
+
+.Backward Analysis
+[stem]
+++++
+\text{in}[n] = \text{use}[n] \cup (\text{out}[n] - \text{def}[n])
+++++
+
+.Application
+Ensure secret variables are zeroized when dead.
+
+=== Constant Propagation
+
+.Domain
+[source]
+----
+Value := Constant(c) | Unknown | Undefined
+----
+
+.Application
+Determine if array indices are constant (safe) or variable (potential leak).
+
+== Pointer Analysis
+
+=== Points-To Analysis
+
+.Abstract Location
+[source]
+----
+AbstractLoc := Variable(v) | Alloc(site) | Unknown
+----
+
+.Points-To Set
+[stem]
+++++
+\text{pts}(p) = \{l : p \text{ may point to } l\}
+++++
+
+=== Andersen's Analysis (Flow-Insensitive)
+
+.Constraints
+[source]
+----
+p = &x     -->  x ∈ pts(p)
+p = q      -->  pts(q) ⊆ pts(p)
+p = *q     -->  ∀l ∈ pts(q): pts(l) ⊆ pts(p)
+*p = q     -->  ∀l ∈ pts(p): pts(q) ⊆ pts(l)
+----
+
+=== Application: Memory Access Analysis
+
+[source]
+----
+secret_ptr = &secret_data;
+// ... complex control flow ...
+x = arr[*secret_ptr];  // Leak! Index depends on secret
+----
+
+Points-to analysis reveals `*secret_ptr` aliases `secret_data`.
+
+== Symbolic Execution
+
+=== Symbolic State
+
+[stem]
+++++
+(\text{pc}, \sigma, \pi)
+++++
+
+* pc: Program counter
+* stem:[\sigma]: Symbolic store (variables → symbolic expressions)
+* stem:[\pi]: Path condition
+
+=== Execution Rules
+
+.Assignment
+[source]
+----
+(l: x := e, σ, π)  -->  (next(l), σ[x ↦ σ(e)], π)
+----
+
+.Conditional
+[source]
+----
+(l: if c then s₁ else s₂, σ, π)
+    --> (s₁, σ, π ∧ σ(c))    // true branch
+    --> (s₂, σ, π ∧ ¬σ(c))   // false branch
+----
+
+=== Access Pattern Symbolic Analysis
+
+For each path:
+[source]
+----
+collect { (access_addr, path_condition) }
+----
+
+**Obliviousness check:**
+[source]
+----
+∀ path₁, path₂:
+    (addr₁, π₁), (addr₂, π₂) ∈ path_accesses
+    π₁ ∧ π₂ is SAT  -->  addr₁ = addr₂
+----
+
+If accesses differ on feasible paths, potential leak.
+
+== Type-Based Analysis
+
+=== Security Type System
+
+.Types
+[source]
+----
+τ ::= int | bool | τ₁ → τ₂ | array[τ]
+σ ::= τ^ℓ  where ℓ ∈ {L, H}
+----
+
+=== Type Rules
+
+.Secret Array Index
+[stem]
+++++
+\frac{\Gamma \vdash arr : \text{array}[\tau]^{L} \quad \Gamma \vdash i : \text{int}^H}
+     {\Gamma \vdash arr[i] : \text{LEAK}}
+++++
+
+.Oblivious Array Access
+[stem]
+++++
+\frac{\Gamma \vdash arr : \text{oarray}[\tau] \quad \Gamma \vdash i : \text{int}^H}
+     {\Gamma \vdash \text{oread}(arr, i) : \tau^H}
+++++
+
+Using `oarray` (oblivious array) type is safe.
+
+=== Type Inference
+
+.Constraint Generation
+[source]
+----
+x := secret_input      --> τ(x) = int^H
+y := x + 1             --> τ(y) = τ(x) = int^H
+z := arr[y]            --> CONSTRAINT: τ(y) ⊑ L  [violated!]
+----
+
+Inference detects the violation.
+
+== Model Checking
+
+=== State Space
+
+.ORAM State
+[source]
+----
+State := (Tree, Stash, PosMap, AccessCounter)
+----
+
+.Transitions
+[source]
+----
+s --op--> s'  where s' = ORAMAccess(s, op)
+----
+
+=== Property Specification
+
+.Safety: Stash Bound
+[source]
+----
+AG(|Stash| < STASH_MAX)
+----
+
+.Security: Pattern Uniformity
+[source]
+----
+∀ op₁, op₂: P(Pattern | op₁) = P(Pattern | op₂)
+----
+
+=== CEGAR (Counterexample-Guided Abstraction Refinement)
+
+.Algorithm
+[source]
+----
+abstraction = initial_abstraction()
+while True:
+    result = model_check(abstraction, property)
+    if result == True:
+        return VERIFIED
+    elif is_spurious(result.counterexample):
+        abstraction = refine(abstraction, result.counterexample)
+    else:
+        return COUNTEREXAMPLE(result)
+----
+
+== Interprocedural Analysis
+
+=== Call Graph Construction
+
+.Class Hierarchy Analysis (CHA)
+[source]
+----
+Callees(call_site) = { m : type(receiver) ⊑ declaring_class(m) }
+----
+
+.Points-To Based
+[source]
+----
+Callees(o.m()) = { m : ∃ l ∈ pts(o), type(l) has method m }
+----
+
+=== Context Sensitivity
+
+.Call-Site Sensitivity (k-CFA)
+[source]
+----
+Context = [call_site₁, call_site₂, ..., call_siteₖ]
+----
+
+.Object Sensitivity
+[source]
+----
+Context = [alloc_site₁, alloc_site₂, ..., alloc_siteₖ]
+----
+
+=== Summary-Based Analysis
+
+.Function Summary
+[source]
+----
+Summary(f) = {
+    input_taints: {param₁ → H, param₂ → L},
+    output_taint: H,
+    access_pattern: DataDependent(param₁)
+}
+----
+
+== Numerical Abstract Domains
+
+=== Interval Domain
+
+[stem]
+++++
+\text{Int} = \{[a, b] : a \leq b\} \cup \{\bot\}
+++++
+
+.Transfer Functions
+[stem]
+++++
+[a, b] + [c, d] = [a+c, b+d]
+++++
+
+.Application: Array Bounds
+[source]
+----
+i ∈ [0, n-1]  -->  array access safe
+----
+
+=== Octagon Domain
+
+Constraints of form stem:[\pm x \pm y \leq c].
+
+.Application: Relational Access Bounds
+[source]
+----
+i - j ≤ 1    // Indices differ by at most 1
+i + j ≤ n    // Sum bounded
+----
+
+=== Polyhedra Domain
+
+General linear constraints stem:[\sum a_i x_i \leq c].
+
+.Application: Complex Access Patterns
+[source]
+----
+2i + 3j ≤ n
+i ≥ 0
+j ≥ 0
+----
+
+== Analysis Algorithms
+
+=== Worklist Algorithm
+
+.Generic Fixpoint Computation
+[source]
+----
+function Analyze(cfg):
+    worklist = entry_nodes(cfg)
+    state = { n ↦ ⊥ for n in cfg }
+
+    while worklist not empty:
+        n = worklist.pop()
+        new_state = transfer(n, state[predecessors(n)])
+        if new_state ⊐ state[n]:
+            state[n] = new_state
+            worklist.add(successors(n))
+
+    return state
+----
+
+=== Widening
+
+To ensure termination on infinite domains:
+[stem]
+++++
+x \nabla y = \begin{cases}
+x & \text{if } y \sqsubseteq x \\
+\text{extrapolate}(x, y) & \text{otherwise}
+\end{cases}
+++++
+
+.Interval Widening
+[stem]
+++++
+[a, b] \nabla [c, d] = [\text{if } c < a \text{ then } -\infty \text{ else } a, \text{if } d > b \text{ then } +\infty \text{ else } b]
+++++
+
+=== Narrowing
+
+Improve precision after fixpoint:
+[stem]
+++++
+x \triangle y = \text{if } x = \top \text{ then } y \text{ else } x \sqcap y
+++++
+
+== Tool Implementation
+
+=== Obliviousness Analyzer Architecture
+
+.Components
+[source]
+----
+┌─────────────────────────────────────────────┐
+│              Source Code                    │
+└─────────────────┬───────────────────────────┘
+                  │
+                  v
+┌─────────────────────────────────────────────┐
+│              Parser / AST                    │
+└─────────────────┬───────────────────────────┘
+                  │
+                  v
+┌─────────────────────────────────────────────┐
+│          Control Flow Graph                  │
+└─────────────────┬───────────────────────────┘
+                  │
+    ┌─────────────┴─────────────┐
+    v                           v
+┌───────────────┐       ┌───────────────┐
+│ Taint Analysis│       │ Access Pattern │
+│               │       │    Analysis    │
+└───────┬───────┘       └───────┬───────┘
+        │                       │
+        └───────────┬───────────┘
+                    v
+┌─────────────────────────────────────────────┐
+│          Obliviousness Report               │
+│  - Vulnerabilities                          │
+│  - Suggested fixes                          │
+│  - Transformation recommendations           │
+└─────────────────────────────────────────────┘
+----
+
+=== Output Report Format
+
+.Vulnerability Report
+[source,json]
+----
+{
+  "vulnerabilities": [
+    {
+      "type": "access_pattern_leak",
+      "location": "file.rs:42",
+      "expression": "arr[secret_idx]",
+      "taint_source": "secret_input (line 10)",
+      "severity": "high",
+      "recommendation": "Use oread(arr, secret_idx)"
+    }
+  ],
+  "statistics": {
+    "total_accesses": 150,
+    "oblivious_accesses": 145,
+    "vulnerable_accesses": 5
+  }
+}
+----
+
+== Conclusion
+
+Program analysis enables:
+
+1. **Static detection** of access pattern leaks
+2. **Automated verification** of obliviousness
+3. **Guided transformation** to oblivious code
+4. **Scalable analysis** via abstract interpretation
+
+== References
+
+1. Cousot, P. & Cousot, R. (1977). "Abstract Interpretation: A Unified Lattice Model."
+2. Sabelfeld, A. & Myers, A. (2003). "Language-Based Information-Flow Security."
+3. King, J. (1976). "Symbolic Execution and Program Testing."
+4. Clarke, E. et al. (1999). "Model Checking."
+
+== TODO
+
+// TODO: Implement analyzer in Rust
+// TODO: Add LLVM IR analysis pass
+// TODO: Develop incremental analysis for large codebases
+// TODO: Add machine learning for pattern classification
+// TODO: Integrate with CI/CD pipeline

@@ -1,0 +1,388 @@
+// SPDX-License-Identifier: MIT OR Palimpsest-0.8
+// Copyright (c) 2024 Hyperpolymath
+
+= Set-Theoretic Foundations for Oblivious Computing
+:author: Oblibeny Project
+:revdate: 2024
+:toc: left
+:toclevels: 4
+:sectnums:
+:stem: latexmath
+:source-highlighter: rouge
+
+== Abstract
+
+This document establishes the set-theoretic foundations upon which the Oblibeny
+oblivious computing ecosystem is built. We formalize the mathematical structures
+necessary for reasoning about memory access patterns, data structures, and
+cryptographic primitives in a rigorous manner.
+
+== Preliminaries
+
+=== Notation
+
+[cols="1,3"]
+|===
+| Symbol | Meaning
+
+| stem:[\mathbb{N}]
+| Natural numbers stem:[\{0, 1, 2, \ldots\}]
+
+| stem:[\mathbb{Z}_n]
+| Integers modulo stem:[n]
+
+| stem:[\mathbb{F}_p]
+| Finite field of prime order stem:[p]
+
+| stem:[\mathcal{P}(X)]
+| Power set of stem:[X]
+
+| stem:[|X|]
+| Cardinality of set stem:[X]
+
+| stem:[X \times Y]
+| Cartesian product
+
+| stem:[X^n]
+| stem:[n]-fold Cartesian product of stem:[X]
+
+| stem:[\{0,1\}^n]
+| Binary strings of length stem:[n]
+
+| stem:[\{0,1\}^*]
+| All finite binary strings
+
+| stem:[f: X \to Y]
+| Function from stem:[X] to stem:[Y]
+
+| stem:[f: X \rightharpoonup Y]
+| Partial function from stem:[X] to stem:[Y]
+|===
+
+=== Axiomatic Foundation
+
+We work within Zermelo-Fraenkel set theory with the Axiom of Choice (ZFC).
+For constructive proofs relevant to implementation, we note where excluded
+middle is used.
+
+==== ZFC Axioms Used
+
+1. **Extensionality**: Sets are determined by their elements
+2. **Pairing**: For any stem:[a, b], the set stem:[\{a, b\}] exists
+3. **Union**: For any set stem:[X], stem:[\bigcup X] exists
+4. **Power Set**: For any set stem:[X], stem:[\mathcal{P}(X)] exists
+5. **Infinity**: There exists an infinite set
+6. **Separation** (Schema): For any formula stem:[\phi] and set stem:[X],
+   stem:[\{x \in X : \phi(x)\}] exists
+7. **Replacement** (Schema): The image of a set under a definable function is a set
+8. **Foundation**: Every non-empty set has an stem:[\in]-minimal element
+9. **Choice**: Every family of non-empty sets has a choice function
+
+== Memory Model
+
+=== Definition: Memory Space
+
+A *memory space* is a triple stem:[(M, A, V)] where:
+
+* stem:[M] is a set of memory locations (addresses)
+* stem:[A \subseteq \mathbb{N}] is the address space
+* stem:[V] is the set of possible values
+* stem:[M \subseteq A \times V] is the current memory state
+
+.Formal Definition
+[stem]
+++++
+\text{MemSpace} := \{(M, A, V) : M \subseteq A \times V \land A \subseteq \mathbb{N} \land |A| < \infty\}
+++++
+
+=== Definition: Memory Configuration
+
+A *memory configuration* is a function:
+
+[stem]
+++++
+\mu : A \rightharpoonup V
+++++
+
+The domain stem:[\text{dom}(\mu)] represents allocated addresses.
+
+=== Definition: Access Pattern
+
+An *access pattern* over time stem:[T = \{0, 1, \ldots, t\}] is a sequence:
+
+[stem]
+++++
+\mathbf{a} = (a_0, a_1, \ldots, a_t) \in A^{|T|}
+++++
+
+where each stem:[a_i] is the address accessed at time stem:[i].
+
+=== Definition: Access Transcript
+
+An *access transcript* extends access patterns with operation types:
+
+[stem]
+++++
+\mathcal{T} = ((op_0, a_0, v_0), (op_1, a_1, v_1), \ldots) \in (\{\text{read}, \text{write}\} \times A \times V)^*
+++++
+
+== Obliviousness Formalization
+
+=== Definition: Indistinguishability of Access Patterns
+
+Two access patterns stem:[\mathbf{a}] and stem:[\mathbf{a}'] are
+*computationally indistinguishable* if for all probabilistic polynomial-time
+adversaries stem:[\mathcal{A}]:
+
+[stem]
+++++
+\left| \Pr[\mathcal{A}(\mathbf{a}) = 1] - \Pr[\mathcal{A}(\mathbf{a}') = 1] \right| \leq \text{negl}(\lambda)
+++++
+
+where stem:[\lambda] is the security parameter and stem:[\text{negl}] is a
+negligible function.
+
+=== Definition: Oblivious RAM (Set-Theoretic)
+
+An *Oblivious RAM* is a tuple stem:[\mathcal{O} = (S, \text{Init}, \text{Access})] where:
+
+* stem:[S] is the set of internal states
+* stem:[\text{Init}: \{0,1\}^\lambda \to S] initializes with randomness
+* stem:[\text{Access}: S \times (\{\text{read}, \text{write}\} \times A \times V) \to S \times V \times A^*]
+
+The access function returns updated state, result value, and physical access sequence.
+
+==== ORAM Security Definition
+
+For all sequences of logical operations stem:[(op_1, \ldots, op_m)] and
+stem:[(op'_1, \ldots, op'_m)] of equal length:
+
+[stem]
+++++
+\text{PhysicalPattern}(\mathcal{O}, op_1, \ldots, op_m) \approx_c \text{PhysicalPattern}(\mathcal{O}, op'_1, \ldots, op'_m)
+++++
+
+where stem:[\approx_c] denotes computational indistinguishability.
+
+== Tree Structures for Path ORAM
+
+=== Definition: Complete Binary Tree
+
+A *complete binary tree* of height stem:[L] is a graph stem:[T = (N, E)] where:
+
+* stem:[N = \{0, 1, \ldots, 2^{L+1} - 2\}] (nodes numbered level-order)
+* stem:[E = \{(i, 2i+1), (i, 2i+2) : i < 2^L - 1\}]
+
+.Properties
+[stem]
+++++
+\begin{aligned}
+|N| &= 2^{L+1} - 1 \\
+|\text{Leaves}(T)| &= 2^L \\
+\text{Height}(T) &= L
+\end{aligned}
+++++
+
+=== Definition: Path in Tree
+
+The *path* from root to leaf stem:[\ell] is:
+
+[stem]
+++++
+\text{Path}(\ell) = \{v \in N : v \text{ is an ancestor of } \ell \text{ or } v = \ell\}
+++++
+
+.Cardinality
+[stem]
+++++
+|\text{Path}(\ell)| = L + 1
+++++
+
+=== Definition: Bucket
+
+A *bucket* at node stem:[v] is a set of at most stem:[Z] blocks:
+
+[stem]
+++++
+\text{Bucket}_v \subseteq \text{Block} \times \{0,1\}^* \quad \text{with } |\text{Bucket}_v| \leq Z
+++++
+
+where stem:[Z] is the bucket capacity (typically stem:[Z = 4]).
+
+== Permutations and Shuffling
+
+=== Definition: Random Permutation
+
+A *random permutation* on stem:[n] elements is a uniformly random element of
+the symmetric group stem:[S_n]:
+
+[stem]
+++++
+\pi \xleftarrow{\$} S_n
+++++
+
+=== Definition: Pseudorandom Permutation (PRP)
+
+A keyed family stem:[\{P_k : \{0,1\}^n \to \{0,1\}^n\}_{k \in \mathcal{K}}] is a
+*pseudorandom permutation* if:
+
+1. Each stem:[P_k] is a bijection
+2. For all PPT distinguishers stem:[D]:
+
+[stem]
+++++
+\left| \Pr_{k \xleftarrow{\$} \mathcal{K}}[D^{P_k}(1^\lambda) = 1] - \Pr_{\pi \xleftarrow{\$} S_{2^n}}[D^{\pi}(1^\lambda) = 1] \right| \leq \text{negl}(\lambda)
+++++
+
+=== Theorem: Composition of PRPs
+
+If stem:[P] and stem:[Q] are independent PRPs, then stem:[P \circ Q] is a PRP.
+
+.Proof
+====
+Let stem:[D] be a distinguisher for stem:[P \circ Q].
+
+We construct distinguisher stem:[D'] for stem:[P]:
+[stem]
+++++
+D'^{P}(1^\lambda) := D^{P \circ Q}(1^\lambda)
+++++
+where stem:[D'] samples stem:[Q] internally.
+
+By hybrid argument:
+[stem]
+++++
+|\Pr[D^{P \circ Q} = 1] - \Pr[D^{\pi_1 \circ \pi_2} = 1]| \leq 2 \cdot \text{negl}(\lambda)
+++++
+
+Since stem:[\pi_1 \circ \pi_2] is uniformly random when stem:[\pi_1, \pi_2] are
+independent uniform permutations, the composition is a PRP. ∎
+====
+
+== Position Maps
+
+=== Definition: Position Map
+
+A *position map* is a function:
+
+[stem]
+++++
+\text{pos}: \text{BlockID} \to \text{Leaves}(T)
+++++
+
+assigning each block to a random leaf in the ORAM tree.
+
+=== Theorem: Position Map Entropy
+
+For stem:[N] blocks and stem:[2^L] leaves, a uniformly random position map has entropy:
+
+[stem]
+++++
+H(\text{pos}) = N \cdot L \text{ bits}
+++++
+
+.Proof
+====
+Each block independently maps to one of stem:[2^L] leaves:
+[stem]
+++++
+H(\text{pos}) = \sum_{i=1}^{N} H(\text{pos}(i)) = N \cdot \log_2(2^L) = N \cdot L \text{ bits}
+++++
+∎
+====
+
+== Stash Analysis
+
+=== Definition: Stash
+
+The *stash* is a client-side buffer:
+
+[stem]
+++++
+\text{Stash} \subseteq \text{Block} \times \text{Data} \times \text{Leaves}(T)
+++++
+
+containing blocks that cannot currently fit in their assigned paths.
+
+=== Theorem: Stash Size Bound (Path ORAM)
+
+For Path ORAM with bucket size stem:[Z \geq 5] and stem:[N] blocks in a tree
+of height stem:[L = \lceil \log_2 N \rceil], the probability that stash size
+exceeds stem:[R] is:
+
+[stem]
+++++
+\Pr[|\text{Stash}| > R] \leq 14 \cdot (0.6002)^R
+++++
+
+.Proof Sketch
+====
+This follows from the analysis of balls-into-bins with path constraints.
+The key insight is that each access creates at most one "excess" block,
+and the eviction procedure removes blocks at an expected rate exceeding
+the creation rate when stem:[Z \geq 5].
+
+Full proof: See Stefanov et al., "Path ORAM: An Extremely Simple Oblivious RAM Protocol" (CCS 2013). ∎
+====
+
+== Recursive Position Maps
+
+=== Definition: Recursive ORAM Structure
+
+A *recursive ORAM* of depth stem:[D] is:
+
+[stem]
+++++
+\mathcal{O}^{(D)} = (\mathcal{O}_0, \mathcal{O}_1, \ldots, \mathcal{O}_D)
+++++
+
+where:
+* stem:[\mathcal{O}_0] stores the main data
+* stem:[\mathcal{O}_{i+1}] stores the position map for stem:[\mathcal{O}_i]
+* stem:[\mathcal{O}_D] is small enough to store client-side
+
+=== Theorem: Recursive Depth Bound
+
+For stem:[N] blocks with stem:[B]-bit block IDs and position map entries of stem:[\log N] bits,
+the recursion depth is:
+
+[stem]
+++++
+D = O\left(\frac{\log N}{\log(B / \log N)}\right)
+++++
+
+.Proof
+====
+At each level, stem:[N] entries of stem:[\log N] bits pack into stem:[N \cdot \log N / B] blocks.
+
+Let stem:[N_i] be the number of blocks at level stem:[i]:
+[stem]
+++++
+N_{i+1} = \frac{N_i \cdot \log N_i}{B}
+++++
+
+This recurrence terminates when stem:[N_D = O(1)], yielding the stated bound. ∎
+====
+
+== Conclusion
+
+These set-theoretic foundations provide the mathematical basis for:
+
+1. Formal specification of ORAM constructions
+2. Security proofs via indistinguishability
+3. Complexity analysis of tree-based schemes
+4. Recursive position map analysis
+
+The constructions in subsequent documents build upon these definitions.
+
+== References
+
+1. Goldreich, O. & Ostrovsky, R. (1996). "Software Protection and Simulation on Oblivious RAMs." JACM.
+2. Stefanov, E., et al. (2013). "Path ORAM: An Extremely Simple Oblivious RAM Protocol." CCS.
+3. Wang, X., et al. (2015). "Circuit ORAM: On Tightness of the Goldreich-Ostrovsky Lower Bound." CCS.
+
+== TODO
+
+// TODO: Add measure-theoretic foundations for continuous distributions
+// TODO: Formalize the category of memory configurations
+// TODO: Add coalgebraic treatment of infinite traces

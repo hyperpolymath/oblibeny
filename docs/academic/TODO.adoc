@@ -1,0 +1,256 @@
+// SPDX-License-Identifier: MIT OR Palimpsest-0.8
+// Copyright (c) 2024 Hyperpolymath
+
+= Oblibeny Academic Documentation: Consolidated TODO List
+:author: Oblibeny Project
+:revdate: 2024
+:toc: left
+:toclevels: 3
+:sectnums:
+
+== Overview
+
+This document consolidates all TODO items from the academic documentation.
+Items are categorized by priority and domain.
+
+== Priority Levels
+
+* **P0 (Critical):** Required for core security claims
+* **P1 (High):** Important for completeness
+* **P2 (Medium):** Enhancements and extensions
+* **P3 (Low):** Nice-to-have, future work
+
+== Foundations
+
+=== Set Theory (P2)
+
+* [ ] Add measure-theoretic foundations for continuous distributions
+* [ ] Formalize the category of memory configurations
+* [ ] Add coalgebraic treatment of infinite traces
+
+=== Type Theory (P1)
+
+* [ ] Implement type inference algorithm
+* [ ] Add polymorphic effect types
+* [ ] Formalize gradual typing semantics
+* [ ] Add dependent session types for varying-size protocols
+* [ ] Implement refinement type checking with SMT integration
+
+=== Category Theory (P2)
+
+* [ ] Develop double categorical structure for distributed ORAM
+* [ ] Add ∞-categorical treatment for homotopy type theory
+* [ ] Formalize the fibration of security levels
+* [ ] Develop operadic semantics for multi-party computation
+* [ ] Connect to game semantics for adversary modeling
+
+=== Probability Theory (P1)
+
+* [ ] Add coupling arguments for distribution comparison
+* [ ] Develop Stein's method for normal approximation of ORAM bandwidth
+* [ ] Add analysis using generating functions
+* [ ] Formalize random oracle model probability spaces
+* [ ] Add measure concentration on product spaces
+
+=== Algebra and Number Theory (P2)
+
+* [ ] Add isogeny-based cryptography (SIDH/SIKE)
+* [ ] Formalize ideal class groups for class group cryptography
+* [ ] Add algebraic geometry codes for secret sharing
+* [ ] Develop Gröbner basis attacks analysis
+* [ ] Add multivariate polynomial cryptography
+
+=== Logic and Proof Theory (P1)
+
+* [ ] Develop custom logic for obliviousness
+* [ ] Formalize in Coq/Lean repository
+* [ ] Add probabilistic logic for computational security
+* [ ] Develop game logic for adversary modeling
+* [ ] Add concurrent separation logic for parallel ORAM
+
+== Cryptography
+
+=== ORAM Security (P0)
+
+* [ ] Add proofs for Ring ORAM
+* [ ] Formalize concurrent ORAM security
+* [ ] Add proofs for oblivious data structures (maps, stacks, queues)
+* [ ] Prove security of write-only ORAM
+* [ ] Add adaptive security proofs (adversary chooses operations online)
+
+=== Encryption Primitives (P1)
+
+* [ ] Add proofs for OPRF (Oblivious PRF) used in private set intersection
+* [ ] Formalize garbled circuit security for oblivious comparison
+* [ ] Add threshold cryptography for distributed ORAM
+* [ ] Specify homomorphic encryption integration
+* [ ] Add verifiable delay functions for time-based security
+
+== Complexity Theory
+
+=== Complexity Analysis (P1)
+
+* [ ] Add fine-grained lower bounds based on 3SUM conjecture
+* [ ] Analyze ORAM in the cell-probe model
+* [ ] Add quantum complexity considerations
+* [ ] Formalize streaming complexity for online ORAM
+* [ ] Add parameterized complexity analysis
+
+== Information Theory
+
+=== Information-Theoretic Security (P1)
+
+* [ ] Add network information theory for distributed ORAM
+* [ ] Develop rate-distortion analysis for approximate ORAM
+* [ ] Add secure computation information-theoretic bounds
+* [ ] Formalize side-channel capacity under timing constraints
+* [ ] Add Rényi differential privacy analysis
+
+== Statistics
+
+=== Statistical Security (P2)
+
+* [ ] Add mixture model analysis for traffic patterns
+* [ ] Develop sequential testing with adaptive adversaries
+* [ ] Add survival analysis for time-bounded security
+* [ ] Formalize differential privacy statistical framework
+* [ ] Add non-parametric methods for distribution-free security
+
+== Verification
+
+=== Formal Verification (P0)
+
+* [ ] Complete Coq formalization of Path ORAM
+* [ ] Add Isabelle proof of stash overflow bound
+* [ ] Develop rely-guarantee reasoning for concurrent ORAM
+* [ ] Add verified extraction to Rust
+* [ ] Formalize information-theoretic security in CertiCrypt
+
+=== Program Analysis (P1)
+
+* [ ] Implement analyzer in Rust
+* [ ] Add LLVM IR analysis pass
+* [ ] Develop incremental analysis for large codebases
+* [ ] Add machine learning for pattern classification
+* [ ] Integrate with CI/CD pipeline
+
+=== Concurrency (P1)
+
+* [ ] Develop Byzantine ORAM protocol in detail
+* [ ] Add formal verification of distributed ORAM
+* [ ] Implement STM-based ORAM transactions
+* [ ] Add network partition analysis
+* [ ] Develop leader election for ORAM servers
+
+== Engineering
+
+=== Hardware (P1)
+
+* [ ] Add full RTL specification for ORAM controller
+* [ ] Develop RISC-V simulator with ORAM extensions
+* [ ] Add post-quantum crypto hardware specifications
+* [ ] Formalize hardware-software interface
+* [ ] Add manufacturing security considerations
+
+=== Protocols (P1)
+
+* [ ] Add formal protocol verification in ProVerif
+* [ ] Specify multi-party computation integration
+* [ ] Add protocol for distributed ORAM
+* [ ] Develop streaming access protocol
+* [ ] Add recovery protocol for crashes
+
+== Implementation TODOs
+
+=== obli-transpiler-framework
+
+* [ ] Implement parser for supported languages
+* [ ] Develop AST transformation passes
+* [ ] Add taint analysis module
+* [ ] Implement code generation backend
+* [ ] Add test suite with coverage
+
+=== obli-riscv-dev-kit
+
+* [ ] Implement RISC-V emulator core
+* [ ] Add ORAM instruction extensions
+* [ ] Develop timing simulation
+* [ ] Add cryptographic accelerator models
+* [ ] Implement debugger interface
+
+=== obli-fs
+
+* [ ] Implement FUSE interface
+* [ ] Add ORAM backend integration
+* [ ] Develop oblivious directory traversal
+* [ ] Implement metadata encryption
+* [ ] Add POSIX compliance tests
+
+== Research Directions
+
+=== Short-Term (1-2 years)
+
+* [ ] Parallel ORAM with sublinear contention
+* [ ] Hardware ORAM coprocessor prototype
+* [ ] Production-grade oblivious filesystem
+* [ ] Formal verification of core components
+
+=== Medium-Term (2-5 years)
+
+* [ ] Post-quantum ORAM constructions
+* [ ] ORAM for persistent memory (PMEM)
+* [ ] Oblivious machine learning inference
+* [ ] Standardization efforts (IETF, IEEE)
+
+=== Long-Term (5+ years)
+
+* [ ] ORAM silicon implementation
+* [ ] Oblivious operating system
+* [ ] Universal oblivious computation platform
+* [ ] Integration with trusted execution environments
+
+== Priority Summary
+
+[cols="1,1,2"]
+|===
+| Priority | Count | Focus Areas
+
+| P0 (Critical)
+| 10
+| ORAM security proofs, Coq formalization
+
+| P1 (High)
+| 35
+| Type theory, verification, hardware, protocols
+
+| P2 (Medium)
+| 20
+| Advanced math, statistics, extensions
+
+| P3 (Low)
+| 10
+| Research directions, nice-to-haves
+|===
+
+== Assignment
+
+TODOs should be addressed by contributors with relevant expertise:
+
+* **Cryptographers:** ORAM security, primitives
+* **PL Researchers:** Type theory, verification, analysis
+* **Systems Researchers:** Hardware, protocols, implementation
+* **Mathematicians:** Foundations, complexity, information theory
+
+== Tracking
+
+Progress should be tracked via:
+
+1. GitHub Issues (one per TODO item)
+2. Pull requests referencing issues
+3. This document updated when items complete
+
+== Notes
+
+* Some TODOs are research problems without known solutions
+* Implementation TODOs depend on submodule initialization
+* Formal verification requires significant effort (~person-years)

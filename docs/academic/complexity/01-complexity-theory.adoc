@@ -1,0 +1,536 @@
+// SPDX-License-Identifier: MIT OR Palimpsest-0.8
+// Copyright (c) 2024 Hyperpolymath
+
+= Computational Complexity Theory for Oblivious Computing
+:author: Oblibeny Project
+:revdate: 2024
+:toc: left
+:toclevels: 4
+:sectnums:
+:stem: latexmath
+:source-highlighter: rouge
+
+== Abstract
+
+This document develops the complexity-theoretic foundations for analyzing
+oblivious computing systems. We establish time, space, and communication
+complexity bounds, prove lower bounds, and analyze the overhead of obliviousness.
+
+== Turing Machine Model
+
+=== Definition: Turing Machine
+
+A *Turing machine* is a tuple stem:[M = (Q, \Sigma, \Gamma, \delta, q_0, q_{\text{acc}}, q_{\text{rej}})] where:
+
+* stem:[Q] = finite set of states
+* stem:[\Sigma] = input alphabet (stem:[\sqcup \notin \Sigma])
+* stem:[\Gamma] = tape alphabet (stem:[\Sigma \cup \{\sqcup\} \subseteq \Gamma])
+* stem:[\delta: Q \times \Gamma \to Q \times \Gamma \times \{L, R\}] = transition function
+* stem:[q_0, q_{\text{acc}}, q_{\text{rej}}] = start, accept, reject states
+
+=== Definition: Time Complexity
+
+For TM stem:[M] deciding language stem:[L]:
+[stem]
+++++
+\text{TIME}_M(n) = \max_{|x| = n} \{\text{steps for } M \text{ on } x\}
+++++
+
+=== Definition: Space Complexity
+
+[stem]
+++++
+\text{SPACE}_M(n) = \max_{|x| = n} \{\text{cells used by } M \text{ on } x\}
+++++
+
+== Complexity Classes
+
+=== Time Classes
+
+[stem]
+++++
+\begin{aligned}
+\mathbf{P} &= \bigcup_{k \geq 1} \text{TIME}(n^k) \\
+\mathbf{EXPTIME} &= \bigcup_{k \geq 1} \text{TIME}(2^{n^k}) \\
+\end{aligned}
+++++
+
+=== Non-deterministic Classes
+
+[stem]
+++++
+\mathbf{NP} = \bigcup_{k \geq 1} \text{NTIME}(n^k)
+++++
+
+=== Space Classes
+
+[stem]
+++++
+\begin{aligned}
+\mathbf{L} &= \text{SPACE}(\log n) \\
+\mathbf{PSPACE} &= \bigcup_{k \geq 1} \text{SPACE}(n^k) \\
+\end{aligned}
+++++
+
+=== Probabilistic Classes
+
+[stem]
+++++
+\begin{aligned}
+\mathbf{BPP} &= \{L : \exists \text{ PTM } M, P[M(x) = L(x)] \geq 2/3\} \\
+\mathbf{ZPP} &= \mathbf{RP} \cap \mathbf{co-RP} \\
+\end{aligned}
+++++
+
+== ORAM Complexity Analysis
+
+=== Definition: ORAM Bandwidth
+
+For ORAM with stem:[N] blocks of size stem:[B]:
+
+**Bandwidth per access:**
+[stem]
+++++
+W(N) = \text{(physical bits transferred)} / \text{(logical bits accessed)}
+++++
+
+=== Theorem: Trivial ORAM Bandwidth
+
+Trivial ORAM has bandwidth:
+[stem]
+++++
+W(N) = O(NB) = O(N)
+++++
+
+per access (touching all blocks).
+
+=== Theorem: Path ORAM Bandwidth
+
+Path ORAM has bandwidth:
+[stem]
+++++
+W(N) = O(B \log N)
+++++
+
+.Proof
+====
+Each access:
+1. Reads one root-to-leaf path: stem:[O(\log N)] buckets
+2. Each bucket has stem:[Z = O(1)] blocks of size stem:[B]
+3. Writes back same path
+
+Total: stem:[O(Z \cdot B \cdot \log N) = O(B \log N)]. ∎
+====
+
+=== Theorem: Recursive Path ORAM Bandwidth
+
+With recursive position maps:
+[stem]
+++++
+W(N) = O\left(B \cdot \log^2 N / \log(B / \log N)\right)
+++++
+
+For stem:[B = \Omega(\log N)]: stem:[W(N) = O(B \log N)].
+
+== Lower Bounds
+
+=== Theorem: Goldreich-Ostrovsky Lower Bound
+
+Any ORAM scheme requires:
+[stem]
+++++
+W(N) = \Omega(\log N)
+++++
+
+bandwidth per access (for statistical security).
+
+.Proof (Information-Theoretic Argument)
+====
+**Setup:** Adversary sees stem:[m] accesses; we show stem:[m \geq \Omega(\log N)].
+
+**Counting argument:**
+* There are stem:[N!] possible permutations of block positions
+* Information about which block is accessed must be hidden
+* Each physical access reveals stem:[O(\log M)] bits (for stem:[M] physical locations)
+
+For perfect security:
+[stem]
+++++
+H(\text{block accessed} | \text{physical pattern}) = \log N
+++++
+
+This requires stem:[\log N] bits of entropy in the access pattern, which requires
+stem:[\Omega(\log N)] physical accesses. ∎
+====
+
+=== Theorem: Larsen-Nielsen Tight Lower Bound
+
+For block size stem:[B]:
+[stem]
+++++
+W(N) = \Omega\left(\frac{\log(N/M)}{\log(\log(N/M) / B)}\right)
+++++
+
+where stem:[M] is client storage in blocks.
+
+=== Corollary: Optimality of Path ORAM
+
+For stem:[B = \Omega(\log N)], Path ORAM is asymptotically optimal.
+
+== Communication Complexity
+
+=== Definition: Communication Complexity
+
+For function stem:[f: X \times Y \to Z], the (deterministic) communication complexity is:
+[stem]
+++++
+D(f) = \min_{\text{protocol } P} \max_{x,y} \{\text{bits exchanged by } P(x,y)\}
+++++
+
+=== Randomized Communication Complexity
+
+[stem]
+++++
+R(f) = \min_{P} \max_{x,y} \{\text{bits}: P(x,y) \text{ errs with prob } \leq 1/3\}
+++++
+
+=== Application: Client-Server ORAM
+
+For ORAM access stem:[f(\text{memory}, \text{operation}) = \text{result}]:
+
+**Lower bound:** stem:[R(f) = \Omega(\log N)]
+
+**Path ORAM achieves:** stem:[O(B \log N)] = stem:[O(\log N)] for constant stem:[B]
+
+== Oblivious Simulation
+
+=== Definition: Oblivious RAM Machine (ORAM Machine)
+
+An *ORAM machine* is a pair stem:[(M, \mathcal{O})] where:
+* stem:[M] = standard RAM program
+* stem:[\mathcal{O}] = ORAM compiler
+
+The oblivious simulation satisfies:
+[stem]
+++++
+\text{Output}(M) = \text{Output}(\mathcal{O}(M))
+++++
+
+with indistinguishable access patterns.
+
+=== Theorem: Oblivious Simulation Overhead
+
+For any RAM program with stem:[T] memory accesses:
+[stem]
+++++
+T' = O(T \cdot \log N)
+++++
+
+using Path ORAM.
+
+.Proof
+====
+Each logical access → one Path ORAM access → stem:[O(\log N)] physical accesses.
+Total: stem:[T \cdot O(\log N) = O(T \log N)]. ∎
+====
+
+=== Corollary: Time-Space Tradeoff
+
+Oblivious simulation of stem:[\text{TIME}(T) \cap \text{SPACE}(S)] runs in:
+[stem]
+++++
+\text{TIME}(O(T \log S)) \cap \text{SPACE}(O(S))
+++++
+
+== Circuit Complexity
+
+=== Definition: Boolean Circuit
+
+A *Boolean circuit* is a DAG where:
+* Input nodes: labeled with variables stem:[x_1, \ldots, x_n]
+* Internal nodes: labeled with gates (AND, OR, NOT)
+* Output node: computes the function value
+
+=== Circuit Size and Depth
+
+* **Size** stem:[s(C)] = number of gates
+* **Depth** stem:[d(C)] = longest input-to-output path
+
+=== Definition: stem:[\mathbf{NC}] Hierarchy
+
+[stem]
+++++
+\mathbf{NC}^k = \text{problems solvable by circuits of size } \text{poly}(n) \text{ and depth } O(\log^k n)
+++++
+
+[stem]
+++++
+\mathbf{NC} = \bigcup_{k \geq 1} \mathbf{NC}^k
+++++
+
+=== Theorem: Oblivious Sorting Complexity
+
+Oblivious sorting of stem:[n] elements requires:
+[stem]
+++++
+\Omega(n \log n) \text{ comparisons}
+++++
+
+This matches the classical lower bound.
+
+.Proof
+====
+Any comparison-based sorting algorithm requires stem:[\Omega(n \log n)] comparisons
+(by information-theoretic argument). Obliviousness is an additional constraint
+that cannot reduce this. ∎
+====
+
+=== Theorem: AKS Sorting Network
+
+There exists an oblivious sorting network with:
+* Size: stem:[O(n \log n)] comparators
+* Depth: stem:[O(\log n)]
+
+**Note:** Constants are large; bitonic sort (stem:[O(n \log^2 n)]) is more practical.
+
+== Parallel Complexity
+
+=== Definition: PRAM Model
+
+*Parallel RAM* with stem:[p] processors, each with:
+* Local computation
+* Concurrent access to shared memory
+
+**Variants:** EREW, CREW, CRCW (Exclusive/Concurrent Read/Write)
+
+=== Theorem: Brent's Theorem
+
+A circuit of size stem:[s] and depth stem:[d] can be simulated on stem:[p] processors in time:
+[stem]
+++++
+T(p) = O\left(\frac{s}{p} + d\right)
+++++
+
+=== Application: Parallel ORAM
+
+For Path ORAM with stem:[p] parallel accesses:
+[stem]
+++++
+T(p) = O\left(\frac{p \log N}{p} + \log N\right) = O(\log N)
+++++
+
+The depth bottleneck is the tree traversal.
+
+== Amortized Complexity
+
+=== Definition: Amortized Cost
+
+For sequence of stem:[m] operations with total cost stem:[T]:
+[stem]
+++++
+\text{Amortized cost per operation} = \frac{T}{m}
+++++
+
+=== Potential Method
+
+Define potential function stem:[\Phi: \text{States} \to \mathbb{R}^+].
+
+Amortized cost of operation stem:[i]:
+[stem]
+++++
+\hat{c}_i = c_i + \Phi(S_i) - \Phi(S_{i-1})
+++++
+
+=== Theorem: Square Root ORAM Amortized Complexity
+
+Square Root ORAM has amortized bandwidth:
+[stem]
+++++
+W_{\text{amort}}(N) = O(\sqrt{N} \cdot B)
+++++
+
+.Proof (Potential Method)
+====
+**Potential:** stem:[\Phi = k \cdot (\text{shelter size})^2] for constant stem:[k].
+
+**Operation cost:**
+* Search shelter: stem:[O(\sqrt{N})]
+* Search main memory: stem:[O(1)]
+* After stem:[\sqrt{N}] operations: reshuffle at cost stem:[O(N)]
+
+**Amortized analysis:**
+[stem]
+++++
+\frac{\sqrt{N} \cdot O(\sqrt{N}) + O(N)}{\sqrt{N}} = O(\sqrt{N})
+++++
+∎
+====
+
+== Worst-Case vs. Average-Case
+
+=== Definition: Average-Case Complexity
+
+For distribution stem:[\mathcal{D}] over inputs:
+[stem]
+++++
+T_{\text{avg}}(n) = \mathbb{E}_{x \sim \mathcal{D}_n}[T(x)]
+++++
+
+=== Theorem: Path ORAM Worst-Case Guarantee
+
+Path ORAM has worst-case bandwidth stem:[O(\log N)] per access.
+
+**Contrast:** Square Root ORAM has:
+* Worst-case: stem:[O(N)] (during reshuffle)
+* Amortized: stem:[O(\sqrt{N})]
+
+== Obliviousness Overhead
+
+=== Definition: Obliviousness Overhead
+
+For program stem:[P] with complexity stem:[T(P)]:
+[stem]
+++++
+\text{Overhead} = \frac{T(\mathcal{O}(P))}{T(P)}
+++++
+
+=== Theorem: Minimum Obliviousness Overhead
+
+Any oblivious simulation has overhead:
+[stem]
+++++
+\text{Overhead} = \Omega(\log N)
+++++
+
+.Proof
+====
+Direct consequence of Goldreich-Ostrovsky lower bound.
+Each access must touch stem:[\Omega(\log N)] locations. ∎
+====
+
+=== Corollary: Path ORAM is Overhead-Optimal
+
+Path ORAM achieves overhead stem:[O(\log N)], matching the lower bound.
+
+== Cryptographic Complexity Assumptions
+
+=== Definition: One-Way Function
+
+stem:[f: \{0,1\}^* \to \{0,1\}^*] is one-way if:
+
+1. stem:[f] is computable in polynomial time
+2. For all PPT stem:[\mathcal{A}]:
+[stem]
+++++
+\Pr_{x \xleftarrow{\$} \{0,1\}^n}[\mathcal{A}(f(x)) \in f^{-1}(f(x))] \leq \text{negl}(n)
+++++
+
+=== Theorem: OWF Implies ORAM Encryption
+
+The existence of one-way functions implies secure ORAM.
+
+.Proof Sketch
+====
+OWF → PRG → PRF → IND-CPA encryption → Secure ORAM (encrypting blocks). ∎
+====
+
+=== Definition: stem:[\mathbf{P} = \mathbf{NP}] Implications
+
+If stem:[\mathbf{P} = \mathbf{NP}]:
+* No one-way functions exist
+* No secure encryption
+* No secure ORAM (cryptographic security)
+
+**Note:** Information-theoretic ORAM would still exist (but with worse bounds).
+
+== Space Complexity Hierarchy
+
+=== Theorem: Space Hierarchy
+
+For space-constructible stem:[s_1(n) = o(s_2(n))]:
+[stem]
+++++
+\text{SPACE}(s_1(n)) \subsetneq \text{SPACE}(s_2(n))
+++++
+
+=== Application: ORAM Client Storage
+
+* Path ORAM: stem:[O(\lambda)] blocks client storage
+* Recursive ORAM: stem:[O(1)] blocks client storage (constant!)
+
+The space hierarchy theorem shows this improvement is non-trivial.
+
+== Branching Programs
+
+=== Definition: Branching Program
+
+A *branching program* is a DAG where:
+* Nodes labeled with variables stem:[x_i]
+* Edges labeled with 0 or 1
+* Two sink nodes: 0 and 1
+
+=== Theorem: Oblivious Branching Programs
+
+An oblivious branching program on stem:[n] bits with width stem:[w] can be evaluated in:
+* Time: stem:[O(n \cdot w)]
+* Space: stem:[O(\log w)]
+
+=== Application: Oblivious Program Representation
+
+Programs can be compiled to oblivious branching programs for execution.
+
+== Succinct Data Structures
+
+=== Definition: Succinct Representation
+
+A data structure is *succinct* if it uses:
+[stem]
+++++
+\text{Space} = \text{Information-theoretic minimum} + o(\text{minimum})
+++++
+
+=== Theorem: Succinct ORAM
+
+ORAM can be made succinct with:
+[stem]
+++++
+\text{Space} = N \cdot B + O(N \cdot \log N)
+++++
+
+for stem:[N] blocks of size stem:[B].
+
+== Fine-Grained Complexity
+
+=== Strong Exponential Time Hypothesis (SETH)
+
+No algorithm solves stem:[k]-SAT in time stem:[O((2-\epsilon)^n)] for any stem:[\epsilon > 0].
+
+=== Implications for ORAM
+
+Under SETH, certain ORAM operations cannot be improved beyond current bounds
+without breaking fundamental barriers.
+
+== Conclusion
+
+The complexity-theoretic analysis establishes:
+
+1. **Lower bound:** stem:[\Omega(\log N)] bandwidth is necessary
+2. **Upper bound:** Path ORAM achieves stem:[O(\log N)]
+3. **Optimality:** Path ORAM is asymptotically optimal
+4. **Parallelism:** Depth stem:[O(\log N)] is achievable
+5. **Space efficiency:** Constant client storage is possible
+
+== References
+
+1. Arora, S. & Barak, B. (2009). "Computational Complexity: A Modern Approach."
+2. Goldreich, O. & Ostrovsky, R. (1996). "Software Protection and Simulation on Oblivious RAMs."
+3. Larsen, K.G. & Nielsen, J.B. (2018). "Yes, There is an Oblivious RAM Lower Bound!"
+4. Cormen, T. et al. (2009). "Introduction to Algorithms."
+
+== TODO
+
+// TODO: Add fine-grained lower bounds based on 3SUM conjecture
+// TODO: Analyze ORAM in the cell-probe model
+// TODO: Add quantum complexity considerations
+// TODO: Formalize streaming complexity for online ORAM
+// TODO: Add parameterized complexity analysis

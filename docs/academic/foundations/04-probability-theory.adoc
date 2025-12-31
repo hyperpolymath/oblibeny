@@ -1,0 +1,603 @@
+// SPDX-License-Identifier: MIT OR Palimpsest-0.8
+// Copyright (c) 2024 Hyperpolymath
+
+= Probability Theory for Cryptographic Security
+:author: Oblibeny Project
+:revdate: 2024
+:toc: left
+:toclevels: 4
+:sectnums:
+:stem: latexmath
+:source-highlighter: rouge
+
+== Abstract
+
+This document provides the measure-theoretic foundations of probability theory
+required for rigorous cryptographic security proofs. We develop the theory from
+first principles through to applications in computational indistinguishability
+and negligible functions.
+
+== Measure-Theoretic Probability
+
+=== Definition: σ-Algebra
+
+A *σ-algebra* on set stem:[\Omega] is a collection stem:[\mathcal{F} \subseteq \mathcal{P}(\Omega)] such that:
+
+1. stem:[\Omega \in \mathcal{F}]
+2. stem:[A \in \mathcal{F} \Rightarrow A^c \in \mathcal{F}] (closed under complement)
+3. stem:[\{A_n\}_{n=1}^\infty \subseteq \mathcal{F} \Rightarrow \bigcup_{n=1}^\infty A_n \in \mathcal{F}] (closed under countable union)
+
+=== Definition: Probability Measure
+
+A *probability measure* on stem:[(\Omega, \mathcal{F})] is a function stem:[P: \mathcal{F} \to [0,1]] such that:
+
+1. stem:[P(\Omega) = 1]
+2. stem:[P\left(\bigcup_{n=1}^\infty A_n\right) = \sum_{n=1}^\infty P(A_n)] for disjoint stem:[\{A_n\}]
+
+=== Definition: Probability Space
+
+A *probability space* is a triple stem:[(\Omega, \mathcal{F}, P)] where:
+* stem:[\Omega] is the sample space
+* stem:[\mathcal{F}] is a σ-algebra on stem:[\Omega]
+* stem:[P] is a probability measure on stem:[\mathcal{F}]
+
+=== Definition: Random Variable
+
+A *random variable* is a measurable function stem:[X: \Omega \to \mathbb{R}], i.e.:
+
+[stem]
+++++
+\forall B \in \mathcal{B}(\mathbb{R}): X^{-1}(B) \in \mathcal{F}
+++++
+
+where stem:[\mathcal{B}(\mathbb{R})] is the Borel σ-algebra on stem:[\mathbb{R}].
+
+=== Definition: Distribution
+
+The *distribution* of random variable stem:[X] is:
+
+[stem]
+++++
+\mu_X(B) = P(X^{-1}(B)) = P(X \in B)
+++++
+
+== Discrete Probability for Cryptography
+
+=== Uniform Distribution
+
+For finite set stem:[S], the *uniform distribution* is:
+
+[stem]
+++++
+x \xleftarrow{\$} S \quad \text{means} \quad P(X = x) = \frac{1}{|S|}
+++++
+
+=== Bernoulli Distribution
+
+[stem]
+++++
+X \sim \text{Ber}(p) \quad \text{where} \quad P(X = 1) = p, \quad P(X = 0) = 1-p
+++++
+
+=== Binomial Distribution
+
+[stem]
+++++
+X \sim \text{Bin}(n, p) \quad \text{where} \quad P(X = k) = \binom{n}{k} p^k (1-p)^{n-k}
+++++
+
+=== Geometric Distribution
+
+[stem]
+++++
+X \sim \text{Geo}(p) \quad \text{where} \quad P(X = k) = (1-p)^{k-1} p
+++++
+
+**Application:** Number of trials until first success (e.g., finding collision).
+
+== Expectation and Moments
+
+=== Definition: Expected Value
+
+For discrete random variable:
+[stem]
+++++
+\mathbb{E}[X] = \sum_{x} x \cdot P(X = x)
+++++
+
+For continuous (with density stem:[f]):
+[stem]
+++++
+\mathbb{E}[X] = \int_{-\infty}^{\infty} x \cdot f(x) \, dx
+++++
+
+=== Linearity of Expectation
+
+For any random variables stem:[X, Y] and constants stem:[a, b]:
+[stem]
+++++
+\mathbb{E}[aX + bY] = a\mathbb{E}[X] + b\mathbb{E}[Y]
+++++
+
+**Note:** This holds regardless of dependence.
+
+=== Definition: Variance
+
+[stem]
+++++
+\text{Var}(X) = \mathbb{E}[(X - \mathbb{E}[X])^2] = \mathbb{E}[X^2] - (\mathbb{E}[X])^2
+++++
+
+=== Definition: Moments
+
+The stem:[k]-th moment of stem:[X]:
+[stem]
+++++
+\mu_k = \mathbb{E}[X^k]
+++++
+
+The stem:[k]-th central moment:
+[stem]
+++++
+\mu'_k = \mathbb{E}[(X - \mathbb{E}[X])^k]
+++++
+
+== Concentration Inequalities
+
+=== Theorem: Markov's Inequality
+
+For non-negative random variable stem:[X] and stem:[a > 0]:
+[stem]
+++++
+P(X \geq a) \leq \frac{\mathbb{E}[X]}{a}
+++++
+
+.Proof
+====
+[stem]
+++++
+\mathbb{E}[X] = \int_0^\infty x \, dF(x) \geq \int_a^\infty x \, dF(x) \geq a \int_a^\infty dF(x) = a \cdot P(X \geq a)
+++++
+∎
+====
+
+=== Theorem: Chebyshev's Inequality
+
+For random variable stem:[X] with mean stem:[\mu] and variance stem:[\sigma^2]:
+[stem]
+++++
+P(|X - \mu| \geq k\sigma) \leq \frac{1}{k^2}
+++++
+
+.Proof
+====
+Apply Markov to stem:[(X - \mu)^2]:
+[stem]
+++++
+P(|X - \mu| \geq k\sigma) = P((X-\mu)^2 \geq k^2\sigma^2) \leq \frac{\mathbb{E}[(X-\mu)^2]}{k^2\sigma^2} = \frac{\sigma^2}{k^2\sigma^2} = \frac{1}{k^2}
+++++
+∎
+====
+
+=== Theorem: Chernoff Bound (Multiplicative Form)
+
+For stem:[X = \sum_{i=1}^n X_i] where stem:[X_i \in \{0,1\}] are independent, stem:[\mu = \mathbb{E}[X]]:
+
+**Upper tail:** For stem:[\delta > 0]:
+[stem]
+++++
+P(X \geq (1+\delta)\mu) \leq \exp\left(-\frac{\delta^2 \mu}{2 + \delta}\right)
+++++
+
+**Lower tail:** For stem:[0 < \delta < 1]:
+[stem]
+++++
+P(X \leq (1-\delta)\mu) \leq \exp\left(-\frac{\delta^2 \mu}{2}\right)
+++++
+
+.Proof (Upper Tail)
+====
+For any stem:[t > 0], by Markov:
+[stem]
+++++
+P(X \geq (1+\delta)\mu) = P(e^{tX} \geq e^{t(1+\delta)\mu}) \leq \frac{\mathbb{E}[e^{tX}]}{e^{t(1+\delta)\mu}}
+++++
+
+By independence:
+[stem]
+++++
+\mathbb{E}[e^{tX}] = \prod_{i=1}^n \mathbb{E}[e^{tX_i}] = \prod_{i=1}^n (1 - p_i + p_i e^t) \leq \prod_{i=1}^n e^{p_i(e^t - 1)} = e^{\mu(e^t - 1)}
+++++
+
+Thus:
+[stem]
+++++
+P(X \geq (1+\delta)\mu) \leq \frac{e^{\mu(e^t-1)}}{e^{t(1+\delta)\mu}}
+++++
+
+Optimizing over stem:[t = \ln(1+\delta)] yields the result. ∎
+====
+
+=== Theorem: Hoeffding's Inequality
+
+For independent stem:[X_i \in [a_i, b_i]] with stem:[S_n = \sum_{i=1}^n X_i]:
+[stem]
+++++
+P(S_n - \mathbb{E}[S_n] \geq t) \leq \exp\left(-\frac{2t^2}{\sum_{i=1}^n (b_i - a_i)^2}\right)
+++++
+
+**Application:** Tail bounds for ORAM stash size.
+
+=== Theorem: Azuma-Hoeffding (Martingale Version)
+
+If stem:[\{X_i\}] is a martingale with stem:[|X_i - X_{i-1}| \leq c_i]:
+[stem]
+++++
+P(|X_n - X_0| \geq t) \leq 2\exp\left(-\frac{t^2}{2\sum_{i=1}^n c_i^2}\right)
+++++
+
+**Application:** Analysis of randomized algorithms with bounded differences.
+
+== Negligible Functions
+
+=== Definition: Negligible Function
+
+A function stem:[\nu: \mathbb{N} \to \mathbb{R}^+] is *negligible* if:
+[stem]
+++++
+\forall c > 0\ \exists n_0 \in \mathbb{N}\ \forall n \geq n_0: \nu(n) < n^{-c}
+++++
+
+Notation: stem:[\nu = \text{negl}(\lambda)] where stem:[\lambda] is the security parameter.
+
+=== Proposition: Negligible Function Properties
+
+1. stem:[\nu_1, \nu_2 = \text{negl} \Rightarrow \nu_1 + \nu_2 = \text{negl}]
+2. stem:[\nu = \text{negl}, p = \text{poly} \Rightarrow p \cdot \nu = \text{negl}]
+3. stem:[\nu = \text{negl} \Rightarrow 2^{-n} = \text{negl}]
+
+.Proof of (1)
+====
+Let stem:[\nu_1, \nu_2] be negligible, stem:[c > 0] arbitrary.
+
+stem:[\exists n_1] such that stem:[\forall n \geq n_1: \nu_1(n) < \frac{1}{2}n^{-c}]
+
+stem:[\exists n_2] such that stem:[\forall n \geq n_2: \nu_2(n) < \frac{1}{2}n^{-c}]
+
+For stem:[n \geq \max(n_1, n_2)]:
+[stem]
+++++
+(\nu_1 + \nu_2)(n) < \frac{1}{2}n^{-c} + \frac{1}{2}n^{-c} = n^{-c}
+++++
+∎
+====
+
+=== Examples of Negligible Functions
+
+[cols="1,2"]
+|===
+| Function | Negligible?
+
+| stem:[2^{-n}] | Yes
+| stem:[2^{-\sqrt{n}}] | Yes
+| stem:[n^{-\log n}] | Yes
+| stem:[1/n^{100}] | No (polynomial)
+| stem:[1/n!] | Yes
+|===
+
+== Statistical Distance
+
+=== Definition: Statistical Distance
+
+For distributions stem:[D_0, D_1] over finite set stem:[S]:
+[stem]
+++++
+\Delta(D_0, D_1) = \frac{1}{2} \sum_{x \in S} |D_0(x) - D_1(x)| = \max_{T \subseteq S} |D_0(T) - D_1(T)|
+++++
+
+=== Lemma: Equivalent Formulations
+
+[stem]
+++++
+\Delta(D_0, D_1) = \sum_{x: D_0(x) > D_1(x)} (D_0(x) - D_1(x))
+++++
+
+=== Lemma: Distinguishing Advantage Bound
+
+For any (possibly unbounded) algorithm stem:[\mathcal{A}]:
+[stem]
+++++
+|P_{x \sim D_0}[\mathcal{A}(x) = 1] - P_{x \sim D_1}[\mathcal{A}(x) = 1]| \leq \Delta(D_0, D_1)
+++++
+
+.Proof
+====
+The optimal distinguisher outputs 1 on stem:[x] iff stem:[D_0(x) > D_1(x)].
+Its advantage equals the statistical distance. ∎
+====
+
+=== Definition: Statistically Indistinguishable
+
+Families stem:[\{X_n\}, \{Y_n\}] are *statistically indistinguishable* if:
+[stem]
+++++
+\Delta(X_n, Y_n) = \text{negl}(n)
+++++
+
+Notation: stem:[X \approx_s Y]
+
+== Computational Indistinguishability
+
+=== Definition: Computationally Indistinguishable
+
+Families stem:[\{X_n\}, \{Y_n\}] are *computationally indistinguishable* if for all PPT stem:[\mathcal{A}]:
+[stem]
+++++
+|P[\mathcal{A}(1^n, X_n) = 1] - P[\mathcal{A}(1^n, Y_n) = 1]| = \text{negl}(n)
+++++
+
+Notation: stem:[X \approx_c Y]
+
+=== Lemma: Statistical Implies Computational
+
+[stem]
+++++
+X \approx_s Y \Rightarrow X \approx_c Y
+++++
+
+The converse is false (e.g., pseudorandom generators).
+
+=== Theorem: Hybrid Lemma
+
+If stem:[H_0 \approx_c H_1 \approx_c \cdots \approx_c H_k] with stem:[k = \text{poly}(n)]:
+[stem]
+++++
+H_0 \approx_c H_k
+++++
+
+.Proof
+====
+Suppose stem:[\mathcal{A}] distinguishes stem:[H_0] from stem:[H_k] with advantage stem:[\epsilon].
+
+By triangle inequality:
+[stem]
+++++
+\epsilon \leq \sum_{i=0}^{k-1} |\text{Adv}(H_i, H_{i+1})|
+++++
+
+There exists stem:[i^*] with stem:[|\text{Adv}(H_{i^*}, H_{i^*+1})| \geq \epsilon/k].
+
+Construct stem:[\mathcal{B}] distinguishing stem:[H_{i^*}] from stem:[H_{i^*+1}]:
+stem:[\mathcal{B}] picks random stem:[i \xleftarrow{\$} [k]], samples hybrids on either side, runs stem:[\mathcal{A}].
+
+If stem:[\epsilon] is non-negligible and stem:[k] is polynomial, stem:[\epsilon/k] is non-negligible,
+contradicting stem:[H_{i^*} \approx_c H_{i^*+1}]. ∎
+====
+
+== Pseudorandomness
+
+=== Definition: Pseudorandom Generator (PRG)
+
+stem:[G: \{0,1\}^n \to \{0,1\}^{m(n)}] with stem:[m(n) > n] is a PRG if:
+
+[stem]
+++++
+\{G(U_n)\} \approx_c \{U_{m(n)}\}
+++++
+
+=== Theorem: PRG Expansion
+
+If PRG stem:[G] has expansion factor stem:[m(n) = n + 1], then for any polynomial stem:[\ell]:
+stem:[G'] with expansion stem:[\ell(n)] can be constructed.
+
+.Construction
+====
+[stem]
+++++
+G'(s) = b_1 \| b_2 \| \cdots \| b_\ell \quad \text{where} \quad (b_i, s_{i+1}) = G(s_i), \quad s_1 = s
+++++
+====
+
+=== Definition: Pseudorandom Function (PRF)
+
+Family stem:[\{F_k\}_{k \in \{0,1\}^n}] with stem:[F_k: \{0,1\}^n \to \{0,1\}^n] is a PRF if:
+[stem]
+++++
+\{k \xleftarrow{\$} \{0,1\}^n : F_k\} \approx_c \{f \xleftarrow{\$} \text{Func}_n : f\}
+++++
+
+=== Theorem: PRF from PRG (GGM Construction)
+
+If stem:[G: \{0,1\}^n \to \{0,1\}^{2n}] is a PRG, define stem:[G(x) = G_0(x) \| G_1(x)]:
+[stem]
+++++
+F_k(x_1 \cdots x_n) = G_{x_n}(G_{x_{n-1}}(\cdots G_{x_1}(k) \cdots))
+++++
+
+Then stem:[F] is a PRF.
+
+.Proof Sketch
+====
+By hybrid argument over stem:[n] levels of the GGM tree:
+* Hybrid stem:[i]: Replace first stem:[i] levels with truly random functions
+* Indistinguishability of consecutive hybrids follows from PRG security
+* stem:[n] polynomial hybrids yield negligible total distinguishing advantage ∎
+====
+
+== Probabilistic Analysis of ORAM
+
+=== Path ORAM Position Map Distribution
+
+**Claim:** Position map entries are uniform and independent after access.
+
+.Proof
+====
+After each access to block stem:[b]:
+1. Old position stem:[\text{pos}[b]] is read
+2. New position stem:[\text{pos}[b] \xleftarrow{\$} [2^L]] assigned uniformly
+
+The new position is independent of:
+- The operation (read/write)
+- The address accessed
+- Previous position assignments
+
+By induction, after stem:[m] operations, all position map entries touched are uniform. ∎
+====
+
+=== Stash Size Analysis
+
+Let stem:[S_t] = stash size after stem:[t] accesses.
+
+.Theorem: Stash Size is a Supermartingale
+====
+[stem]
+++++
+\mathbb{E}[S_{t+1} | S_1, \ldots, S_t] \leq S_t - \epsilon
+++++
+for some stem:[\epsilon > 0] when bucket size stem:[Z \geq 5].
+====
+
+.Proof Sketch
+====
+Each access:
+1. Adds exactly 1 block to stash (the accessed block)
+2. Evicts blocks from stash to path
+
+Expected eviction exceeds 1 when stem:[Z \geq 5] due to path structure. ∎
+====
+
+=== Collision Analysis in Position Maps
+
+.Theorem: Birthday Bound for Position Collisions
+====
+For stem:[N] blocks with stem:[2^L = N] leaves:
+[stem]
+++++
+P(\text{two blocks assigned same leaf}) = 1 - \frac{N!}{N^N} \approx 1 - e^{-N/2}
+++++
+====
+
+**Implication:** Collisions are expected, hence bucket capacity stem:[Z > 1] needed.
+
+== Randomness Extraction
+
+=== Definition: Min-Entropy
+
+[stem]
+++++
+H_\infty(X) = -\log_2 \max_x P(X = x)
+++++
+
+=== Definition: Extractor
+
+A function stem:[\text{Ext}: \{0,1\}^n \times \{0,1\}^d \to \{0,1\}^m] is a
+stem:[(k, \epsilon)]-extractor if for all distributions stem:[X] with stem:[H_\infty(X) \geq k]:
+[stem]
+++++
+\Delta(\text{Ext}(X, U_d), U_m) \leq \epsilon
+++++
+
+=== Leftover Hash Lemma
+
+.Theorem
+====
+If stem:[H] is a 2-universal hash family from stem:[\{0,1\}^n] to stem:[\{0,1\}^m]:
+[stem]
+++++
+\Delta((H, H(X)), (H, U_m)) \leq \frac{1}{2}\sqrt{2^m / 2^{H_\infty(X)}}
+++++
+====
+
+**Application:** Extracting uniform randomness for ORAM operations.
+
+== Large Deviation Theory
+
+=== Cramér's Theorem
+
+For i.i.d. stem:[X_1, \ldots, X_n] with mean stem:[\mu], the probability:
+[stem]
+++++
+P\left(\frac{1}{n}\sum_{i=1}^n X_i \geq a\right) \approx e^{-n I(a)}
+++++
+where stem:[I(a) = \sup_\theta (\theta a - \log \mathbb{E}[e^{\theta X}])] is the rate function.
+
+=== Application: Stash Overflow Rate
+
+The stash overflow probability decays exponentially:
+[stem]
+++++
+P(|\text{Stash}| > R) \leq e^{-\Omega(R)}
+++++
+
+This provides the formal basis for choosing stash size stem:[R = O(\lambda)].
+
+== Conditional Probability and Bayes
+
+=== Bayes' Theorem
+
+[stem]
+++++
+P(A|B) = \frac{P(B|A) P(A)}{P(B)}
+++++
+
+=== Chain Rule
+
+[stem]
+++++
+P(A_1, \ldots, A_n) = \prod_{i=1}^n P(A_i | A_1, \ldots, A_{i-1})
+++++
+
+=== Application: Sequential Access Analysis
+
+For access sequence stem:[(a_1, \ldots, a_m)]:
+[stem]
+++++
+P(\text{Pattern} | \text{Ops}) = \prod_{i=1}^m P(\text{Pattern}_i | \text{Pattern}_1, \ldots, \text{Pattern}_{i-1})
+++++
+
+ORAM security ensures each factor is uniform.
+
+== Martingales
+
+=== Definition: Martingale
+
+Sequence stem:[\{X_n\}] is a martingale w.r.t. filtration stem:[\{\mathcal{F}_n\}] if:
+1. stem:[X_n] is stem:[\mathcal{F}_n]-measurable
+2. stem:[\mathbb{E}[|X_n|] < \infty]
+3. stem:[\mathbb{E}[X_{n+1} | \mathcal{F}_n] = X_n]
+
+=== Optional Stopping Theorem
+
+If stem:[\tau] is a bounded stopping time:
+[stem]
+++++
+\mathbb{E}[X_\tau] = \mathbb{E}[X_0]
+++++
+
+=== Application: ORAM Access Counting
+
+Model cumulative bandwidth as martingale; analyze stopping time for completion.
+
+== Conclusion
+
+The probability-theoretic tools developed here enable:
+
+1. **Security reductions** via computational indistinguishability
+2. **Failure probability bounds** via concentration inequalities
+3. **Bandwidth analysis** via stash size tail bounds
+4. **Randomness requirements** via entropy and extraction
+
+== References
+
+1. Feller, W. (1968). "An Introduction to Probability Theory and Its Applications." Wiley.
+2. Durrett, R. (2019). "Probability: Theory and Examples." Cambridge.
+3. Mitzenmacher, M. & Upfal, E. (2017). "Probability and Computing." Cambridge.
+4. Goldreich, O. (2001). "Foundations of Cryptography." Cambridge.
+
+== TODO
+
+// TODO: Add coupling arguments for distribution comparison
+// TODO: Develop Stein's method for normal approximation of ORAM bandwidth
+// TODO: Add analysis using generating functions
+// TODO: Formalize random oracle model probability spaces
+// TODO: Add measure concentration on product spaces
