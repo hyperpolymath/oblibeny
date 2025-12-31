@@ -1,0 +1,1123 @@
+// SPDX-License-Identifier: MIT OR Palimpsest-0.8
+// Copyright (c) 2024 Hyperpolymath
+
+= Rust Backend Specification
+:author: Oblibeny Project
+:revdate: 2024
+:toc: left
+:toclevels: 4
+:sectnums:
+:stem: latexmath
+
+== Overview
+
+The Rust backend is responsible for:
+
+1. Parsing OIR from the OCaml frontend
+2. Optimizing ORAM operations
+3. Generating target code (Rust, RISC-V, WASM)
+4. Providing the ORAM runtime library
+
+== Project Structure
+
+[source]
+----
+backend/
+├── Cargo.toml
+├── src/
+│   ├── main.rs              # CLI entry point
+│   ├── lib.rs               # Library root
+│   ├── ir/
+│   │   ├── mod.rs
+│   │   ├── types.rs         # OIR type definitions
+│   │   ├── parse.rs         # JSON/MessagePack parser
+│   │   └── validate.rs      # IR validation
+│   ├── opt/
+│   │   ├── mod.rs
+│   │   ├── batch.rs         # ORAM access batching
+│   │   ├── inline.rs        # Primitive inlining
+│   │   ├── dce.rs           # Dead code elimination
+│   │   └── const_prop.rs    # Constant propagation
+│   ├── codegen/
+│   │   ├── mod.rs
+│   │   ├── rust.rs          # Rust code generation
+│   │   ├── riscv.rs         # RISC-V assembly
+│   │   └── wasm.rs          # WebAssembly
+│   └── error.rs             # Error types
+└── tests/
+    ├── ir_tests.rs
+    ├── opt_tests.rs
+    └── codegen_tests.rs
+
+runtime/
+├── Cargo.toml
+├── src/
+│   ├── lib.rs
+│   ├── oram/
+│   │   ├── mod.rs
+│   │   ├── path.rs          # Path ORAM implementation
+│   │   ├── position.rs      # Position map
+│   │   ├── stash.rs         # Stash management
+│   │   ├── bucket.rs        # Bucket operations
+│   │   └── tree.rs          # Tree structure
+│   ├── crypto/
+│   │   ├── mod.rs
+│   │   ├── aead.rs          # AES-256-GCM
+│   │   ├── hash.rs          # SHA-256, BLAKE3
+│   │   ├── merkle.rs        # Merkle tree
+│   │   └── random.rs        # Secure RNG
+│   ├── collections/
+│   │   ├── mod.rs
+│   │   ├── oarray.rs        # Oblivious array
+│   │   ├── omap.rs          # Oblivious map
+│   │   ├── ovec.rs          # Oblivious vector
+│   │   └── osort.rs         # Oblivious sorting
+│   ├── primitives/
+│   │   ├── mod.rs
+│   │   ├── cmov.rs          # Constant-time select
+│   │   ├── cswap.rs         # Constant-time swap
+│   │   └── cmp.rs           # Constant-time compare
+│   └── storage/
+│       ├── mod.rs
+│       ├── memory.rs        # In-memory backend
+│       ├── file.rs          # File-based backend
+│       └── remote.rs        # Network backend
+└── benches/
+    ├── oram_bench.rs
+    └── crypto_bench.rs
+----
+
+== Cargo Configuration
+
+=== backend/Cargo.toml
+
+[source,toml]
+----
+[package]
+name = "obli-backend"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Palimpsest-0.8"
+description = "Oblibeny compiler backend"
+
+[dependencies]
+obli-runtime = { path = "../runtime" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rmp-serde = "1.1"
+thiserror = "1.0"
+clap = { version = "4.0", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+[dev-dependencies]
+proptest = "1.0"
+criterion = "0.5"
+tempfile = "3.0"
+
+[[bin]]
+name = "obli-backend"
+path = "src/main.rs"
+----
+
+=== runtime/Cargo.toml
+
+[source,toml]
+----
+[package]
+name = "obli-runtime"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Palimpsest-0.8"
+description = "Oblibeny ORAM runtime library"
+
+[dependencies]
+aes-gcm = "0.10"
+sha2 = "0.10"
+blake3 = "1.5"
+rand = "0.8"
+rand_chacha = "0.3"
+subtle = "2.5"          # Constant-time operations
+zeroize = "1.7"         # Secure memory wiping
+parking_lot = "0.12"    # Better mutexes
+thiserror = "1.0"
+tracing = "0.1"
+
+[dev-dependencies]
+proptest = "1.0"
+criterion = "0.5"
+
+[features]
+default = ["std"]
+std = []
+no_std = []             # For embedded/WASM
+
+[[bench]]
+name = "oram_bench"
+harness = false
+----
+
+== IR Parser
+
+[source,rust]
+----
+// ir/parse.rs
+
+use crate::ir::types::*;
+use serde::de::DeserializeOwned;
+use std::io::Read;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum ParseError {
+    #[error("JSON parse error: {0}")]
+    Json(#[from] serde_json::Error),
+
+    #[error("MessagePack parse error: {0}")]
+    MsgPack(#[from] rmp_serde::decode::Error),
+
+    #[error("Invalid magic bytes")]
+    InvalidMagic,
+
+    #[error("Unsupported version: {0}")]
+    UnsupportedVersion(String),
+
+    #[error("Checksum mismatch")]
+    ChecksumMismatch,
+
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+}
+
+pub type Result<T> = std::result::Result<T, ParseError>;
+
+const MAGIC: &[u8; 4] = b"OIR\0";
+const SUPPORTED_VERSIONS: &[&str] = &["1.0.0"];
+
+pub fn parse_json(input: &str) -> Result<Module> {
+    let module: Module = serde_json::from_str(input)?;
+    validate_version(&module.version)?;
+    Ok(module)
+}
+
+pub fn parse_msgpack<R: Read>(mut reader: R) -> Result<Module> {
+    // Read and verify magic
+    let mut magic = [0u8; 4];
+    reader.read_exact(&mut magic)?;
+    if &magic != MAGIC {
+        return Err(ParseError::InvalidMagic);
+    }
+
+    // Read version
+    let mut version = [0u8; 4];
+    reader.read_exact(&mut version)?;
+    let version = u32::from_le_bytes(version);
+
+    // Read payload length
+    let mut length = [0u8; 8];
+    reader.read_exact(&mut length)?;
+    let length = u64::from_le_bytes(length) as usize;
+
+    // Read payload
+    let mut payload = vec![0u8; length];
+    reader.read_exact(&mut payload)?;
+
+    // Read and verify checksum
+    let mut checksum = [0u8; 32];
+    reader.read_exact(&mut checksum)?;
+    let computed = blake3::hash(&payload);
+    if computed.as_bytes() != &checksum {
+        return Err(ParseError::ChecksumMismatch);
+    }
+
+    // Deserialize
+    let module: Module = rmp_serde::from_slice(&payload)?;
+    validate_version(&module.version)?;
+    Ok(module)
+}
+
+fn validate_version(version: &str) -> Result<()> {
+    if SUPPORTED_VERSIONS.contains(&version) {
+        Ok(())
+    } else {
+        Err(ParseError::UnsupportedVersion(version.to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_simple_json() {
+        let json = r#"{
+            "version": "1.0.0",
+            "name": "test",
+            "imports": [],
+            "types": [],
+            "globals": [],
+            "functions": [],
+            "entry": null,
+            "metadata": {
+                "compiler_version": "0.1.0",
+                "timestamp": "2024-01-01T00:00:00Z",
+                "options": {}
+            }
+        }"#;
+
+        let module = parse_json(json).unwrap();
+        assert_eq!(module.name, "test");
+    }
+}
+----
+
+== ORAM Runtime
+
+=== Path ORAM Implementation
+
+[source,rust]
+----
+// oram/path.rs
+
+use crate::crypto::{Aead, Rng};
+use crate::oram::{Bucket, PositionMap, Stash};
+use std::marker::PhantomData;
+use subtle::ConstantTimeEq;
+use zeroize::Zeroize;
+
+/// Path ORAM configuration
+#[derive(Debug, Clone)]
+pub struct Config {
+    /// Number of data blocks
+    pub block_count: usize,
+    /// Size of each block in bytes
+    pub block_size: usize,
+    /// Number of blocks per bucket
+    pub bucket_size: usize,
+    /// Maximum stash size before error
+    pub max_stash_size: usize,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            block_count: 1 << 20,  // 1M blocks
+            block_size: 4096,      // 4KB
+            bucket_size: 4,        // Z = 4
+            max_stash_size: 256,   // O(λ)
+        }
+    }
+}
+
+/// Block identifier
+pub type BlockId = u64;
+
+/// Leaf identifier (position in tree)
+pub type LeafId = u64;
+
+/// Encrypted block with metadata
+#[derive(Clone, Zeroize)]
+pub struct EncryptedBlock {
+    /// Block ID (encrypted)
+    id: BlockId,
+    /// Leaf assignment (encrypted)
+    leaf: LeafId,
+    /// Encrypted data
+    data: Vec<u8>,
+    /// Authentication tag
+    tag: [u8; 16],
+}
+
+/// Path ORAM implementation
+pub struct PathOram<S: Storage> {
+    config: Config,
+    /// Tree storage backend
+    storage: S,
+    /// Client-side position map
+    position_map: PositionMap,
+    /// Client-side stash
+    stash: Stash,
+    /// Encryption key
+    key: [u8; 32],
+    /// Access counter (for nonce derivation)
+    access_counter: u64,
+    /// Random number generator
+    rng: Rng,
+}
+
+impl<S: Storage> PathOram<S> {
+    /// Create new Path ORAM instance
+    pub fn new(config: Config, storage: S) -> Self {
+        let mut rng = Rng::new();
+        let key = rng.gen_key();
+
+        let tree_height = (config.block_count as f64).log2().ceil() as usize;
+        let leaf_count = 1 << tree_height;
+
+        // Initialize position map with random positions
+        let position_map = PositionMap::new_random(config.block_count, leaf_count, &mut rng);
+
+        Self {
+            config,
+            storage,
+            position_map,
+            stash: Stash::new(),
+            key,
+            access_counter: 0,
+            rng,
+        }
+    }
+
+    /// Read a block obliviously
+    pub fn read(&mut self, block_id: BlockId) -> Result<Vec<u8>, OramError> {
+        self.access(Operation::Read, block_id, None)
+    }
+
+    /// Write a block obliviously
+    pub fn write(&mut self, block_id: BlockId, data: Vec<u8>) -> Result<Vec<u8>, OramError> {
+        if data.len() != self.config.block_size {
+            return Err(OramError::InvalidBlockSize);
+        }
+        self.access(Operation::Write, block_id, Some(data))
+    }
+
+    /// Core access operation
+    fn access(
+        &mut self,
+        op: Operation,
+        block_id: BlockId,
+        data: Option<Vec<u8>>,
+    ) -> Result<Vec<u8>, OramError> {
+        // Step 1: Get old position and assign new random position
+        let old_leaf = self.position_map.get(block_id);
+        let new_leaf = self.rng.gen_leaf(self.leaf_count());
+        self.position_map.set(block_id, new_leaf);
+
+        // Step 2: Read entire path from root to leaf into stash
+        let path = self.read_path(old_leaf)?;
+        for bucket in path {
+            for block in bucket.blocks() {
+                if !block.is_dummy() {
+                    let decrypted = self.decrypt_block(&block)?;
+                    self.stash.insert(decrypted.id, decrypted);
+                }
+            }
+        }
+
+        // Step 3: Perform the actual operation
+        let result = match op {
+            Operation::Read => {
+                self.stash
+                    .get(block_id)
+                    .map(|b| b.data.clone())
+                    .ok_or(OramError::BlockNotFound)?
+            }
+            Operation::Write => {
+                let old_data = self.stash
+                    .get(block_id)
+                    .map(|b| b.data.clone())
+                    .unwrap_or_else(|| vec![0u8; self.config.block_size]);
+
+                self.stash.insert(block_id, Block {
+                    id: block_id,
+                    leaf: new_leaf,
+                    data: data.unwrap(),
+                });
+
+                old_data
+            }
+        };
+
+        // Step 4: Eviction - write blocks back along path
+        self.evict_path(old_leaf)?;
+
+        // Check stash overflow
+        if self.stash.len() > self.config.max_stash_size {
+            return Err(OramError::StashOverflow);
+        }
+
+        self.access_counter += 1;
+        Ok(result)
+    }
+
+    /// Read all buckets along path to leaf
+    fn read_path(&self, leaf: LeafId) -> Result<Vec<Bucket>, OramError> {
+        let height = self.tree_height();
+        let mut path = Vec::with_capacity(height + 1);
+
+        for level in 0..=height {
+            let node = self.path_node(leaf, level);
+            let bucket = self.storage.read_bucket(node)?;
+            path.push(bucket);
+        }
+
+        Ok(path)
+    }
+
+    /// Evict blocks from stash back to path
+    fn evict_path(&mut self, leaf: LeafId) -> Result<(), OramError> {
+        let height = self.tree_height();
+
+        // Process from leaves to root
+        for level in (0..=height).rev() {
+            let node = self.path_node(leaf, level);
+
+            // Collect blocks that can go to this bucket
+            let mut bucket_blocks = Vec::with_capacity(self.config.bucket_size);
+
+            // Find blocks whose path includes this node
+            let to_evict: Vec<BlockId> = self.stash
+                .iter()
+                .filter(|(_, block)| self.can_reside_at(block.leaf, node))
+                .take(self.config.bucket_size)
+                .map(|(id, _)| *id)
+                .collect();
+
+            for id in to_evict {
+                if let Some(block) = self.stash.remove(&id) {
+                    bucket_blocks.push(block);
+                }
+            }
+
+            // Pad with dummy blocks
+            while bucket_blocks.len() < self.config.bucket_size {
+                bucket_blocks.push(Block::dummy(self.config.block_size));
+            }
+
+            // Encrypt and write bucket
+            let encrypted: Vec<EncryptedBlock> = bucket_blocks
+                .into_iter()
+                .map(|b| self.encrypt_block(&b))
+                .collect();
+
+            self.storage.write_bucket(node, Bucket::new(encrypted))?;
+        }
+
+        Ok(())
+    }
+
+    /// Check if a block with given leaf can reside at node
+    fn can_reside_at(&self, leaf: LeafId, node: u64) -> bool {
+        let height = self.tree_height();
+        let level = self.node_level(node);
+
+        // Node is on path from root to leaf
+        self.path_node(leaf, level) == node
+    }
+
+    /// Get node index at given level on path to leaf
+    fn path_node(&self, leaf: LeafId, level: usize) -> u64 {
+        let height = self.tree_height();
+        // At level 0 (root), node = 0
+        // At level height (leaves), node = 2^height - 1 + leaf
+        let leaf_start = (1u64 << height) - 1;
+        let leaf_node = leaf_start + leaf;
+
+        // Traverse up from leaf to find node at level
+        leaf_node >> (height - level)
+    }
+
+    fn tree_height(&self) -> usize {
+        (self.config.block_count as f64).log2().ceil() as usize
+    }
+
+    fn leaf_count(&self) -> u64 {
+        1 << self.tree_height()
+    }
+
+    fn node_level(&self, node: u64) -> usize {
+        // Level 0 = root, Level H = leaves
+        ((node + 1) as f64).log2().floor() as usize
+    }
+
+    fn encrypt_block(&self, block: &Block) -> EncryptedBlock {
+        let nonce = self.derive_nonce(block.id, self.access_counter);
+        let (ciphertext, tag) = Aead::encrypt(&self.key, &nonce, &block.data);
+        EncryptedBlock {
+            id: block.id,
+            leaf: block.leaf,
+            data: ciphertext,
+            tag,
+        }
+    }
+
+    fn decrypt_block(&self, block: &EncryptedBlock) -> Result<Block, OramError> {
+        // Try decryption (timing-safe)
+        let nonce = self.derive_nonce(block.id, self.access_counter);
+        let data = Aead::decrypt(&self.key, &nonce, &block.data, &block.tag)
+            .map_err(|_| OramError::DecryptionFailed)?;
+
+        Ok(Block {
+            id: block.id,
+            leaf: block.leaf,
+            data,
+        })
+    }
+
+    fn derive_nonce(&self, block_id: BlockId, counter: u64) -> [u8; 12] {
+        let mut nonce = [0u8; 12];
+        nonce[0..8].copy_from_slice(&block_id.to_le_bytes());
+        nonce[8..12].copy_from_slice(&(counter as u32).to_le_bytes());
+        nonce
+    }
+}
+
+impl<S: Storage> Drop for PathOram<S> {
+    fn drop(&mut self) {
+        self.key.zeroize();
+        self.stash.zeroize();
+    }
+}
+----
+
+=== Constant-Time Primitives
+
+[source,rust]
+----
+// primitives/cmov.rs
+
+use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
+
+/// Constant-time conditional move
+///
+/// Returns `a` if `condition` is true, `b` otherwise.
+/// Timing is independent of `condition`.
+#[inline]
+pub fn cmov<T: ConditionallySelectable>(condition: bool, a: T, b: T) -> T {
+    T::conditional_select(&b, &a, Choice::from(condition as u8))
+}
+
+/// Constant-time conditional swap
+///
+/// If `condition` is true, swaps `a` and `b`.
+/// Timing is independent of `condition`.
+#[inline]
+pub fn cswap<T: ConditionallySelectable + Copy>(condition: bool, a: &mut T, b: &mut T) {
+    let choice = Choice::from(condition as u8);
+    T::conditional_swap(a, b, choice);
+}
+
+/// Constant-time equality comparison
+#[inline]
+pub fn ct_eq<T: ConstantTimeEq>(a: &T, b: &T) -> bool {
+    a.ct_eq(b).into()
+}
+
+/// Constant-time less-than comparison for u64
+#[inline]
+pub fn ct_lt(a: u64, b: u64) -> bool {
+    // a < b iff (a - b) has high bit set (considering underflow)
+    let diff = a.wrapping_sub(b);
+    (diff >> 63) == 1
+}
+
+/// Constant-time array lookup
+///
+/// Returns `arr[index]` but accesses all elements to hide the index.
+pub fn ct_lookup<T: Copy + Default>(arr: &[T], index: usize) -> T {
+    let mut result = T::default();
+
+    for (i, item) in arr.iter().enumerate() {
+        let is_target = ct_eq_usize(i, index);
+        result = cmov(is_target, *item, result);
+    }
+
+    result
+}
+
+/// Constant-time array write
+///
+/// Sets `arr[index] = value` but touches all elements to hide the index.
+pub fn ct_write<T: Copy + ConditionallySelectable>(arr: &mut [T], index: usize, value: T) {
+    for (i, item) in arr.iter_mut().enumerate() {
+        let is_target = ct_eq_usize(i, index);
+        *item = cmov(is_target, value, *item);
+    }
+}
+
+fn ct_eq_usize(a: usize, b: usize) -> bool {
+    (a ^ b) == 0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cmov() {
+        assert_eq!(cmov(true, 10u64, 20u64), 10);
+        assert_eq!(cmov(false, 10u64, 20u64), 20);
+    }
+
+    #[test]
+    fn test_ct_lookup() {
+        let arr = [10, 20, 30, 40, 50];
+        assert_eq!(ct_lookup(&arr, 0), 10);
+        assert_eq!(ct_lookup(&arr, 2), 30);
+        assert_eq!(ct_lookup(&arr, 4), 50);
+    }
+}
+----
+
+== Code Generator
+
+=== Rust Code Generation
+
+[source,rust]
+----
+// codegen/rust.rs
+
+use crate::ir::*;
+use std::fmt::Write;
+
+pub struct RustCodegen {
+    output: String,
+    indent: usize,
+}
+
+impl RustCodegen {
+    pub fn new() -> Self {
+        Self {
+            output: String::new(),
+            indent: 0,
+        }
+    }
+
+    pub fn generate(&mut self, module: &Module) -> String {
+        // Header
+        self.emit_line("// Generated by Oblibeny compiler");
+        self.emit_line("// DO NOT EDIT");
+        self.emit_line("");
+        self.emit_line("use obli_runtime::prelude::*;");
+        self.emit_line("");
+
+        // Generate each function
+        for func in &module.functions {
+            self.generate_function(func);
+            self.emit_line("");
+        }
+
+        std::mem::take(&mut self.output)
+    }
+
+    fn generate_function(&mut self, func: &Function) {
+        // Function signature
+        let params: Vec<String> = func.params.iter()
+            .map(|p| format!("{}: {}", p.name, self.type_to_rust(&p.ty.ty)))
+            .collect();
+
+        let ret_type = self.type_to_rust(&func.return_type.ty);
+
+        self.emit_line(&format!(
+            "pub fn {}({}) -> {} {{",
+            func.name,
+            params.join(", "),
+            ret_type
+        ));
+
+        self.indent += 1;
+
+        // Locals
+        for local in &func.locals {
+            self.emit_line(&format!(
+                "let mut {}: {};",
+                local.name,
+                self.type_to_rust(&local.ty.ty)
+            ));
+        }
+
+        if !func.locals.is_empty() {
+            self.emit_line("");
+        }
+
+        // Body
+        for instr in &func.body {
+            self.generate_instr(instr);
+        }
+
+        self.indent -= 1;
+        self.emit_line("}");
+    }
+
+    fn generate_instr(&mut self, instr: &Instr) {
+        match instr {
+            Instr::Let { name, value } => {
+                self.emit_line(&format!(
+                    "let {} = {};",
+                    name,
+                    self.expr_to_rust(value)
+                ));
+            }
+
+            Instr::Assign { target, value } => {
+                self.emit_line(&format!(
+                    "{} = {};",
+                    self.lvalue_to_rust(target),
+                    self.expr_to_rust(value)
+                ));
+            }
+
+            Instr::OramRead { array, index, result } => {
+                self.emit_line(&format!(
+                    "{} = {}.oram_read({});",
+                    result,
+                    self.expr_to_rust(array),
+                    self.expr_to_rust(index)
+                ));
+            }
+
+            Instr::OramWrite { array, index, value } => {
+                self.emit_line(&format!(
+                    "{}.oram_write({}, {});",
+                    self.expr_to_rust(array),
+                    self.expr_to_rust(index),
+                    self.expr_to_rust(value)
+                ));
+            }
+
+            Instr::Cmov { cond, true_val, false_val, result } => {
+                self.emit_line(&format!(
+                    "{} = cmov({}, {}, {});",
+                    result,
+                    self.expr_to_rust(cond),
+                    self.expr_to_rust(true_val),
+                    self.expr_to_rust(false_val)
+                ));
+            }
+
+            Instr::OIf { cond, then_, else_ } => {
+                // Oblivious if: execute both branches, select result
+                self.emit_line("{");
+                self.indent += 1;
+
+                self.emit_line(&format!(
+                    "let __cond = {};",
+                    self.expr_to_rust(cond)
+                ));
+
+                // Execute "then" branch
+                self.emit_line("let __then_result = {");
+                self.indent += 1;
+                for i in then_ {
+                    self.generate_instr(i);
+                }
+                self.indent -= 1;
+                self.emit_line("};");
+
+                // Execute "else" branch
+                self.emit_line("let __else_result = {");
+                self.indent += 1;
+                for i in else_ {
+                    self.generate_instr(i);
+                }
+                self.indent -= 1;
+                self.emit_line("};");
+
+                // Select based on condition (constant-time)
+                self.emit_line("cmov(__cond, __then_result, __else_result)");
+
+                self.indent -= 1;
+                self.emit_line("}");
+            }
+
+            Instr::Return(Some(value)) => {
+                self.emit_line(&format!("return {};", self.expr_to_rust(value)));
+            }
+
+            Instr::Return(None) => {
+                self.emit_line("return;");
+            }
+
+            _ => {
+                self.emit_line("// TODO: unimplemented instruction");
+            }
+        }
+    }
+
+    fn expr_to_rust(&self, expr: &Expr) -> String {
+        match expr {
+            Expr::Unit => "()".to_string(),
+            Expr::Bool(b) => b.to_string(),
+            Expr::Int { value, ty } => {
+                format!("{}_{}", value, self.prim_to_rust(ty))
+            }
+            Expr::Float { value, ty } => {
+                format!("{}_{}", value, self.prim_to_rust(ty))
+            }
+            Expr::Var(name) => name.clone(),
+            Expr::Global(name) => format!("GLOBAL_{}", name.to_uppercase()),
+            Expr::Add(a, b) => format!("({} + {})", self.expr_to_rust(a), self.expr_to_rust(b)),
+            Expr::Sub(a, b) => format!("({} - {})", self.expr_to_rust(a), self.expr_to_rust(b)),
+            Expr::Mul(a, b) => format!("({} * {})", self.expr_to_rust(a), self.expr_to_rust(b)),
+            Expr::Div(a, b) => format!("({} / {})", self.expr_to_rust(a), self.expr_to_rust(b)),
+            Expr::Eq(a, b) => format!("({} == {})", self.expr_to_rust(a), self.expr_to_rust(b)),
+            Expr::Lt(a, b) => format!("({} < {})", self.expr_to_rust(a), self.expr_to_rust(b)),
+            Expr::Call { func, args } => {
+                let args_str: Vec<String> = args.iter().map(|a| self.expr_to_rust(a)).collect();
+                format!("{}({})", func, args_str.join(", "))
+            }
+            _ => "/* unimplemented */".to_string(),
+        }
+    }
+
+    fn lvalue_to_rust(&self, lv: &LValue) -> String {
+        match lv {
+            LValue::Var(name) => name.clone(),
+            LValue::Index { array, index } => {
+                format!("{}[{}]", self.expr_to_rust(array), self.expr_to_rust(index))
+            }
+            LValue::Field { strct, field } => {
+                format!("{}.{}", self.expr_to_rust(strct), field)
+            }
+        }
+    }
+
+    fn type_to_rust(&self, ty: &Type) -> String {
+        match ty {
+            Type::Prim(p) => self.prim_to_rust(p),
+            Type::Array { elem, size } => {
+                match size {
+                    Some(n) => format!("[{}; {}]", self.type_to_rust(elem), n),
+                    None => format!("Vec<{}>", self.type_to_rust(elem)),
+                }
+            }
+            Type::OArray { elem, .. } => {
+                format!("OArray<{}>", self.type_to_rust(elem))
+            }
+            Type::Tuple(elems) => {
+                let parts: Vec<String> = elems.iter().map(|e| self.type_to_rust(e)).collect();
+                format!("({})", parts.join(", "))
+            }
+            Type::Func { params, ret } => {
+                let params_str: Vec<String> = params.iter().map(|p| self.type_to_rust(p)).collect();
+                format!("fn({}) -> {}", params_str.join(", "), self.type_to_rust(ret))
+            }
+            Type::Named(name) => name.clone(),
+            _ => "/* unknown type */".to_string(),
+        }
+    }
+
+    fn prim_to_rust(&self, prim: &PrimType) -> &'static str {
+        match prim {
+            PrimType::Unit => "()",
+            PrimType::Bool => "bool",
+            PrimType::I8 => "i8",
+            PrimType::I16 => "i16",
+            PrimType::I32 => "i32",
+            PrimType::I64 => "i64",
+            PrimType::U8 => "u8",
+            PrimType::U16 => "u16",
+            PrimType::U32 => "u32",
+            PrimType::U64 => "u64",
+            PrimType::F32 => "f32",
+            PrimType::F64 => "f64",
+        }
+    }
+
+    fn emit_line(&mut self, line: &str) {
+        for _ in 0..self.indent {
+            self.output.push_str("    ");
+        }
+        self.output.push_str(line);
+        self.output.push('\n');
+    }
+}
+----
+
+== CLI Entry Point
+
+[source,rust]
+----
+// main.rs
+
+use clap::Parser;
+use obli_backend::{codegen, ir, opt};
+use std::path::PathBuf;
+use tracing::info;
+
+#[derive(Parser)]
+#[command(name = "obli-backend")]
+#[command(about = "Oblibeny compiler backend")]
+struct Cli {
+    /// Input OIR file
+    input: PathBuf,
+
+    /// Output file
+    #[arg(short, long, default_value = "out.rs")]
+    output: PathBuf,
+
+    /// Output format
+    #[arg(short, long, value_enum, default_value = "rust")]
+    format: OutputFormat,
+
+    /// Optimization level
+    #[arg(short = 'O', long, default_value = "1")]
+    opt_level: u8,
+
+    /// Enable debug output
+    #[arg(short, long)]
+    debug: bool,
+}
+
+#[derive(Clone, Copy, clap::ValueEnum)]
+enum OutputFormat {
+    Rust,
+    RiscV,
+    Wasm,
+    C,
+}
+
+fn main() -> anyhow::Result<()> {
+    let cli = Cli::parse();
+
+    tracing_subscriber::fmt()
+        .with_max_level(if cli.debug {
+            tracing::Level::DEBUG
+        } else {
+            tracing::Level::INFO
+        })
+        .init();
+
+    // Parse input
+    info!("Parsing {:?}", cli.input);
+    let input = std::fs::read_to_string(&cli.input)?;
+    let module = ir::parse_json(&input)?;
+
+    // Validate
+    info!("Validating IR");
+    ir::validate(&module)?;
+
+    // Optimize
+    let module = if cli.opt_level > 0 {
+        info!("Optimizing (level {})", cli.opt_level);
+        opt::optimize(module, cli.opt_level)
+    } else {
+        module
+    };
+
+    // Generate code
+    info!("Generating {:?} code", cli.format);
+    let output = match cli.format {
+        OutputFormat::Rust => codegen::rust::generate(&module),
+        OutputFormat::RiscV => codegen::riscv::generate(&module),
+        OutputFormat::Wasm => codegen::wasm::generate(&module),
+        OutputFormat::C => codegen::c::generate(&module),
+    };
+
+    // Write output
+    info!("Writing {:?}", cli.output);
+    std::fs::write(&cli.output, output)?;
+
+    info!("Done");
+    Ok(())
+}
+----
+
+== Testing
+
+[source,rust]
+----
+// tests/integration_tests.rs
+
+use obli_runtime::collections::OArray;
+use obli_runtime::oram::PathOram;
+use obli_runtime::primitives::cmov;
+
+#[test]
+fn test_oarray_basic() {
+    let mut arr: OArray<i64> = OArray::new(1024);
+
+    // Write some values
+    arr.oram_write(0, 100);
+    arr.oram_write(1, 200);
+    arr.oram_write(100, 12345);
+
+    // Read them back
+    assert_eq!(arr.oram_read(0), 100);
+    assert_eq!(arr.oram_read(1), 200);
+    assert_eq!(arr.oram_read(100), 12345);
+}
+
+#[test]
+fn test_cmov() {
+    let secret = true;
+    let a = 10i64;
+    let b = 20i64;
+
+    let result = cmov(secret, a, b);
+    assert_eq!(result, 10);
+
+    let result = cmov(!secret, a, b);
+    assert_eq!(result, 20);
+}
+
+#[test]
+fn test_path_oram_correctness() {
+    use proptest::prelude::*;
+
+    proptest!(|(ops in prop::collection::vec(any::<(bool, u64, i64)>(), 1..100))| {
+        let mut oram = PathOram::new(Default::default());
+        let mut reference = std::collections::HashMap::new();
+
+        for (is_write, key, value) in ops {
+            let key = key % 1000;  // Limit key space
+            if is_write {
+                oram.write(key, value.to_le_bytes().to_vec()).unwrap();
+                reference.insert(key, value);
+            } else {
+                let oram_val = oram.read(key).ok();
+                let ref_val = reference.get(&key).map(|v| v.to_le_bytes().to_vec());
+                assert_eq!(oram_val, ref_val);
+            }
+        }
+    });
+}
+----
+
+== Benchmarks
+
+[source,rust]
+----
+// benches/oram_bench.rs
+
+use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use obli_runtime::oram::PathOram;
+
+fn bench_oram_access(c: &mut Criterion) {
+    let mut group = c.benchmark_group("ORAM Access");
+
+    for size in [1024, 4096, 16384, 65536] {
+        group.bench_with_input(
+            BenchmarkId::new("read", size),
+            &size,
+            |b, &size| {
+                let mut oram = PathOram::new(size, 4096);
+                let data = vec![0u8; 4096];
+                oram.write(0, data.clone()).unwrap();
+
+                b.iter(|| {
+                    black_box(oram.read(black_box(0)).unwrap())
+                });
+            },
+        );
+
+        group.bench_with_input(
+            BenchmarkId::new("write", size),
+            &size,
+            |b, &size| {
+                let mut oram = PathOram::new(size, 4096);
+                let data = vec![42u8; 4096];
+
+                b.iter(|| {
+                    oram.write(black_box(0), black_box(data.clone())).unwrap()
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
+criterion_group!(benches, bench_oram_access);
+criterion_main!(benches);
+----

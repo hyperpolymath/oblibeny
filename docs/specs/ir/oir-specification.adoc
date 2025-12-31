@@ -1,0 +1,680 @@
+// SPDX-License-Identifier: MIT OR Palimpsest-0.8
+// Copyright (c) 2024 Hyperpolymath
+
+= OIR: Oblivious Intermediate Representation Specification
+:author: Oblibeny Project
+:revdate: 2024
+:toc: left
+:toclevels: 4
+:sectnums:
+:stem: latexmath
+
+== Overview
+
+OIR (Oblivious Intermediate Representation) is the boundary format between
+the OCaml frontend and Rust backend. It is a typed, security-annotated IR
+designed for oblivious program transformation.
+
+== Design Principles
+
+1. **Self-contained**: All information needed for code generation
+2. **Typed**: Every expression carries its type and security level
+3. **Explicit**: ORAM operations are explicit, not implicit
+4. **Serializable**: MessagePack (binary) or JSON (debug)
+5. **Versionable**: Schema versioning for compatibility
+
+== File Format
+
+=== Binary Format (Production)
+
+MessagePack serialization with the following structure:
+
+[source]
+----
+OIR File:
+  magic: [0x4F, 0x49, 0x52, 0x00]  # "OIR\0"
+  version: u32                      # Schema version
+  length: u64                       # Payload length
+  payload: msgpack(Module)          # MessagePack-encoded module
+  checksum: [u8; 32]               # BLAKE3 hash of payload
+----
+
+=== Text Format (Debug)
+
+JSON with `.oir.json` extension for debugging.
+
+== Schema
+
+=== Module (Top-Level)
+
+[source]
+----
+Module = {
+  version: string,           # "1.0.0"
+  name: string,              # Module name
+  imports: [Import],         # External dependencies
+  types: [TypeDef],          # Type definitions
+  globals: [Global],         # Global variables
+  functions: [Function],     # Function definitions
+  entry: string?,            # Entry point function name
+  metadata: Metadata         # Debug info, source maps
+}
+----
+
+=== Types
+
+[source]
+----
+Type =
+  | { "prim": PrimType }
+  | { "array": Type, "size": int? }
+  | { "oarray": Type, "size": int? }      # Oblivious array
+  | { "ref": Type }
+  | { "oref": Type }                       # Oblivious reference
+  | { "tuple": [Type] }
+  | { "func": { "params": [Type], "ret": Type } }
+  | { "named": string }                    # Reference to TypeDef
+
+PrimType = "unit" | "bool" | "i8" | "i16" | "i32" | "i64"
+         | "u8" | "u16" | "u32" | "u64" | "f32" | "f64"
+
+SecurityLevel = "low" | "high" | { "join": [SecurityLevel] }
+
+TypedType = {
+  type: Type,
+  security: SecurityLevel
+}
+----
+
+=== Functions
+
+[source]
+----
+Function = {
+  name: string,
+  params: [Param],
+  return_type: TypedType,
+  locals: [Local],
+  body: [Instruction],
+  attributes: [Attribute]
+}
+
+Param = {
+  name: string,
+  type: TypedType
+}
+
+Local = {
+  name: string,
+  type: TypedType
+}
+
+Attribute = "inline" | "noinline" | "oblivious" | "constant_time"
+----
+
+=== Instructions
+
+[source]
+----
+Instruction =
+  (* Variables *)
+  | { "let": { "name": string, "value": Expr } }
+  | { "assign": { "target": LValue, "value": Expr } }
+
+  (* Control flow *)
+  | { "if": { "cond": Expr, "then": [Instruction], "else": [Instruction] } }
+  | { "oif": { "cond": Expr, "then": [Instruction], "else": [Instruction] } }  # Oblivious if
+  | { "loop": { "body": [Instruction] } }
+  | { "break": null }
+  | { "continue": null }
+  | { "return": Expr? }
+
+  (* Oblivious operations *)
+  | { "oram_read": { "array": Expr, "index": Expr, "result": string } }
+  | { "oram_write": { "array": Expr, "index": Expr, "value": Expr } }
+  | { "cmov": { "cond": Expr, "true_val": Expr, "false_val": Expr, "result": string } }
+  | { "oswap": { "cond": Expr, "a": LValue, "b": LValue } }  # Oblivious swap
+
+  (* Memory *)
+  | { "alloc": { "name": string, "type": Type, "size": Expr? } }
+  | { "oalloc": { "name": string, "type": Type, "size": Expr? } }  # Oblivious alloc
+  | { "free": { "target": string } }
+
+  (* Function calls *)
+  | { "call": { "func": string, "args": [Expr], "result": string? } }
+
+  (* Debugging *)
+  | { "assert": { "cond": Expr, "msg": string } }
+  | { "debug": { "msg": string, "values": [Expr] } }
+
+LValue =
+  | { "var": string }
+  | { "index": { "array": Expr, "index": Expr } }
+  | { "field": { "struct": Expr, "field": string } }
+----
+
+=== Expressions
+
+[source]
+----
+Expr =
+  (* Literals *)
+  | { "unit": null }
+  | { "bool": bool }
+  | { "int": { "value": int, "type": PrimType } }
+  | { "float": { "value": float, "type": PrimType } }
+
+  (* Variables *)
+  | { "var": string }
+  | { "global": string }
+
+  (* Arithmetic *)
+  | { "add": [Expr, Expr] }
+  | { "sub": [Expr, Expr] }
+  | { "mul": [Expr, Expr] }
+  | { "div": [Expr, Expr] }
+  | { "mod": [Expr, Expr] }
+  | { "neg": Expr }
+
+  (* Bitwise *)
+  | { "band": [Expr, Expr] }
+  | { "bor": [Expr, Expr] }
+  | { "bxor": [Expr, Expr] }
+  | { "bnot": Expr }
+  | { "shl": [Expr, Expr] }
+  | { "shr": [Expr, Expr] }
+
+  (* Comparison *)
+  | { "eq": [Expr, Expr] }
+  | { "ne": [Expr, Expr] }
+  | { "lt": [Expr, Expr] }
+  | { "le": [Expr, Expr] }
+  | { "gt": [Expr, Expr] }
+  | { "ge": [Expr, Expr] }
+
+  (* Logical *)
+  | { "and": [Expr, Expr] }
+  | { "or": [Expr, Expr] }
+  | { "not": Expr }
+
+  (* Memory access (non-oblivious) *)
+  | { "load": { "ptr": Expr } }
+  | { "index": { "array": Expr, "index": Expr } }
+
+  (* Oblivious access (results from oram_read stored in var) *)
+  | { "oload": { "oref": Expr } }
+
+  (* Type operations *)
+  | { "cast": { "value": Expr, "to": Type } }
+  | { "sizeof": Type }
+
+  (* Tuples/Structs *)
+  | { "tuple": [Expr] }
+  | { "field": { "tuple": Expr, "index": int } }
+  | { "struct": { "type": string, "fields": { string: Expr } } }
+
+  (* Function *)
+  | { "call": { "func": string, "args": [Expr] } }
+
+  (* Security *)
+  | { "classify": { "value": Expr, "to": SecurityLevel } }  # Raise security
+  | { "declassify": { "value": Expr } }                     # Lower security (unsafe!)
+----
+
+=== Metadata
+
+[source]
+----
+Metadata = {
+  source_file: string?,
+  source_map: [SourceMapping]?,
+  compiler_version: string,
+  timestamp: string,
+  options: { string: string }
+}
+
+SourceMapping = {
+  ir_range: [int, int],      # Instruction range in IR
+  source_range: {            # Position in source
+    file: string,
+    start_line: int,
+    start_col: int,
+    end_line: int,
+    end_col: int
+  }
+}
+----
+
+== Example
+
+=== Source Code
+
+[source]
+----
+fn secret_lookup(db: oarray<i64>, idx: i64 @high) -> i64 @high {
+    db[idx]
+}
+
+fn conditional_access(arr: oarray<i64>, secret: bool @high) -> i64 @high {
+    if secret {
+        arr[0]
+    } else {
+        arr[1]
+    }
+}
+----
+
+=== Generated OIR
+
+[source,json]
+----
+{
+  "version": "1.0.0",
+  "name": "example",
+  "imports": [],
+  "types": [],
+  "globals": [],
+  "functions": [
+    {
+      "name": "secret_lookup",
+      "params": [
+        {"name": "db", "type": {"type": {"oarray": {"prim": "i64"}}, "security": "low"}},
+        {"name": "idx", "type": {"type": {"prim": "i64"}, "security": "high"}}
+      ],
+      "return_type": {"type": {"prim": "i64"}, "security": "high"},
+      "locals": [
+        {"name": "tmp0", "type": {"type": {"prim": "i64"}, "security": "high"}}
+      ],
+      "body": [
+        {
+          "oram_read": {
+            "array": {"var": "db"},
+            "index": {"var": "idx"},
+            "result": "tmp0"
+          }
+        },
+        {"return": {"var": "tmp0"}}
+      ],
+      "attributes": ["oblivious"]
+    },
+    {
+      "name": "conditional_access",
+      "params": [
+        {"name": "arr", "type": {"type": {"oarray": {"prim": "i64"}}, "security": "low"}},
+        {"name": "secret", "type": {"type": {"prim": "bool"}, "security": "high"}}
+      ],
+      "return_type": {"type": {"prim": "i64"}, "security": "high"},
+      "locals": [
+        {"name": "tmp0", "type": {"type": {"prim": "i64"}, "security": "high"}},
+        {"name": "tmp1", "type": {"type": {"prim": "i64"}, "security": "high"}},
+        {"name": "result", "type": {"type": {"prim": "i64"}, "security": "high"}}
+      ],
+      "body": [
+        {
+          "oram_read": {
+            "array": {"var": "arr"},
+            "index": {"int": {"value": 0, "type": "i64"}},
+            "result": "tmp0"
+          }
+        },
+        {
+          "oram_read": {
+            "array": {"var": "arr"},
+            "index": {"int": {"value": 1, "type": "i64"}},
+            "result": "tmp1"
+          }
+        },
+        {
+          "cmov": {
+            "cond": {"var": "secret"},
+            "true_val": {"var": "tmp0"},
+            "false_val": {"var": "tmp1"},
+            "result": "result"
+          }
+        },
+        {"return": {"var": "result"}}
+      ],
+      "attributes": ["oblivious", "constant_time"]
+    }
+  ],
+  "entry": null,
+  "metadata": {
+    "source_file": "example.obl",
+    "compiler_version": "0.1.0",
+    "timestamp": "2024-01-01T00:00:00Z",
+    "options": {}
+  }
+}
+----
+
+== OCaml Type Definitions
+
+[source,ocaml]
+----
+(* ir.ml - OIR types in OCaml *)
+
+type prim_type =
+  | Unit | Bool
+  | I8 | I16 | I32 | I64
+  | U8 | U16 | U32 | U64
+  | F32 | F64
+
+type security_level =
+  | Low
+  | High
+  | Join of security_level list
+
+type typ =
+  | Prim of prim_type
+  | Array of typ * int option
+  | OArray of typ * int option       (* Oblivious array *)
+  | Ref of typ
+  | ORef of typ                      (* Oblivious reference *)
+  | Tuple of typ list
+  | Func of typ list * typ
+  | Named of string
+
+type typed_type = {
+  ty: typ;
+  sec: security_level;
+}
+
+type expr =
+  | EUnit
+  | EBool of bool
+  | EInt of int64 * prim_type
+  | EFloat of float * prim_type
+  | EVar of string
+  | EGlobal of string
+  | EBinop of binop * expr * expr
+  | EUnop of unop * expr
+  | ELoad of expr
+  | EIndex of expr * expr
+  | EOLoad of expr
+  | ECast of expr * typ
+  | ESizeof of typ
+  | ETuple of expr list
+  | EField of expr * int
+  | EStruct of string * (string * expr) list
+  | ECall of string * expr list
+  | EClassify of expr * security_level
+  | EDeclassify of expr
+
+and binop =
+  | Add | Sub | Mul | Div | Mod
+  | Band | Bor | Bxor | Shl | Shr
+  | Eq | Ne | Lt | Le | Gt | Ge
+  | And | Or
+
+and unop = Neg | Bnot | Not
+
+type lvalue =
+  | LVar of string
+  | LIndex of expr * expr
+  | LField of expr * string
+
+type instr =
+  | ILet of string * expr
+  | IAssign of lvalue * expr
+  | IIf of expr * instr list * instr list
+  | IOIf of expr * instr list * instr list  (* Oblivious if *)
+  | ILoop of instr list
+  | IBreak
+  | IContinue
+  | IReturn of expr option
+  | IOramRead of { array: expr; index: expr; result: string }
+  | IOramWrite of { array: expr; index: expr; value: expr }
+  | ICmov of { cond: expr; true_val: expr; false_val: expr; result: string }
+  | IOSwap of { cond: expr; a: lvalue; b: lvalue }
+  | IAlloc of string * typ * expr option
+  | IOAlloc of string * typ * expr option
+  | IFree of string
+  | ICall of string * expr list * string option
+  | IAssert of expr * string
+  | IDebug of string * expr list
+
+type attribute = Inline | NoInline | Oblivious | ConstantTime
+
+type func = {
+  name: string;
+  params: (string * typed_type) list;
+  return_type: typed_type;
+  locals: (string * typed_type) list;
+  body: instr list;
+  attributes: attribute list;
+}
+
+type import = {
+  module_name: string;
+  items: string list;
+}
+
+type type_def = {
+  name: string;
+  definition: typ;
+}
+
+type global = {
+  name: string;
+  typ: typed_type;
+  init: expr option;
+}
+
+type source_pos = {
+  file: string;
+  start_line: int;
+  start_col: int;
+  end_line: int;
+  end_col: int;
+}
+
+type source_mapping = {
+  ir_range: int * int;
+  source_range: source_pos;
+}
+
+type metadata = {
+  source_file: string option;
+  source_map: source_mapping list;
+  compiler_version: string;
+  timestamp: string;
+  options: (string * string) list;
+}
+
+type module_ = {
+  version: string;
+  name: string;
+  imports: import list;
+  types: type_def list;
+  globals: global list;
+  functions: func list;
+  entry: string option;
+  metadata: metadata;
+}
+----
+
+== Rust Type Definitions
+
+[source,rust]
+----
+// ir/types.rs - OIR types in Rust
+
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PrimType {
+    Unit, Bool,
+    I8, I16, I32, I64,
+    U8, U16, U32, U64,
+    F32, F64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SecurityLevel {
+    Low,
+    High,
+    Join(Vec<SecurityLevel>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Type {
+    Prim(PrimType),
+    Array { elem: Box<Type>, size: Option<usize> },
+    OArray { elem: Box<Type>, size: Option<usize> },
+    Ref(Box<Type>),
+    ORef(Box<Type>),
+    Tuple(Vec<Type>),
+    Func { params: Vec<Type>, ret: Box<Type> },
+    Named(String),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TypedType {
+    #[serde(rename = "type")]
+    pub ty: Type,
+    pub security: SecurityLevel,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Expr {
+    Unit,
+    Bool(bool),
+    Int { value: i64, #[serde(rename = "type")] ty: PrimType },
+    Float { value: f64, #[serde(rename = "type")] ty: PrimType },
+    Var(String),
+    Global(String),
+    Add(Box<Expr>, Box<Expr>),
+    Sub(Box<Expr>, Box<Expr>),
+    Mul(Box<Expr>, Box<Expr>),
+    Div(Box<Expr>, Box<Expr>),
+    // ... other operations
+    Call { func: String, args: Vec<Expr> },
+    Classify { value: Box<Expr>, to: SecurityLevel },
+    Declassify { value: Box<Expr> },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LValue {
+    Var(String),
+    Index { array: Expr, index: Expr },
+    Field { #[serde(rename = "struct")] strct: Expr, field: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Instr {
+    Let { name: String, value: Expr },
+    Assign { target: LValue, value: Expr },
+    If { cond: Expr, then_: Vec<Instr>, else_: Vec<Instr> },
+    OIf { cond: Expr, then_: Vec<Instr>, else_: Vec<Instr> },
+    Loop { body: Vec<Instr> },
+    Break,
+    Continue,
+    Return(Option<Expr>),
+    OramRead { array: Expr, index: Expr, result: String },
+    OramWrite { array: Expr, index: Expr, value: Expr },
+    Cmov { cond: Expr, true_val: Expr, false_val: Expr, result: String },
+    OSwap { cond: Expr, a: LValue, b: LValue },
+    Alloc { name: String, #[serde(rename = "type")] ty: Type, size: Option<Expr> },
+    OAlloc { name: String, #[serde(rename = "type")] ty: Type, size: Option<Expr> },
+    Free { target: String },
+    Call { func: String, args: Vec<Expr>, result: Option<String> },
+    Assert { cond: Expr, msg: String },
+    Debug { msg: String, values: Vec<Expr> },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Attribute {
+    Inline,
+    Noinline,
+    Oblivious,
+    ConstantTime,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Param {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub ty: TypedType,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Local {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub ty: TypedType,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Function {
+    pub name: String,
+    pub params: Vec<Param>,
+    pub return_type: TypedType,
+    pub locals: Vec<Local>,
+    pub body: Vec<Instr>,
+    pub attributes: Vec<Attribute>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Module {
+    pub version: String,
+    pub name: String,
+    pub imports: Vec<Import>,
+    pub types: Vec<TypeDef>,
+    pub globals: Vec<Global>,
+    pub functions: Vec<Function>,
+    pub entry: Option<String>,
+    pub metadata: Metadata,
+}
+----
+
+== Validation Rules
+
+=== Well-Formedness
+
+1. All referenced types must be defined
+2. All referenced variables must be in scope
+3. All function calls must reference defined functions
+4. Oblivious operations only on oblivious types
+
+=== Security Typing
+
+1. High-security values cannot flow to low-security locations
+2. Branching on high-security values requires oblivious if (`oif`)
+3. `declassify` requires explicit annotation (unsafe)
+
+=== ORAM Constraints
+
+1. `oram_read` target must be `oarray` or `oref`
+2. `oram_write` target must be `oarray` or `oref`
+3. `cmov` must have matching types for both branches
+
+== Versioning
+
+=== Version Format
+
+`MAJOR.MINOR.PATCH`
+
+* MAJOR: Breaking changes to IR structure
+* MINOR: Backward-compatible additions
+* PATCH: Bug fixes, documentation
+
+=== Compatibility
+
+* Rust backend supports current major version ± 1
+* Old IR files should produce warnings, not errors
+
+== Extensions
+
+Reserved for future use:
+
+* `{ "parallel": [...] }` - Parallel execution block
+* `{ "atomic": [...] }` - Atomic transaction
+* `{ "simd": {...} }` - SIMD operations
+* `{ "gpu": {...} }` - GPU offload hints

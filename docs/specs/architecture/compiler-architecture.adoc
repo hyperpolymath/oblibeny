@@ -1,0 +1,491 @@
+// SPDX-License-Identifier: MIT OR Palimpsest-0.8
+// Copyright (c) 2024 Hyperpolymath
+
+= Oblibeny Compiler Architecture: OCaml Frontend + Rust Backend
+:author: Oblibeny Project
+:revdate: 2024
+:toc: left
+:toclevels: 4
+:sectnums:
+:stem: latexmath
+
+== Overview
+
+Oblibeny uses a split-compiler architecture:
+
+* **OCaml Frontend**: Parsing, type checking, security analysis, IR generation
+* **Rust Backend**: Code generation, optimization, runtime, ORAM implementation
+
+This leverages OCaml's strengths in symbolic manipulation and Rust's strengths
+in systems programming and performance.
+
+== Architecture Diagram
+
+[source]
+----
+                         OBLIBENY COMPILER ARCHITECTURE
+                         ══════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           OCaml Frontend                                     │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │                                                                       │   │
+│  │   Source Code (.obl)                                                  │   │
+│  │         │                                                             │   │
+│  │         ▼                                                             │   │
+│  │   ┌─────────────┐    ┌─────────────┐    ┌─────────────────────────┐  │   │
+│  │   │   Lexer     │───▶│   Parser    │───▶│   Abstract Syntax Tree  │  │   │
+│  │   │  (ocamllex) │    │  (Menhir)   │    │         (AST)           │  │   │
+│  │   └─────────────┘    └─────────────┘    └───────────┬─────────────┘  │   │
+│  │                                                     │                 │   │
+│  │                                                     ▼                 │   │
+│  │   ┌─────────────────────────────────────────────────────────────┐    │   │
+│  │   │                    Type Checker                              │    │   │
+│  │   │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │    │   │
+│  │   │  │ Base Types  │  │  Security   │  │  Obliviousness      │  │    │   │
+│  │   │  │  Checker    │  │  Levels     │  │  Analysis           │  │    │   │
+│  │   │  └─────────────┘  └─────────────┘  └─────────────────────┘  │    │   │
+│  │   └───────────────────────────┬─────────────────────────────────┘    │   │
+│  │                               │                                       │   │
+│  │                               ▼                                       │   │
+│  │   ┌─────────────────────────────────────────────────────────────┐    │   │
+│  │   │                 Typed AST (TAST)                             │    │   │
+│  │   └───────────────────────────┬─────────────────────────────────┘    │   │
+│  │                               │                                       │   │
+│  │                               ▼                                       │   │
+│  │   ┌─────────────────────────────────────────────────────────────┐    │   │
+│  │   │              Security & Obliviousness Checker                │    │   │
+│  │   │  • Information flow analysis                                 │    │   │
+│  │   │  • Access pattern leak detection                             │    │   │
+│  │   │  • Transformation suggestions                                │    │   │
+│  │   └───────────────────────────┬─────────────────────────────────┘    │   │
+│  │                               │                                       │   │
+│  │                               ▼                                       │   │
+│  │   ┌─────────────────────────────────────────────────────────────┐    │   │
+│  │   │                    IR Generator                              │    │   │
+│  │   │  • Lower TAST to OIR (Oblivious IR)                         │    │   │
+│  │   │  • Insert ORAM operations                                    │    │   │
+│  │   │  • Mark oblivious regions                                    │    │   │
+│  │   └───────────────────────────┬─────────────────────────────────┘    │   │
+│  │                               │                                       │   │
+│  └───────────────────────────────┼───────────────────────────────────────┘   │
+│                                  │                                           │
+└──────────────────────────────────┼───────────────────────────────────────────┘
+                                   │
+                                   │  OIR (MessagePack/JSON)
+                                   │
+┌──────────────────────────────────┼───────────────────────────────────────────┐
+│                                  ▼                                           │
+│                            Rust Backend                                      │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │                                                                        │  │
+│  │   ┌─────────────────────────────────────────────────────────────┐     │  │
+│  │   │                    IR Deserializer                           │     │  │
+│  │   │  • Parse OIR from OCaml frontend                            │     │  │
+│  │   │  • Validate IR structure                                     │     │  │
+│  │   └───────────────────────────┬─────────────────────────────────┘     │  │
+│  │                               │                                        │  │
+│  │                               ▼                                        │  │
+│  │   ┌─────────────────────────────────────────────────────────────┐     │  │
+│  │   │                    Optimizer                                 │     │  │
+│  │   │  • Batch ORAM accesses                                       │     │  │
+│  │   │  • Dead code elimination                                     │     │  │
+│  │   │  • Inline oblivious primitives                              │     │  │
+│  │   └───────────────────────────┬─────────────────────────────────┘     │  │
+│  │                               │                                        │  │
+│  │                               ▼                                        │  │
+│  │   ┌─────────────────────────────────────────────────────────────┐     │  │
+│  │   │                Code Generator                                │     │  │
+│  │   │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │     │  │
+│  │   │  │  Rust    │  │ RISC-V   │  │  WASM    │  │   C      │    │     │  │
+│  │   │  │  Output  │  │  Output  │  │  Output  │  │  Output  │    │     │  │
+│  │   │  └──────────┘  └──────────┘  └──────────┘  └──────────┘    │     │  │
+│  │   └───────────────────────────┬─────────────────────────────────┘     │  │
+│  │                               │                                        │  │
+│  └───────────────────────────────┼────────────────────────────────────────┘  │
+│                                  │                                           │
+│  ┌───────────────────────────────┼────────────────────────────────────────┐  │
+│  │                               ▼                                         │  │
+│  │                        ORAM Runtime                                     │  │
+│  │   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  │  │
+│  │   │  Path ORAM  │  │   Stash     │  │  Position   │  │   Crypto    │  │  │
+│  │   │    Core     │  │  Manager    │  │    Map      │  │   Layer     │  │  │
+│  │   └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘  │  │
+│  │                                                                         │  │
+│  │   ┌─────────────────────────────────────────────────────────────────┐  │  │
+│  │   │                  Oblivious Standard Library                      │  │  │
+│  │   │  OArray  │  OMap  │  OVec  │  OSort  │  OSearch  │  OQueue      │  │  │
+│  │   └─────────────────────────────────────────────────────────────────┘  │  │
+│  │                                                                         │  │
+│  └─────────────────────────────────────────────────────────────────────────┘  │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+----
+
+== Component Responsibilities
+
+=== OCaml Frontend
+
+[cols="1,3"]
+|===
+| Component | Responsibility
+
+| **Lexer**
+| Tokenize source code, handle string literals, comments
+
+| **Parser**
+| Build AST from token stream, handle operator precedence
+
+| **Type Checker**
+| Hindley-Milner type inference + security level inference
+
+| **Security Analyzer**
+| Information flow analysis, detect implicit flows
+
+| **Obliviousness Checker**
+| Identify non-oblivious memory accesses
+
+| **IR Generator**
+| Lower typed AST to OIR, insert ORAM calls
+|===
+
+=== Rust Backend
+
+[cols="1,3"]
+|===
+| Component | Responsibility
+
+| **IR Parser**
+| Deserialize OIR from OCaml frontend
+
+| **Optimizer**
+| ORAM-aware optimizations (batching, caching hints)
+
+| **Code Generator**
+| Emit target code (Rust, RISC-V, WASM, C)
+
+| **ORAM Runtime**
+| Path ORAM implementation, position map, stash
+
+| **Stdlib**
+| Oblivious data structures (OArray, OMap, etc.)
+
+| **Crypto**
+| AES-GCM, SHA-256, BLAKE3, Merkle trees
+|===
+
+== Communication Protocol
+
+=== IR Serialization
+
+The OCaml frontend produces OIR (Oblivious Intermediate Representation)
+serialized as MessagePack (binary) or JSON (debug).
+
+[source,json]
+----
+{
+  "version": "1.0.0",
+  "module": "main",
+  "functions": [
+    {
+      "name": "lookup",
+      "params": [
+        {"name": "arr", "type": {"oarray": "i64"}, "security": "low"},
+        {"name": "idx", "type": "i64", "security": "high"}
+      ],
+      "return_type": {"type": "i64", "security": "high"},
+      "body": [
+        {
+          "kind": "oram_read",
+          "array": {"var": "arr"},
+          "index": {"var": "idx"},
+          "result": "tmp0"
+        },
+        {
+          "kind": "return",
+          "value": {"var": "tmp0"}
+        }
+      ]
+    }
+  ]
+}
+----
+
+=== Build Integration
+
+[source,bash]
+----
+# Full compilation pipeline
+obli-frontend source.obl -o source.oir    # OCaml
+obli-backend source.oir -o source.rs      # Rust
+rustc source.rs -L obli-runtime -o binary # Standard Rust
+----
+
+Or unified:
+[source,bash]
+----
+oblic source.obl -o binary   # Driver invokes both
+----
+
+== Directory Structure
+
+[source]
+----
+oblibeny/
+├── obli-transpiler-framework/
+│   ├── frontend/                 # OCaml
+│   │   ├── dune-project
+│   │   ├── dune
+│   │   ├── bin/
+│   │   │   └── main.ml          # CLI entry point
+│   │   ├── lib/
+│   │   │   ├── lexer.mll        # ocamllex
+│   │   │   ├── parser.mly       # Menhir
+│   │   │   ├── ast.ml           # AST types
+│   │   │   ├── types.ml         # Type definitions
+│   │   │   ├── typecheck.ml     # Type checker
+│   │   │   ├── security.ml      # Security analysis
+│   │   │   ├── oblivious.ml     # Obliviousness checker
+│   │   │   ├── ir.ml            # OIR types
+│   │   │   ├── lower.ml         # AST → OIR
+│   │   │   └── emit.ml          # OIR serialization
+│   │   └── test/
+│   │       └── *.ml
+│   │
+│   ├── backend/                  # Rust
+│   │   ├── Cargo.toml
+│   │   ├── src/
+│   │   │   ├── main.rs          # CLI entry point
+│   │   │   ├── ir/
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── parse.rs     # OIR deserializer
+│   │   │   │   └── types.rs     # OIR types (mirror OCaml)
+│   │   │   ├── opt/
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── batch.rs     # ORAM batching
+│   │   │   │   └── inline.rs    # Primitive inlining
+│   │   │   ├── codegen/
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── rust.rs      # → Rust output
+│   │   │   │   ├── riscv.rs     # → RISC-V output
+│   │   │   │   └── wasm.rs      # → WASM output
+│   │   │   └── lib.rs
+│   │   └── tests/
+│   │
+│   ├── runtime/                  # Rust runtime library
+│   │   ├── Cargo.toml
+│   │   └── src/
+│   │       ├── lib.rs
+│   │       ├── oram/
+│   │       │   ├── mod.rs
+│   │       │   ├── path.rs      # Path ORAM
+│   │       │   ├── position.rs  # Position map
+│   │       │   ├── stash.rs     # Stash management
+│   │       │   └── bucket.rs    # Bucket operations
+│   │       ├── crypto/
+│   │       │   ├── mod.rs
+│   │       │   ├── aead.rs      # AES-GCM
+│   │       │   ├── hash.rs      # SHA-256, BLAKE3
+│   │       │   └── merkle.rs    # Merkle tree
+│   │       └── collections/
+│   │           ├── mod.rs
+│   │           ├── oarray.rs    # Oblivious array
+│   │           ├── omap.rs      # Oblivious map
+│   │           ├── ovec.rs      # Oblivious vector
+│   │           └── osort.rs     # Oblivious sorting
+│   │
+│   └── driver/                   # Unified CLI (Rust)
+│       ├── Cargo.toml
+│       └── src/
+│           └── main.rs          # Invokes frontend + backend
+│
+├── obli-riscv-dev-kit/          # (separate submodule)
+├── obli-fs/                      # (separate submodule)
+└── docs/
+----
+
+== Language Specification Preview
+
+=== Source Language Syntax (.obl files)
+
+[source]
+----
+// Type declarations with security annotations
+type SecretIndex = int @high
+type PublicData = int @low
+
+// Oblivious array type
+type Database = oarray<PublicData>
+
+// Function with security-typed parameters
+fn lookup(db: Database, idx: SecretIndex) -> PublicData @high {
+    // Compiler automatically uses ORAM for this access
+    // because idx has @high security level
+    db[idx]
+}
+
+// Explicit oblivious block
+fn process(data: array<int>, secret: bool @high) -> int {
+    oblivious {
+        // All memory accesses in this block are oblivious
+        if secret {
+            data[0]
+        } else {
+            data[1]
+        }
+    }
+}
+
+// Oblivious conditional (no branching leak)
+fn oselect<T>(cond: bool @high, a: T, b: T) -> T @high {
+    cmov(cond, a, b)  // Compiles to constant-time select
+}
+----
+
+=== Type System
+
+[source]
+----
+Types τ ::=
+    | int | bool | unit                    (* base types *)
+    | τ₁ → τ₂                              (* functions *)
+    | τ₁ × τ₂                              (* tuples *)
+    | array<τ>                             (* regular array *)
+    | oarray<τ>                            (* oblivious array *)
+    | ref<τ>                               (* mutable reference *)
+    | oref<τ>                              (* oblivious reference *)
+
+Security ℓ ::=
+    | @low                                 (* public *)
+    | @high                                (* secret *)
+    | @ℓ₁ ⊔ ℓ₂                             (* join *)
+
+Labeled Types σ ::= τ @ℓ
+----
+
+== Build System
+
+=== Prerequisites
+
+[source,bash]
+----
+# OCaml toolchain
+opam install dune menhir ppx_deriving yojson msgpck
+
+# Rust toolchain
+rustup default stable
+cargo install cargo-watch
+----
+
+=== Build Commands
+
+[source,bash]
+----
+# Build everything
+just build
+
+# Build frontend only
+cd obli-transpiler-framework/frontend && dune build
+
+# Build backend only
+cd obli-transpiler-framework/backend && cargo build --release
+
+# Run tests
+just test
+
+# Format code
+just fmt
+----
+
+=== Justfile
+
+[source,just]
+----
+# Build all components
+build:
+    cd obli-transpiler-framework/frontend && dune build
+    cd obli-transpiler-framework/backend && cargo build --release
+    cd obli-transpiler-framework/runtime && cargo build --release
+    cd obli-transpiler-framework/driver && cargo build --release
+
+# Run all tests
+test:
+    cd obli-transpiler-framework/frontend && dune test
+    cd obli-transpiler-framework/backend && cargo test
+    cd obli-transpiler-framework/runtime && cargo test
+
+# Format all code
+fmt:
+    cd obli-transpiler-framework/frontend && dune fmt
+    cd obli-transpiler-framework/backend && cargo fmt
+    cd obli-transpiler-framework/runtime && cargo fmt
+
+# Clean build artifacts
+clean:
+    cd obli-transpiler-framework/frontend && dune clean
+    cd obli-transpiler-framework/backend && cargo clean
+    cd obli-transpiler-framework/runtime && cargo clean
+----
+
+== Testing Strategy
+
+=== Unit Tests
+
+* OCaml: Each module has `_test.ml` companion
+* Rust: Inline `#[cfg(test)]` modules
+
+=== Integration Tests
+
+[source]
+----
+tests/
+├── compile/           # Source → IR → Binary
+│   ├── basic.obl
+│   ├── security.obl
+│   └── oblivious.obl
+├── runtime/           # ORAM correctness
+│   ├── path_oram.rs
+│   └── stash.rs
+└── security/          # Side-channel tests
+    ├── timing.rs
+    └── pattern.rs
+----
+
+=== Property-Based Tests
+
+[source,rust]
+----
+#[test]
+fn prop_oram_correctness() {
+    proptest!(|(ops: Vec<OramOp>)| {
+        let mut oram = PathOram::new(1024);
+        let mut reference = HashMap::new();
+
+        for op in ops {
+            match op {
+                OramOp::Write(k, v) => {
+                    oram.write(k, v);
+                    reference.insert(k, v);
+                }
+                OramOp::Read(k) => {
+                    assert_eq!(oram.read(k), reference.get(&k).copied());
+                }
+            }
+        }
+    });
+}
+----
+
+== Next Steps
+
+1. **Phase 1**: Implement minimal OCaml frontend (lexer, parser, basic types)
+2. **Phase 2**: Implement Rust ORAM runtime
+3. **Phase 3**: Connect via OIR format
+4. **Phase 4**: Add security type system
+5. **Phase 5**: Add optimizations
+
+== References
+
+* Real World OCaml: https://dev.realworldocaml.org/
+* Menhir Manual: http://gallium.inria.fr/~fpottier/menhir/
+* Rust Book: https://doc.rust-lang.org/book/
