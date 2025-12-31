@@ -1,0 +1,8 @@
+; SPDX-License-Identifier: MIT OR Palimpsest-0.8
+; Copyright (c) 2024 Hyperpolymath
+
+(executable
+ (name main)
+ (public_name oblibeny-frontend)
+ (package oblibeny)
+ (libraries oblibeny_frontend))
