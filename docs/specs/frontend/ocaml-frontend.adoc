@@ -1,0 +1,959 @@
+// SPDX-License-Identifier: MIT OR Palimpsest-0.8
+// Copyright (c) 2024 Hyperpolymath
+
+= OCaml Frontend Specification
+:author: Oblibeny Project
+:revdate: 2024
+:toc: left
+:toclevels: 4
+:sectnums:
+:stem: latexmath
+
+== Overview
+
+The OCaml frontend is responsible for:
+
+1. Parsing source code to AST
+2. Type checking with security annotations
+3. Obliviousness analysis
+4. Lowering to OIR
+
+== Project Structure
+
+[source]
+----
+frontend/
+├── dune-project
+├── dune
+├── bin/
+│   └── main.ml              # CLI entry point
+├── lib/
+│   ├── dune
+│   ├── syntax/
+│   │   ├── lexer.mll        # Lexer (ocamllex)
+│   │   ├── parser.mly       # Parser (Menhir)
+│   │   ├── ast.ml           # AST definition
+│   │   └── location.ml      # Source locations
+│   ├── typing/
+│   │   ├── types.ml         # Type definitions
+│   │   ├── env.ml           # Typing environment
+│   │   ├── infer.ml         # Type inference
+│   │   ├── security.ml      # Security level checking
+│   │   └── tast.ml          # Typed AST
+│   ├── analysis/
+│   │   ├── oblivious.ml     # Obliviousness checker
+│   │   ├── flow.ml          # Information flow analysis
+│   │   └── escape.ml        # Escape analysis
+│   ├── ir/
+│   │   ├── oir.ml           # OIR types
+│   │   ├── lower.ml         # TAST → OIR
+│   │   └── emit.ml          # OIR serialization
+│   ├── driver/
+│   │   ├── config.ml        # Compiler configuration
+│   │   ├── errors.ml        # Error handling
+│   │   └── pipeline.ml      # Compilation pipeline
+│   └── oblc.ml              # Library entry point
+└── test/
+    ├── lexer_test.ml
+    ├── parser_test.ml
+    ├── typing_test.ml
+    └── integration/
+        └── *.obl
+----
+
+== Dune Configuration
+
+=== dune-project
+
+[source,dune]
+----
+(lang dune 3.0)
+(name obli-frontend)
+(version 0.1.0)
+
+(generate_opam_files true)
+
+(package
+ (name obli-frontend)
+ (synopsis "Oblibeny language frontend")
+ (description "OCaml frontend for the Oblibeny oblivious computing language")
+ (depends
+  (ocaml (>= 4.14.0))
+  (dune (>= 3.0))
+  (menhir (>= 20220210))
+  (ppx_deriving (>= 5.2))
+  (yojson (>= 2.0))
+  (msgpck (>= 1.7))
+  (cmdliner (>= 1.1))
+  (alcotest (and (>= 1.6) :with-test))))
+----
+
+=== lib/dune
+
+[source,dune]
+----
+(library
+ (name oblc)
+ (public_name obli-frontend)
+ (libraries str yojson msgpck)
+ (preprocess (pps ppx_deriving.show ppx_deriving.eq ppx_deriving.ord)))
+
+(ocamllex syntax/lexer)
+
+(menhir
+ (modules syntax/parser)
+ (flags --explain --table))
+----
+
+== Source Language Grammar
+
+=== Lexical Structure
+
+[source,ocaml]
+----
+(* lexer.mll *)
+
+{
+open Parser
+
+exception Lexer_error of string * Lexing.position
+
+let keywords = Hashtbl.create 32
+let () = List.iter (fun (k, v) -> Hashtbl.add keywords k v) [
+  "fn", FN;
+  "let", LET;
+  "mut", MUT;
+  "if", IF;
+  "else", ELSE;
+  "while", WHILE;
+  "for", FOR;
+  "in", IN;
+  "return", RETURN;
+  "break", BREAK;
+  "continue", CONTINUE;
+  "true", TRUE;
+  "false", FALSE;
+  "type", TYPE;
+  "struct", STRUCT;
+  "enum", ENUM;
+  "impl", IMPL;
+  "pub", PUB;
+  "oblivious", OBLIVIOUS;
+  "oarray", OARRAY;
+  "oref", OREF;
+  "cmov", CMOV;
+  "oswap", OSWAP;
+]
+}
+
+let digit = ['0'-'9']
+let alpha = ['a'-'z' 'A'-'Z' '_']
+let alnum = alpha | digit
+let ident = alpha alnum*
+
+let int_lit = digit+ | "0x" ['0'-'9' 'a'-'f' 'A'-'F']+
+let float_lit = digit+ '.' digit* (['e' 'E'] ['+' '-']? digit+)?
+
+let whitespace = [' ' '\t']+
+let newline = '\r' | '\n' | "\r\n"
+
+rule token = parse
+  | whitespace { token lexbuf }
+  | newline    { Lexing.new_line lexbuf; token lexbuf }
+  | "//"       { line_comment lexbuf }
+  | "/*"       { block_comment 0 lexbuf }
+
+  (* Operators *)
+  | '+'  { PLUS }
+  | '-'  { MINUS }
+  | '*'  { STAR }
+  | '/'  { SLASH }
+  | '%'  { PERCENT }
+  | '&'  { AMP }
+  | '|'  { PIPE }
+  | '^'  { CARET }
+  | '~'  { TILDE }
+  | "<<" { LSHIFT }
+  | ">>" { RSHIFT }
+  | "==" { EQEQ }
+  | "!=" { BANGEQ }
+  | '<'  { LT }
+  | "<=" { LTEQ }
+  | '>'  { GT }
+  | ">=" { GTEQ }
+  | "&&" { AMPAMP }
+  | "||" { PIPEPIPE }
+  | '!'  { BANG }
+  | '='  { EQ }
+  | "->" { ARROW }
+  | "=>" { FATARROW }
+  | '@'  { AT }
+
+  (* Delimiters *)
+  | '('  { LPAREN }
+  | ')'  { RPAREN }
+  | '['  { LBRACKET }
+  | ']'  { RBRACKET }
+  | '{'  { LBRACE }
+  | '}'  { RBRACE }
+  | ','  { COMMA }
+  | ':'  { COLON }
+  | ';'  { SEMI }
+  | '.'  { DOT }
+
+  (* Literals *)
+  | int_lit as n   { INT (Int64.of_string n) }
+  | float_lit as f { FLOAT (float_of_string f) }
+  | '"'            { string (Buffer.create 32) lexbuf }
+
+  (* Identifiers and keywords *)
+  | ident as id {
+      try Hashtbl.find keywords id
+      with Not_found -> IDENT id
+    }
+
+  | eof { EOF }
+  | _ as c { raise (Lexer_error (Printf.sprintf "Unexpected character: %c" c,
+                                  lexbuf.Lexing.lex_curr_p)) }
+
+and line_comment = parse
+  | newline { Lexing.new_line lexbuf; token lexbuf }
+  | eof     { EOF }
+  | _       { line_comment lexbuf }
+
+and block_comment depth = parse
+  | "*/"    { if depth = 0 then token lexbuf else block_comment (depth - 1) lexbuf }
+  | "/*"    { block_comment (depth + 1) lexbuf }
+  | newline { Lexing.new_line lexbuf; block_comment depth lexbuf }
+  | eof     { raise (Lexer_error ("Unterminated block comment", lexbuf.Lexing.lex_curr_p)) }
+  | _       { block_comment depth lexbuf }
+
+and string buf = parse
+  | '"'         { STRING (Buffer.contents buf) }
+  | "\\n"       { Buffer.add_char buf '\n'; string buf lexbuf }
+  | "\\t"       { Buffer.add_char buf '\t'; string buf lexbuf }
+  | "\\\\"      { Buffer.add_char buf '\\'; string buf lexbuf }
+  | "\\""       { Buffer.add_char buf '"'; string buf lexbuf }
+  | [^ '"' '\\']+ as s { Buffer.add_string buf s; string buf lexbuf }
+  | eof         { raise (Lexer_error ("Unterminated string", lexbuf.Lexing.lex_curr_p)) }
+----
+
+=== Parser Grammar
+
+[source,ocaml]
+----
+(* parser.mly *)
+
+%{
+open Ast
+
+let make_loc startpos endpos = Location.make startpos endpos
+%}
+
+%token <string> IDENT STRING
+%token <int64> INT
+%token <float> FLOAT
+%token TRUE FALSE
+%token FN LET MUT IF ELSE WHILE FOR IN RETURN BREAK CONTINUE
+%token TYPE STRUCT ENUM IMPL PUB
+%token OBLIVIOUS OARRAY OREF CMOV OSWAP
+%token PLUS MINUS STAR SLASH PERCENT
+%token AMP PIPE CARET TILDE LSHIFT RSHIFT
+%token EQEQ BANGEQ LT LTEQ GT GTEQ AMPAMP PIPEPIPE BANG
+%token EQ ARROW FATARROW AT
+%token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
+%token COMMA COLON SEMI DOT
+%token EOF
+
+%left PIPEPIPE
+%left AMPAMP
+%left PIPE
+%left CARET
+%left AMP
+%left EQEQ BANGEQ
+%left LT LTEQ GT GTEQ
+%left LSHIFT RSHIFT
+%left PLUS MINUS
+%left STAR SLASH PERCENT
+%right BANG TILDE
+%left DOT LBRACKET
+
+%start <Ast.program> program
+
+%%
+
+program:
+  | items = list(item) EOF { items }
+
+item:
+  | fn_def    { $1 }
+  | type_def  { $1 }
+  | struct_def { $1 }
+
+fn_def:
+  | PUB? FN name = IDENT
+    LPAREN params = separated_list(COMMA, param) RPAREN
+    ret = option(preceded(ARROW, typ_annot))
+    body = block
+    { Item_fn {
+        name;
+        params;
+        return_type = ret;
+        body;
+        is_public = Option.is_some $1;
+        loc = make_loc $startpos $endpos
+      }
+    }
+
+param:
+  | name = IDENT COLON ty = typ_annot
+    { { param_name = name; param_type = ty; param_loc = make_loc $startpos $endpos } }
+
+typ_annot:
+  | ty = typ sec = option(preceded(AT, security_level))
+    { { ty; security = Option.value sec ~default:Security_infer } }
+
+typ:
+  | IDENT                                    { Ty_named $1 }
+  | LBRACKET ty = typ RBRACKET               { Ty_array ty }
+  | OARRAY LT ty = typ GT                    { Ty_oarray ty }
+  | OREF LT ty = typ GT                      { Ty_oref ty }
+  | LPAREN tys = separated_list(COMMA, typ) RPAREN { Ty_tuple tys }
+  | ty = typ ARROW ret = typ                 { Ty_fn ([ty], ret) }
+
+security_level:
+  | IDENT {
+      match $1 with
+      | "low" -> Security_low
+      | "high" -> Security_high
+      | s -> Security_named s
+    }
+
+block:
+  | LBRACE stmts = list(stmt) RBRACE { stmts }
+
+stmt:
+  | LET MUT? name = IDENT ty = option(preceded(COLON, typ_annot)) EQ value = expr SEMI
+    { Stmt_let { name; ty; value; is_mut = Option.is_some $2; loc = make_loc $startpos $endpos } }
+  | lhs = lvalue EQ rhs = expr SEMI
+    { Stmt_assign { lhs; rhs; loc = make_loc $startpos $endpos } }
+  | IF cond = expr then_branch = block else_branch = option(preceded(ELSE, else_block))
+    { Stmt_if { cond; then_branch; else_branch; loc = make_loc $startpos $endpos } }
+  | OBLIVIOUS IF cond = expr then_branch = block else_branch = option(preceded(ELSE, else_block))
+    { Stmt_oif { cond; then_branch; else_branch; loc = make_loc $startpos $endpos } }
+  | WHILE cond = expr body = block
+    { Stmt_while { cond; body; loc = make_loc $startpos $endpos } }
+  | RETURN value = option(expr) SEMI
+    { Stmt_return { value; loc = make_loc $startpos $endpos } }
+  | BREAK SEMI { Stmt_break (make_loc $startpos $endpos) }
+  | CONTINUE SEMI { Stmt_continue (make_loc $startpos $endpos) }
+  | e = expr SEMI { Stmt_expr { expr = e; loc = make_loc $startpos $endpos } }
+
+else_block:
+  | block { $1 }
+  | IF cond = expr then_branch = block else_branch = option(preceded(ELSE, else_block))
+    { [Stmt_if { cond; then_branch; else_branch; loc = make_loc $startpos $endpos }] }
+
+lvalue:
+  | IDENT                      { Lv_var $1 }
+  | lv = lvalue LBRACKET idx = expr RBRACKET { Lv_index (lv, idx) }
+  | lv = lvalue DOT field = IDENT { Lv_field (lv, field) }
+
+expr:
+  | primary_expr { $1 }
+  | e1 = expr PLUS e2 = expr   { Expr_binop (Op_add, e1, e2, make_loc $startpos $endpos) }
+  | e1 = expr MINUS e2 = expr  { Expr_binop (Op_sub, e1, e2, make_loc $startpos $endpos) }
+  | e1 = expr STAR e2 = expr   { Expr_binop (Op_mul, e1, e2, make_loc $startpos $endpos) }
+  | e1 = expr SLASH e2 = expr  { Expr_binop (Op_div, e1, e2, make_loc $startpos $endpos) }
+  | e1 = expr PERCENT e2 = expr { Expr_binop (Op_mod, e1, e2, make_loc $startpos $endpos) }
+  | e1 = expr EQEQ e2 = expr   { Expr_binop (Op_eq, e1, e2, make_loc $startpos $endpos) }
+  | e1 = expr BANGEQ e2 = expr { Expr_binop (Op_ne, e1, e2, make_loc $startpos $endpos) }
+  | e1 = expr LT e2 = expr     { Expr_binop (Op_lt, e1, e2, make_loc $startpos $endpos) }
+  | e1 = expr LTEQ e2 = expr   { Expr_binop (Op_le, e1, e2, make_loc $startpos $endpos) }
+  | e1 = expr GT e2 = expr     { Expr_binop (Op_gt, e1, e2, make_loc $startpos $endpos) }
+  | e1 = expr GTEQ e2 = expr   { Expr_binop (Op_ge, e1, e2, make_loc $startpos $endpos) }
+  | e1 = expr AMPAMP e2 = expr { Expr_binop (Op_and, e1, e2, make_loc $startpos $endpos) }
+  | e1 = expr PIPEPIPE e2 = expr { Expr_binop (Op_or, e1, e2, make_loc $startpos $endpos) }
+  | BANG e = expr              { Expr_unop (Op_not, e, make_loc $startpos $endpos) }
+  | MINUS e = expr %prec BANG  { Expr_unop (Op_neg, e, make_loc $startpos $endpos) }
+  | e = expr LBRACKET idx = expr RBRACKET
+    { Expr_index (e, idx, make_loc $startpos $endpos) }
+  | CMOV LPAREN cond = expr COMMA e1 = expr COMMA e2 = expr RPAREN
+    { Expr_cmov (cond, e1, e2, make_loc $startpos $endpos) }
+  | name = IDENT LPAREN args = separated_list(COMMA, expr) RPAREN
+    { Expr_call (name, args, make_loc $startpos $endpos) }
+
+primary_expr:
+  | INT                        { Expr_int ($1, make_loc $startpos $endpos) }
+  | FLOAT                      { Expr_float ($1, make_loc $startpos $endpos) }
+  | TRUE                       { Expr_bool (true, make_loc $startpos $endpos) }
+  | FALSE                      { Expr_bool (false, make_loc $startpos $endpos) }
+  | STRING                     { Expr_string ($1, make_loc $startpos $endpos) }
+  | IDENT                      { Expr_var ($1, make_loc $startpos $endpos) }
+  | LPAREN e = expr RPAREN     { e }
+  | LPAREN es = separated_list(COMMA, expr) RPAREN { Expr_tuple (es, make_loc $startpos $endpos) }
+----
+
+== AST Definition
+
+[source,ocaml]
+----
+(* ast.ml *)
+
+type location = Location.t
+
+type security =
+  | Security_low
+  | Security_high
+  | Security_named of string
+  | Security_infer  (* To be inferred *)
+  [@@deriving show, eq]
+
+type typ =
+  | Ty_named of string
+  | Ty_array of typ
+  | Ty_oarray of typ        (* Oblivious array *)
+  | Ty_oref of typ          (* Oblivious reference *)
+  | Ty_tuple of typ list
+  | Ty_fn of typ list * typ
+  [@@deriving show, eq]
+
+type typ_annot = {
+  ty: typ;
+  security: security;
+} [@@deriving show, eq]
+
+type binop =
+  | Op_add | Op_sub | Op_mul | Op_div | Op_mod
+  | Op_band | Op_bor | Op_bxor | Op_shl | Op_shr
+  | Op_eq | Op_ne | Op_lt | Op_le | Op_gt | Op_ge
+  | Op_and | Op_or
+  [@@deriving show, eq]
+
+type unop =
+  | Op_neg | Op_bnot | Op_not
+  [@@deriving show, eq]
+
+type expr =
+  | Expr_int of int64 * location
+  | Expr_float of float * location
+  | Expr_bool of bool * location
+  | Expr_string of string * location
+  | Expr_var of string * location
+  | Expr_tuple of expr list * location
+  | Expr_binop of binop * expr * expr * location
+  | Expr_unop of unop * expr * location
+  | Expr_index of expr * expr * location
+  | Expr_field of expr * string * location
+  | Expr_call of string * expr list * location
+  | Expr_cmov of expr * expr * expr * location
+  | Expr_if of expr * expr * expr * location
+  [@@deriving show]
+
+type lvalue =
+  | Lv_var of string
+  | Lv_index of lvalue * expr
+  | Lv_field of lvalue * string
+  [@@deriving show]
+
+type stmt =
+  | Stmt_let of { name: string; ty: typ_annot option; value: expr;
+                  is_mut: bool; loc: location }
+  | Stmt_assign of { lhs: lvalue; rhs: expr; loc: location }
+  | Stmt_if of { cond: expr; then_branch: stmt list;
+                 else_branch: stmt list option; loc: location }
+  | Stmt_oif of { cond: expr; then_branch: stmt list;
+                  else_branch: stmt list option; loc: location }
+  | Stmt_while of { cond: expr; body: stmt list; loc: location }
+  | Stmt_return of { value: expr option; loc: location }
+  | Stmt_break of location
+  | Stmt_continue of location
+  | Stmt_expr of { expr: expr; loc: location }
+  [@@deriving show]
+
+type param = {
+  param_name: string;
+  param_type: typ_annot;
+  param_loc: location;
+} [@@deriving show]
+
+type fn_def = {
+  name: string;
+  params: param list;
+  return_type: typ_annot option;
+  body: stmt list;
+  is_public: bool;
+  loc: location;
+} [@@deriving show]
+
+type item =
+  | Item_fn of fn_def
+  | Item_type of { name: string; def: typ; loc: location }
+  | Item_struct of { name: string; fields: (string * typ_annot) list; loc: location }
+  [@@deriving show]
+
+type program = item list [@@deriving show]
+----
+
+== Type Checker
+
+[source,ocaml]
+----
+(* typing/infer.ml - Type inference with security levels *)
+
+open Types
+open Tast
+
+type env = {
+  vars: (string * typed_type) list;
+  fns: (string * fn_sig) list;
+  types: (string * typ) list;
+}
+
+let empty_env = { vars = []; fns = []; types = [] }
+
+let lookup_var env name =
+  List.assoc_opt name env.vars
+
+let extend_var env name ty =
+  { env with vars = (name, ty) :: env.vars }
+
+(* Security level operations *)
+let join_security s1 s2 =
+  match s1, s2 with
+  | Low, Low -> Low
+  | _, _ -> High
+
+let check_flow ~from ~to_ =
+  match from, to_ with
+  | High, Low -> Error "Cannot flow high-security value to low-security location"
+  | _ -> Ok ()
+
+(* Type inference *)
+let rec infer_expr env expr =
+  match expr with
+  | Ast.Expr_int (n, loc) ->
+      Ok { texpr = TExpr_int n; ty = Prim I64; sec = Low; loc }
+
+  | Ast.Expr_bool (b, loc) ->
+      Ok { texpr = TExpr_bool b; ty = Prim Bool; sec = Low; loc }
+
+  | Ast.Expr_var (name, loc) ->
+      (match lookup_var env name with
+       | Some tty -> Ok { texpr = TExpr_var name; ty = tty.ty; sec = tty.sec; loc }
+       | None -> Error (Printf.sprintf "Unbound variable: %s" name))
+
+  | Ast.Expr_index (arr, idx, loc) ->
+      let* tarr = infer_expr env arr in
+      let* tidx = infer_expr env idx in
+      (match tarr.ty with
+       | Array elem_ty ->
+           (* Regular array: access pattern leaks if index is high *)
+           if tidx.sec = High then
+             Error "Array index with high-security index leaks access pattern. Use oarray."
+           else
+             Ok { texpr = TExpr_index (tarr, tidx); ty = elem_ty;
+                  sec = tarr.sec; loc }
+       | OArray elem_ty ->
+           (* Oblivious array: safe with any index *)
+           Ok { texpr = TExpr_oindex (tarr, tidx); ty = elem_ty;
+                sec = join_security tarr.sec tidx.sec; loc }
+       | _ -> Error "Cannot index non-array type")
+
+  | Ast.Expr_cmov (cond, e1, e2, loc) ->
+      let* tcond = infer_expr env cond in
+      let* te1 = infer_expr env e1 in
+      let* te2 = infer_expr env e2 in
+      if te1.ty <> te2.ty then
+        Error "cmov branches must have same type"
+      else
+        Ok { texpr = TExpr_cmov (tcond, te1, te2);
+             ty = te1.ty;
+             sec = join_security tcond.sec (join_security te1.sec te2.sec);
+             loc }
+
+  | Ast.Expr_binop (op, e1, e2, loc) ->
+      let* te1 = infer_expr env e1 in
+      let* te2 = infer_expr env e2 in
+      let ty = infer_binop_type op te1.ty te2.ty in
+      Ok { texpr = TExpr_binop (op, te1, te2);
+           ty;
+           sec = join_security te1.sec te2.sec;
+           loc }
+
+  | _ -> Error "Not yet implemented"
+----
+
+== Obliviousness Checker
+
+[source,ocaml]
+----
+(* analysis/oblivious.ml *)
+
+open Tast
+
+type access_pattern =
+  | Constant                    (* Same address every time *)
+  | Public                      (* Depends only on public data *)
+  | Secret                      (* Depends on secret data - LEAK! *)
+  | Oblivious                   (* Using ORAM, safe *)
+
+type violation = {
+  loc: Location.t;
+  kind: violation_kind;
+  suggestion: string;
+}
+
+and violation_kind =
+  | Secret_array_index of string    (* arr[secret] without ORAM *)
+  | Secret_branch of string         (* if (secret) without oblivious *)
+  | Secret_loop_bound of string     (* while (secret) *)
+
+let check_obliviousness (prog : typed_program) : violation list =
+  let violations = ref [] in
+
+  let report v = violations := v :: !violations in
+
+  let rec check_expr expr =
+    match expr.texpr with
+    | TExpr_index (arr, idx) when idx.sec = High ->
+        report {
+          loc = expr.loc;
+          kind = Secret_array_index "index";
+          suggestion = "Use oarray<T> instead of array<T>, or declassify the index"
+        }
+
+    | TExpr_oindex (_, _) ->
+        ()  (* Oblivious access, safe *)
+
+    | TExpr_binop (_, e1, e2) ->
+        check_expr e1;
+        check_expr e2
+
+    | _ -> ()
+  in
+
+  let rec check_stmt stmt =
+    match stmt with
+    | TStmt_if { cond; then_branch; else_branch; _ } when cond.sec = High ->
+        report {
+          loc = cond.loc;
+          kind = Secret_branch "condition";
+          suggestion = "Use 'oblivious if' or cmov for secret-dependent branching"
+        };
+        List.iter check_stmt then_branch;
+        Option.iter (List.iter check_stmt) else_branch
+
+    | TStmt_oif { then_branch; else_branch; _ } ->
+        (* Oblivious if is safe, but check children *)
+        List.iter check_stmt then_branch;
+        Option.iter (List.iter check_stmt) else_branch
+
+    | TStmt_while { cond; body; _ } when cond.sec = High ->
+        report {
+          loc = cond.loc;
+          kind = Secret_loop_bound "condition";
+          suggestion = "Loop bounds must not depend on secrets (would leak iteration count)"
+        }
+
+    | TStmt_let { value; _ } ->
+        check_expr value
+
+    | TStmt_assign { rhs; _ } ->
+        check_expr rhs
+
+    | TStmt_expr { expr; _ } ->
+        check_expr expr
+
+    | _ -> ()
+  in
+
+  List.iter (fun fn ->
+    List.iter check_stmt fn.tbody
+  ) prog.functions;
+
+  List.rev !violations
+----
+
+== IR Lowering
+
+[source,ocaml]
+----
+(* ir/lower.ml - Lower TAST to OIR *)
+
+open Tast
+open Oir
+
+let fresh_var =
+  let counter = ref 0 in
+  fun () ->
+    incr counter;
+    Printf.sprintf "tmp%d" !counter
+
+let rec lower_expr (expr : typed_expr) : Oir.expr * Oir.instr list =
+  match expr.texpr with
+  | TExpr_int n ->
+      (EInt (n, to_oir_prim expr.ty), [])
+
+  | TExpr_bool b ->
+      (EBool b, [])
+
+  | TExpr_var name ->
+      (EVar name, [])
+
+  | TExpr_oindex (arr, idx) ->
+      let arr_e, arr_instrs = lower_expr arr in
+      let idx_e, idx_instrs = lower_expr idx in
+      let result = fresh_var () in
+      let instr = IOramRead { array = arr_e; index = idx_e; result } in
+      (EVar result, arr_instrs @ idx_instrs @ [instr])
+
+  | TExpr_cmov (cond, e1, e2) ->
+      let cond_e, cond_instrs = lower_expr cond in
+      let e1_e, e1_instrs = lower_expr e1 in
+      let e2_e, e2_instrs = lower_expr e2 in
+      let result = fresh_var () in
+      let instr = ICmov { cond = cond_e; true_val = e1_e; false_val = e2_e; result } in
+      (EVar result, cond_instrs @ e1_instrs @ e2_instrs @ [instr])
+
+  | TExpr_binop (op, e1, e2) ->
+      let e1_e, e1_instrs = lower_expr e1 in
+      let e2_e, e2_instrs = lower_expr e2 in
+      let oir_op = lower_binop op in
+      (EBinop (oir_op, e1_e, e2_e), e1_instrs @ e2_instrs)
+
+  | _ -> failwith "Not yet implemented"
+
+let rec lower_stmt (stmt : typed_stmt) : Oir.instr list =
+  match stmt with
+  | TStmt_let { name; value; _ } ->
+      let value_e, instrs = lower_expr value in
+      instrs @ [ILet (name, value_e)]
+
+  | TStmt_assign { lhs; rhs; _ } ->
+      let rhs_e, instrs = lower_expr rhs in
+      let lhs_lv = lower_lvalue lhs in
+      (match lhs with
+       | TLv_oindex (arr, idx) ->
+           let arr_e, arr_instrs = lower_expr arr in
+           let idx_e, idx_instrs = lower_expr idx in
+           arr_instrs @ idx_instrs @ instrs @
+           [IOramWrite { array = arr_e; index = idx_e; value = rhs_e }]
+       | _ ->
+           instrs @ [IAssign (lhs_lv, rhs_e)])
+
+  | TStmt_oif { cond; then_branch; else_branch; _ } ->
+      let cond_e, cond_instrs = lower_expr cond in
+      let then_instrs = List.concat_map lower_stmt then_branch in
+      let else_instrs = match else_branch with
+        | Some stmts -> List.concat_map lower_stmt stmts
+        | None -> []
+      in
+      cond_instrs @ [IOIf { cond = cond_e; then_ = then_instrs; else_ = else_instrs }]
+
+  | TStmt_return { value; _ } ->
+      (match value with
+       | Some e ->
+           let e_e, instrs = lower_expr e in
+           instrs @ [IReturn (Some e_e)]
+       | None ->
+           [IReturn None])
+
+  | _ -> failwith "Not yet implemented"
+
+let lower_function (fn : typed_fn) : Oir.func =
+  let body = List.concat_map lower_stmt fn.tbody in
+  {
+    name = fn.tname;
+    params = List.map (fun p -> (p.tparam_name, lower_typed_type p.tparam_type)) fn.tparams;
+    return_type = lower_typed_type fn.treturn_type;
+    locals = [];  (* Collected during lowering *)
+    body;
+    attributes = if fn.is_oblivious then [Oblivious] else [];
+  }
+
+let lower_program (prog : typed_program) : Oir.module_ =
+  {
+    version = "1.0.0";
+    name = prog.name;
+    imports = [];
+    types = [];
+    globals = [];
+    functions = List.map lower_function prog.functions;
+    entry = prog.entry;
+    metadata = {
+      source_file = Some prog.source_file;
+      source_map = [];
+      compiler_version = "0.1.0";
+      timestamp = "";
+      options = [];
+    };
+  }
+----
+
+== CLI Entry Point
+
+[source,ocaml]
+----
+(* bin/main.ml *)
+
+open Cmdliner
+
+let compile input_file output_file debug =
+  try
+    (* Read source *)
+    let source = In_channel.with_open_bin input_file In_channel.input_all in
+
+    (* Parse *)
+    let lexbuf = Lexing.from_string source in
+    lexbuf.lex_curr_p <- { lexbuf.lex_curr_p with pos_fname = input_file };
+    let ast = Parser.program Lexer.token lexbuf in
+
+    if debug then
+      Printf.eprintf "AST:\n%s\n" (Ast.show_program ast);
+
+    (* Type check *)
+    let tast = Oblc.Typing.check_program ast in
+
+    (* Obliviousness check *)
+    let violations = Oblc.Analysis.Oblivious.check_obliviousness tast in
+    List.iter (fun v ->
+      Printf.eprintf "Warning: %s at %s\n  Suggestion: %s\n"
+        (Oblc.Analysis.Oblivious.show_violation_kind v.kind)
+        (Location.show v.loc)
+        v.suggestion
+    ) violations;
+
+    (* Lower to IR *)
+    let ir = Oblc.Ir.Lower.lower_program tast in
+
+    (* Emit *)
+    let json = Oblc.Ir.Emit.to_json ir in
+    Out_channel.with_open_bin output_file (fun oc ->
+      Out_channel.output_string oc (Yojson.Safe.pretty_to_string json)
+    );
+
+    `Ok ()
+  with
+  | Lexer.Lexer_error (msg, pos) ->
+      Printf.eprintf "Lexer error at %s:%d:%d: %s\n"
+        pos.pos_fname pos.pos_lnum (pos.pos_cnum - pos.pos_bol) msg;
+      `Error (false, "Lexer error")
+  | Parser.Error ->
+      Printf.eprintf "Parse error\n";
+      `Error (false, "Parse error")
+  | Failure msg ->
+      Printf.eprintf "Error: %s\n" msg;
+      `Error (false, msg)
+
+let input_file =
+  let doc = "Input source file (.obl)" in
+  Arg.(required & pos 0 (some file) None & info [] ~docv:"INPUT" ~doc)
+
+let output_file =
+  let doc = "Output IR file (.oir.json)" in
+  Arg.(value & opt string "out.oir.json" & info ["o"; "output"] ~docv:"OUTPUT" ~doc)
+
+let debug =
+  let doc = "Enable debug output" in
+  Arg.(value & flag & info ["d"; "debug"] ~doc)
+
+let cmd =
+  let doc = "Compile Oblibeny source to OIR" in
+  let info = Cmd.info "obli-frontend" ~version:"0.1.0" ~doc in
+  Cmd.v info Term.(ret (const compile $ input_file $ output_file $ debug))
+
+let () = exit (Cmd.eval cmd)
+----
+
+== Testing
+
+[source,ocaml]
+----
+(* test/typing_test.ml *)
+
+open Alcotest
+open Oblc
+
+let test_simple_function () =
+  let src = {|
+    fn add(x: i64, y: i64) -> i64 {
+      x + y
+    }
+  |} in
+  let ast = parse_string src in
+  let tast = Typing.check_program ast in
+  check int "one function" 1 (List.length tast.functions)
+
+let test_security_inference () =
+  let src = {|
+    fn lookup(arr: oarray<i64>, idx: i64 @high) -> i64 @high {
+      arr[idx]
+    }
+  |} in
+  let ast = parse_string src in
+  let tast = Typing.check_program ast in
+  let fn = List.hd tast.functions in
+  check bool "return is high" true (fn.treturn_type.sec = High)
+
+let test_oblivious_violation () =
+  let src = {|
+    fn bad(arr: [i64], idx: i64 @high) -> i64 {
+      arr[idx]
+    }
+  |} in
+  let ast = parse_string src in
+  let tast = Typing.check_program ast in
+  let violations = Analysis.Oblivious.check_obliviousness tast in
+  check bool "has violation" true (List.length violations > 0)
+
+let () =
+  run "Frontend" [
+    "typing", [
+      test_case "simple function" `Quick test_simple_function;
+      test_case "security inference" `Quick test_security_inference;
+    ];
+    "oblivious", [
+      test_case "violation detection" `Quick test_oblivious_violation;
+    ];
+  ]
+----
+
+== Error Messages
+
+=== Example Error Output
+
+[source]
+----
+$ obli-frontend bad.obl -o out.oir.json
+
+Error at bad.obl:5:10
+  |
+5 |     arr[secret_idx]
+  |         ^^^^^^^^^^
+  |
+Array access with secret index leaks access pattern.
+
+Suggestion: Use oarray<T> instead of array<T>:
+
+  Before: arr: [i64]
+  After:  arr: oarray<i64>
+
+Or declassify the index if the leak is acceptable:
+
+  arr[declassify(secret_idx)]
+----
+
+== Dependencies
+
+[source]
+----
+opam install \
+  dune \
+  menhir \
+  ppx_deriving \
+  yojson \
+  msgpck \
+  cmdliner \
+  alcotest
+----
