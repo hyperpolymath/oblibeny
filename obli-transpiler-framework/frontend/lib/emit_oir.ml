@@ -311,6 +311,7 @@ let to_json module_def =
 (** Write OIR to file *)
 let write_oir filename module_def =
   let json = to_json module_def in
-  let oc = open_out filename in
+  (* Use open_out_bin for consistent behavior across platforms *)
+  let oc = open_out_bin filename in
   output_string oc json;
   close_out oc
