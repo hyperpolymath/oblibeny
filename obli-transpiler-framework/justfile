@@ -1,0 +1,78 @@
+# SPDX-License-Identifier: MIT OR Palimpsest-0.8
+# Copyright (c) 2024 Hyperpolymath
+
+# Oblibeny Transpiler Framework Build System
+
+default: build
+
+# Build everything
+build: build-frontend build-backend build-runtime build-driver
+
+# Build the OCaml frontend
+build-frontend:
+    cd frontend && dune build
+
+# Build the Rust backend
+build-backend:
+    cargo build -p oblibeny-backend --release
+
+# Build the ORAM runtime
+build-runtime:
+    cargo build -p oblibeny-runtime --release
+
+# Build the driver CLI
+build-driver:
+    cargo build -p oblibeny --release
+
+# Run all tests
+test: test-frontend test-backend test-runtime
+
+# Test the OCaml frontend
+test-frontend:
+    cd frontend && dune runtest
+
+# Test the Rust backend
+test-backend:
+    cargo test -p oblibeny-backend
+
+# Test the runtime
+test-runtime:
+    cargo test -p oblibeny-runtime
+
+# Clean all build artifacts
+clean:
+    cd frontend && dune clean
+    cargo clean
+
+# Format all code
+fmt:
+    cd frontend && dune fmt
+    cargo fmt
+
+# Lint all code
+lint:
+    cd frontend && dune build @check
+    cargo clippy -- -D warnings
+
+# Install the compiler to ~/.local/bin
+install: build
+    install -m755 target/release/oblibeny ~/.local/bin/
+    install -m755 target/release/oblibeny-backend ~/.local/bin/
+    install -m755 frontend/_build/default/bin/main.exe ~/.local/bin/oblibeny-frontend
+
+# Run benchmarks
+bench:
+    cargo bench -p oblibeny-runtime
+
+# Generate documentation
+doc:
+    cd frontend && dune build @doc
+    cargo doc --workspace --no-deps
+
+# Compile an example file
+example FILE:
+    ./target/release/oblibeny compile {{FILE}}
+
+# Check an example file
+check FILE:
+    ./target/release/oblibeny check {{FILE}}

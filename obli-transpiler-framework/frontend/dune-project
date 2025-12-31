@@ -1,0 +1,27 @@
+; SPDX-License-Identifier: MIT OR Palimpsest-0.8
+; Copyright (c) 2024 Hyperpolymath
+
+(lang dune 3.0)
+(name oblibeny)
+(version 0.1.0)
+
+(generate_opam_files true)
+
+(source (github hyperpolymath/oblibeny))
+(license "MIT OR Palimpsest-0.8")
+(authors "Hyperpolymath")
+(maintainers "Hyperpolymath")
+
+(package
+ (name oblibeny)
+ (synopsis "Oblibeny language frontend - oblivious computing compiler")
+ (description "OCaml frontend for the Oblibeny oblivious computing language.
+Produces OIR (Oblivious Intermediate Representation) for the Rust backend.")
+ (depends
+  (ocaml (>= 4.14))
+  (dune (>= 3.0))
+  menhir
+  sedlex
+  yojson
+  ppx_deriving
+  ppx_deriving_yojson))
