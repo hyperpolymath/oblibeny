@@ -4,9 +4,73 @@
 //! Compilation pipeline implementation
 
 use crate::error::Error;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use tempfile::TempDir;
+
+/// Validate that a path is safe for use (no path traversal)
+///
+/// Ensures the path doesn't contain ".." or other traversal attempts.
+fn validate_path(path: &Path) -> Result<(), Error> {
+    // Check for path traversal attempts
+    for component in path.components() {
+        if let std::path::Component::ParentDir = component {
+            return Err(Error::InvalidInput(format!(
+                "path '{}' contains parent directory reference (..)",
+                path.display()
+            )));
+        }
+    }
+
+    // Check the path string for other dangerous patterns
+    let path_str = path.to_string_lossy();
+    if path_str.contains('\0') {
+        return Err(Error::InvalidInput("path contains null byte".to_string()));
+    }
+
+    Ok(())
+}
+
+/// Validate and normalize an input file path
+fn validate_input_path(path: &Path) -> Result<PathBuf, Error> {
+    validate_path(path)?;
+
+    // Verify the file exists
+    if !path.exists() {
+        return Err(Error::InputNotFound(path.display().to_string()));
+    }
+
+    // Use canonicalize to resolve to absolute path
+    path.canonicalize()
+        .map_err(|e| Error::InvalidInput(format!("cannot resolve path '{}': {}", path.display(), e)))
+}
+
+/// Validate an output path (doesn't need to exist, but must be safe)
+fn validate_output_path(path: &Path) -> Result<PathBuf, Error> {
+    validate_path(path)?;
+
+    // If parent exists, canonicalize parent and join filename
+    if let Some(parent) = path.parent() {
+        if parent.as_os_str().is_empty() {
+            // No parent means current directory - that's fine
+            Ok(path.to_path_buf())
+        } else if parent.exists() {
+            let canonical_parent = parent.canonicalize()
+                .map_err(|e| Error::InvalidInput(format!(
+                    "cannot resolve parent directory '{}': {}",
+                    parent.display(), e
+                )))?;
+            Ok(canonical_parent.join(path.file_name().unwrap_or_default()))
+        } else {
+            Err(Error::InvalidInput(format!(
+                "parent directory '{}' does not exist",
+                parent.display()
+            )))
+        }
+    } else {
+        Ok(path.to_path_buf())
+    }
+}
 
 /// Configuration for compile command
 pub struct CompileConfig {
@@ -80,16 +144,18 @@ fn find_backend() -> Result<PathBuf, Error> {
 
 /// Compile .obl to .rs
 pub fn compile(config: CompileConfig) -> Result<(), Error> {
-    if !config.input.exists() {
-        return Err(Error::InputNotFound(config.input.display().to_string()));
-    }
+    // Validate input path (security: prevent path traversal)
+    let input = validate_input_path(&config.input)?;
 
     let frontend = find_frontend()?;
     let backend = find_backend()?;
 
-    // Determine output paths
-    let oir_path = config.input.with_extension("oir.json");
-    let rs_path = config.output.unwrap_or_else(|| config.input.with_extension("rs"));
+    // Determine and validate output paths
+    let oir_path = validate_output_path(&input.with_extension("oir.json"))?;
+    let rs_path = match config.output {
+        Some(ref p) => validate_output_path(p)?,
+        None => validate_output_path(&input.with_extension("rs"))?,
+    };
 
     if config.verbose {
         eprintln!("Using frontend: {}", frontend.display());

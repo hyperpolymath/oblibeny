@@ -30,14 +30,31 @@ pub struct PathOram<T: OramBlock> {
     capacity: u64,
 }
 
+/// Maximum supported ORAM capacity (2^32 blocks)
+/// Limited to prevent integer overflow in tree size calculations
+pub const MAX_ORAM_CAPACITY: u64 = 1u64 << 32;
+
 impl<T: OramBlock + ConditionallySelectable> PathOram<T> {
     /// Create a new Path ORAM with given capacity
+    ///
+    /// # Panics
+    /// Panics if capacity is 0 or exceeds MAX_ORAM_CAPACITY
     pub fn new(capacity: u64, key: SecretKey) -> Self {
+        // Validate capacity to prevent overflow
+        assert!(capacity > 0, "ORAM capacity must be > 0");
+        assert!(
+            capacity <= MAX_ORAM_CAPACITY,
+            "ORAM capacity {} exceeds maximum {} (risk of integer overflow)",
+            capacity,
+            MAX_ORAM_CAPACITY
+        );
+
         // Calculate tree depth (ceil(log2(capacity)))
         let depth = (64 - capacity.leading_zeros()) as usize;
         let num_leaves = 1u64 << depth;
 
         // Total nodes in complete binary tree: 2^(depth+1) - 1
+        // Safe: depth <= 32, so 2^33 - 1 fits in usize on 64-bit
         let num_nodes = (1usize << (depth + 1)) - 1;
 
         // Initialize empty tree
@@ -57,10 +74,21 @@ impl<T: OramBlock + ConditionallySelectable> PathOram<T> {
     }
 
     /// Access (read or write) a block
+    ///
+    /// # Panics
+    /// Panics if addr >= capacity
     fn access(&mut self, addr: u64, op: AccessOp<T>) -> T
     where
         T: Clone,
     {
+        // Bounds check to prevent corruption
+        assert!(
+            addr < self.capacity,
+            "ORAM address {} out of bounds (capacity: {})",
+            addr,
+            self.capacity
+        );
+
         // 1. Look up position and remap
         let (old_leaf, new_leaf) = self.position_map.get_and_remap(addr);
 

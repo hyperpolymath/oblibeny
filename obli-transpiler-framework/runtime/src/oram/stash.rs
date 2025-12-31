@@ -40,13 +40,23 @@ impl<T: OramBlock> Stash<T> {
     }
 
     /// Add a block to the stash
+    ///
+    /// # Panics
+    /// Panics if stash exceeds MAX_STASH_SIZE - this indicates ORAM security breach
     pub fn add(&mut self, addr: u64, leaf: u64, data: T) {
-        self.entries.push(StashEntry { addr, leaf, data });
-        if self.entries.len() > MAX_STASH_SIZE {
-            // In production, this would be a security failure
-            // For now, just warn (the stash overflow bound proof ensures this is negligible)
-            log::warn!("Stash overflow: {} entries", self.entries.len());
+        if self.entries.len() >= MAX_STASH_SIZE {
+            // CRITICAL: Stash overflow breaks ORAM security guarantees
+            // This should never happen with correct parameters (probability negligible)
+            // If it does, the only safe option is to abort to prevent information leak
+            panic!(
+                "FATAL: Stash overflow ({} >= {}) - ORAM security compromised! \
+                 This indicates either incorrect ORAM parameters or an attack. \
+                 Aborting to prevent information leakage.",
+                self.entries.len() + 1,
+                MAX_STASH_SIZE
+            );
         }
+        self.entries.push(StashEntry { addr, leaf, data });
     }
 
     /// Find and remove a block by address
@@ -145,14 +155,20 @@ fn path_overlaps(leaf1: u64, leaf2: u64, depth: usize) -> bool {
 }
 
 /// Calculate the deepest level where two paths overlap
+///
+/// Returns the deepest tree level (0 = root, depth-1 = leaf) where
+/// the paths to leaf1 and leaf2 share a common ancestor.
 pub fn path_overlap_level(leaf1: u64, leaf2: u64, depth: usize) -> usize {
-    for level in (0..depth).rev() {
+    // Find the deepest level where paths still share a prefix
+    for level in 0..depth {
         let shift = depth - level - 1;
-        if (leaf1 >> shift) == (leaf2 >> shift) {
-            return level;
+        if (leaf1 >> shift) != (leaf2 >> shift) {
+            // Paths diverge at this level, so overlap is at parent (level - 1)
+            return level.saturating_sub(1);
         }
     }
-    0
+    // Paths completely overlap (same leaf)
+    depth.saturating_sub(1)
 }
 
 #[cfg(test)]
