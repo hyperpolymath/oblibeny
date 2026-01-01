@@ -1,14 +1,35 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
-# Mustfile - hyperpolymath mandatory checks
-# See: https://github.com/hyperpolymath/mustfile
+# SPDX-License-Identifier: MIT OR Palimpsest-0.8
+# SPDX-FileCopyrightText: 2026 Hyperpolymath
+#
+# Mustfile - Oblíbený deployment contract
+# See AUTHORITY_STACK.mustfile-nickel.scm for governance.
+# All checks route through justfile.
 
 version: 1
 
 checks:
-  - name: security
-    run: just lint
-  - name: tests
-    run: just test
-  - name: format
-    run: just fmt
+  - name: build
+    run: just build
+    description: Build the Oblíbený compiler
 
+  - name: test
+    run: just test
+    description: Run conformance and unit tests
+
+  - name: lint
+    run: just lint
+    description: Static analysis and validation
+
+  - name: fmt
+    run: just fmt
+    description: Code formatting check
+
+  - name: golden-path
+    run: just demo
+    description: Run the ANCHOR-defined smoke test
+
+transitions:
+  - name: release
+    requires: [build, test, lint]
+    run: just release $VERSION
+    description: Prepare a release (requires VERSION env var)
