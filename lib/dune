@@ -1,0 +1,8 @@
+; SPDX-License-Identifier: MIT OR Palimpsest-0.8
+; Copyright (c) 2026 Hyperpolymath
+
+(library
+ (name oblibeny)
+ (public_name oblibeny)
+ (libraries yojson)
+ (preprocess (pps ppx_deriving.show ppx_deriving_yojson)))

@@ -1,0 +1,19 @@
+# OCaml / Dune
+_build/
+*.install
+*.merlin
+.merlin
+*.opam.locked
+
+# Editor
+*~
+*.swp
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated
+*.oir.json
