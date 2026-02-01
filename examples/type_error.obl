@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// Example: INVALID - demonstrates type error detection
+
+fn main() -> () {
+    let x: i64 = 42;
+    let y: bool = true;
+
+    // This should be rejected by type checker
+    // because you can't add i64 and bool
+    let z: i64 = x + y;
+
+    trace("result", z);
+}

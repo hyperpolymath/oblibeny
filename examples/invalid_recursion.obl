@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// Example: INVALID - demonstrates rejection of recursion
+
+fn countdown(n: i64) -> () {
+    trace("counting", n);
+    // This should be REJECTED by constrained_check
+    // because recursive calls are not allowed
+    countdown(n - 1);
+}
+
+fn main() -> () {
+    countdown(5);
+}

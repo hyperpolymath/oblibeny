@@ -1,5 +1,5 @@
-(* SPDX-License-Identifier: MIT OR Palimpsest-0.8 *)
-(* Copyright (c) 2026 Hyperpolymath *)
+(* SPDX-License-Identifier: PMPL-1.0-or-later *)
+(* Copyright (c) 2026 Jonathan D.A. Jewell *)
 
 (** Abstract Syntax Tree for Oblíbený
 
@@ -10,7 +10,6 @@
     This AST covers both forms. The constrained form is a strict subset.
 *)
 
-open Location
 
 (** Primitive types available in constrained form *)
 type prim_type =
@@ -20,7 +19,7 @@ type prim_type =
   | TU64           (** 64-bit unsigned integer *)
   | TBool          (** Boolean *)
   | TUnit          (** Unit type *)
-  [@@deriving show, yojson]
+  [@@deriving show]
 
 (** Type expressions *)
 type typ =
@@ -30,14 +29,14 @@ type typ =
   | TFun of typ list * typ         (** Function type *)
   | TStruct of string              (** Named struct type *)
   | TTrace                         (** Accountability trace type *)
-  [@@deriving show, yojson]
+  [@@deriving show]
 
 (** Literals *)
 type literal =
   | LInt of int64
   | LBool of bool
   | LUnit
-  [@@deriving show, yojson]
+  [@@deriving show]
 
 (** Binary operators *)
 type binop =
@@ -45,12 +44,12 @@ type binop =
   | Eq | Neq | Lt | Le | Gt | Ge   (** Comparison *)
   | And | Or                        (** Logical *)
   | BitAnd | BitOr | BitXor         (** Bitwise *)
-  [@@deriving show, yojson]
+  [@@deriving show]
 
 (** Unary operators *)
 type unop =
   | Neg | Not | BitNot
-  [@@deriving show, yojson]
+  [@@deriving show]
 
 (** ==========================================================================
     CONSTRAINED FORM EXPRESSIONS
@@ -61,7 +60,7 @@ type expr = {
   expr_desc: expr_desc;
   expr_loc: Location.t;
   mutable expr_type: typ option;
-} [@@deriving show, yojson]
+} [@@deriving show]
 
 and expr_desc =
   | ELiteral of literal
@@ -74,7 +73,7 @@ and expr_desc =
   | EIf of expr * expr * expr           (** Conditional expression *)
   | EBlock of stmt list * expr option   (** Block with optional final expression *)
   | EStruct of string * (string * expr) list  (** Struct construction *)
-  [@@deriving show, yojson]
+  [@@deriving show]
 
 (** ==========================================================================
     CONSTRAINED FORM STATEMENTS
@@ -83,7 +82,7 @@ and expr_desc =
 and stmt = {
   stmt_desc: stmt_desc;
   stmt_loc: Location.t;
-} [@@deriving show, yojson]
+} [@@deriving show]
 
 and stmt_desc =
   (* Bindings *)
@@ -111,7 +110,7 @@ and stmt_desc =
   | STrace of string * expr list               (** trace(event, args...) *)
   | SCheckpoint of string                      (** checkpoint(label) *)
   | SAssertInvariant of expr * string          (** assert_invariant(cond, msg) *)
-  [@@deriving show, yojson]
+  [@@deriving show]
 
 (** ==========================================================================
     TOP-LEVEL DECLARATIONS
@@ -120,7 +119,7 @@ and stmt_desc =
 type decl = {
   decl_desc: decl_desc;
   decl_loc: Location.t;
-} [@@deriving show, yojson]
+} [@@deriving show]
 
 and decl_desc =
   | DFunction of {
@@ -138,13 +137,13 @@ and decl_desc =
       typ: typ;
       value: expr;
     }
-  [@@deriving show, yojson]
+  [@@deriving show]
 
 (** A complete program in constrained form *)
 type program = {
   module_name: string option;
   declarations: decl list;
-} [@@deriving show, yojson]
+} [@@deriving show]
 
 (** ==========================================================================
     HELPER CONSTRUCTORS

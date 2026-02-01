@@ -1,4 +1,4 @@
-;; SPDX-License-Identifier: MIT OR Palimpsest-0.8
+;; SPDX-License-Identifier: PMPL-1.0-or-later
 ;; SPDX-FileCopyrightText: 2026 Hyperpolymath
 
 ;; ANCHOR.scope-arrest.2026-01-01.Jewell.scm  (oblibeny)

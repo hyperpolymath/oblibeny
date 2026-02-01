@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// Example: Struct definitions and usage
+
+struct Point {
+    x: i64,
+    y: i64
+}
+
+fn main() -> () {
+    let p: Point = Point { x: 10, y: 20 };
+
+    checkpoint("point_created");
+    trace("point", p.x, p.y);
+
+    let sum: i64 = p.x + p.y;
+    assert_invariant(sum == 30, "sum should be 30");
+}

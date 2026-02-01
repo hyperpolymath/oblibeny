@@ -1,9 +1,7 @@
-(* SPDX-License-Identifier: MIT OR Palimpsest-0.8 *)
-(* Copyright (c) 2026 Hyperpolymath *)
+(* SPDX-License-Identifier: PMPL-1.0-or-later *)
+(* Copyright (c) 2026 Jonathan D.A. Jewell *)
 
 (** Error handling for Oblíbený compiler *)
-
-open Location
 
 type severity =
   | Error
@@ -63,3 +61,7 @@ let format_diagnostic d =
 let print_diagnostics diags =
   let sorted = List.rev diags.items in
   List.iter (fun d -> prerr_endline (format_diagnostic d)) sorted
+
+(** Quick error formatting helper *)
+let format_error prefix msg loc =
+  Printf.sprintf "%s: %s: %s" (Location.to_string loc) prefix msg

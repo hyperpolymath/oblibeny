@@ -1,0 +1,111 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// aLib Comparison Operations - Oblíbený Implementation
+//
+// Implements: equal, not_equal, less_than, less_equal, greater_than, greater_equal
+// Spec: aggregate-library/specs/comparison/
+
+// ============================================================================
+// equal: Number, Number -> Boolean
+// ============================================================================
+// Properties: Reflexive, Symmetric, Transitive
+
+fn equal(a: i64, b: i64) -> bool {
+    trace("alib.equal", a, b);
+    let result: bool = a == b;
+    return result;
+}
+
+// ============================================================================
+// not_equal: Number, Number -> Boolean
+// ============================================================================
+// Properties: Symmetric, Complement of equal
+
+fn not_equal(a: i64, b: i64) -> bool {
+    trace("alib.not_equal", a, b);
+    let result: bool = a != b;
+    return result;
+}
+
+// ============================================================================
+// less_than: Number, Number -> Boolean
+// ============================================================================
+// Properties: Irreflexive, Asymmetric, Transitive
+
+fn less_than(a: i64, b: i64) -> bool {
+    trace("alib.less_than", a, b);
+    let result: bool = a < b;
+    return result;
+}
+
+// ============================================================================
+// less_equal: Number, Number -> Boolean
+// ============================================================================
+// Properties: Reflexive, Antisymmetric, Transitive
+
+fn less_equal(a: i64, b: i64) -> bool {
+    trace("alib.less_equal", a, b);
+    let result: bool = a <= b;
+    return result;
+}
+
+// ============================================================================
+// greater_than: Number, Number -> Boolean
+// ============================================================================
+// Properties: Irreflexive, Asymmetric, Transitive
+
+fn greater_than(a: i64, b: i64) -> bool {
+    trace("alib.greater_than", a, b);
+    let result: bool = a > b;
+    return result;
+}
+
+// ============================================================================
+// greater_equal: Number, Number -> Boolean
+// ============================================================================
+// Properties: Reflexive, Antisymmetric, Transitive
+
+fn greater_equal(a: i64, b: i64) -> bool {
+    trace("alib.greater_equal", a, b);
+    let result: bool = a >= b;
+    return result;
+}
+
+// ============================================================================
+// Test harness demonstrating aLib conformance
+// ============================================================================
+
+fn main() -> () {
+    checkpoint("alib.comparison.tests");
+
+    // Test: equal
+    assert_invariant(equal(5, 5) == true, "equal(5,5) = true");
+    assert_invariant(equal(5, 3) == false, "equal(5,3) = false");
+    assert_invariant(equal(0, 0) == true, "equal(0,0) = true");
+
+    // Test: not_equal
+    assert_invariant(not_equal(5, 3) == true, "not_equal(5,3) = true");
+    assert_invariant(not_equal(5, 5) == false, "not_equal(5,5) = false");
+
+    // Test: less_than
+    assert_invariant(less_than(3, 5) == true, "less_than(3,5) = true");
+    assert_invariant(less_than(5, 3) == false, "less_than(5,3) = false");
+    assert_invariant(less_than(5, 5) == false, "less_than(5,5) = false");
+
+    // Test: less_equal
+    assert_invariant(less_equal(3, 5) == true, "less_equal(3,5) = true");
+    assert_invariant(less_equal(5, 5) == true, "less_equal(5,5) = true");
+    assert_invariant(less_equal(5, 3) == false, "less_equal(5,3) = false");
+
+    // Test: greater_than
+    assert_invariant(greater_than(5, 3) == true, "greater_than(5,3) = true");
+    assert_invariant(greater_than(3, 5) == false, "greater_than(3,5) = false");
+    assert_invariant(greater_than(5, 5) == false, "greater_than(5,5) = false");
+
+    // Test: greater_equal
+    assert_invariant(greater_equal(5, 3) == true, "greater_equal(5,3) = true");
+    assert_invariant(greater_equal(5, 5) == true, "greater_equal(5,5) = true");
+    assert_invariant(greater_equal(3, 5) == false, "greater_equal(3,5) = false");
+
+    checkpoint("alib.comparison.tests.complete");
+    trace("all_tests_passed", 1);
+}

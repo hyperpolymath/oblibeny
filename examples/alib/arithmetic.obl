@@ -1,0 +1,103 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// aLib Arithmetic Operations - Oblíbený Implementation
+//
+// Implements: add, subtract, multiply, divide, modulo
+// Spec: aggregate-library/specs/arithmetic/
+
+// ============================================================================
+// add: Number, Number -> Number
+// ============================================================================
+// Properties: Commutative, Associative, Identity element (0)
+
+fn add(a: i64, b: i64) -> i64 {
+    trace("alib.add", a, b);
+    let result: i64 = a + b;
+    trace("alib.add.result", result);
+    return result;
+}
+
+// ============================================================================
+// subtract: Number, Number -> Number
+// ============================================================================
+// Properties: Non-commutative, Identity element (0 for right operand)
+
+fn subtract(a: i64, b: i64) -> i64 {
+    trace("alib.subtract", a, b);
+    let result: i64 = a - b;
+    trace("alib.subtract.result", result);
+    return result;
+}
+
+// ============================================================================
+// multiply: Number, Number -> Number
+// ============================================================================
+// Properties: Commutative, Associative, Identity element (1)
+
+fn multiply(a: i64, b: i64) -> i64 {
+    trace("alib.multiply", a, b);
+    let result: i64 = a * b;
+    trace("alib.multiply.result", result);
+    return result;
+}
+
+// ============================================================================
+// divide: Number, Number -> Number
+// ============================================================================
+// Properties: Non-commutative, Identity element (1 for right operand)
+// Note: Division by zero behavior is implementation-defined per aLib spec
+
+fn divide(a: i64, b: i64) -> i64 {
+    trace("alib.divide", a, b);
+    // Division by zero check - implementation-defined behavior
+    assert_invariant(b != 0, "division by zero");
+    let result: i64 = a / b;
+    trace("alib.divide.result", result);
+    return result;
+}
+
+// ============================================================================
+// modulo: Number, Number -> Number
+// ============================================================================
+// Properties: Returns remainder of division
+
+fn modulo(a: i64, b: i64) -> i64 {
+    trace("alib.modulo", a, b);
+    assert_invariant(b != 0, "modulo by zero");
+    let result: i64 = a % b;
+    trace("alib.modulo.result", result);
+    return result;
+}
+
+// ============================================================================
+// Test harness demonstrating aLib conformance
+// ============================================================================
+
+fn main() -> () {
+    checkpoint("alib.arithmetic.tests");
+
+    // Test: add
+    assert_invariant(add(2, 3) == 5, "add(2,3) = 5");
+    assert_invariant(add(-5, 3) == -2, "add(-5,3) = -2");
+    assert_invariant(add(0, 0) == 0, "add(0,0) = 0");
+
+    // Test: subtract
+    assert_invariant(subtract(5, 3) == 2, "subtract(5,3) = 2");
+    assert_invariant(subtract(3, 5) == -2, "subtract(3,5) = -2");
+    assert_invariant(subtract(0, 0) == 0, "subtract(0,0) = 0");
+
+    // Test: multiply
+    assert_invariant(multiply(3, 4) == 12, "multiply(3,4) = 12");
+    assert_invariant(multiply(-2, 3) == -6, "multiply(-2,3) = -6");
+    assert_invariant(multiply(0, 10) == 0, "multiply(0,10) = 0");
+
+    // Test: divide
+    assert_invariant(divide(10, 2) == 5, "divide(10,2) = 5");
+    assert_invariant(divide(7, 2) == 3, "divide(7,2) = 3 (integer division)");
+
+    // Test: modulo
+    assert_invariant(modulo(10, 3) == 1, "modulo(10,3) = 1");
+    assert_invariant(modulo(7, 2) == 1, "modulo(7,2) = 1");
+
+    checkpoint("alib.arithmetic.tests.complete");
+    trace("all_tests_passed", 1);
+}

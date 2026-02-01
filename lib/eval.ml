@@ -1,5 +1,5 @@
-(* SPDX-License-Identifier: MIT OR Palimpsest-0.8 *)
-(* Copyright (c) 2026 Hyperpolymath *)
+(* SPDX-License-Identifier: PMPL-1.0-or-later *)
+(* Copyright (c) 2026 Jonathan D.A. Jewell *)
 
 (** Reference Evaluator for Oblíbený Constrained Form
 
@@ -14,7 +14,6 @@
 *)
 
 open Ast
-open Trace
 
 module Env = Map.Make(String)
 
@@ -29,11 +28,11 @@ type value =
 type env = {
   vars: value Env.t;
   mutable_vars: (string, value ref) Hashtbl.t;
-  functions: (string, (string list * stmt list)) Env.t;
+  functions: (string list * stmt list) Env.t;
 }
 
 type state = {
-  env: env;
+  mutable env: env;
   trace: Trace.t;
 }
 
@@ -49,6 +48,7 @@ let create_state () = {
 }
 
 exception EvalError of string
+exception Return of value
 
 let value_to_trace_value = function
   | VInt i -> Trace.VInt i
@@ -270,8 +270,6 @@ and eval_stmt state env stmt =
          ~outputs:[];
        raise (EvalError (Printf.sprintf "invariant violated: %s" msg))
      | _ -> raise (EvalError "assert_invariant condition must be bool"))
-
-and exception Return of value
 
 (** Evaluate a complete program *)
 let eval_program program =

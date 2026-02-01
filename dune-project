@@ -1,16 +1,18 @@
-; SPDX-License-Identifier: MIT OR Palimpsest-0.8
-; Copyright (c) 2026 Hyperpolymath
-
 (lang dune 3.0)
+; SPDX-License-Identifier: PMPL-1.0-or-later
+; Copyright (c) 2026 Jonathan D.A. Jewell
+
+(using menhir 2.1)
+
 (name oblibeny)
 (version 0.1.0)
 
 (generate_opam_files true)
 
 (source (github hyperpolymath/oblibeny))
-(license "MIT OR Palimpsest-0.8")
-(authors "Hyperpolymath")
-(maintainers "Hyperpolymath")
+(license "PMPL-1.0-or-later")
+(authors "Jonathan D.A. Jewell <jonathan.jewell@open.ac.uk>")
+(maintainers "Jonathan D.A. Jewell <jonathan.jewell@open.ac.uk>")
 
 (package
  (name oblibeny)

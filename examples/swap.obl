@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// Example: Reversible swap operations
+
+fn main() -> () {
+    let mut a: i64 = 42;
+    let mut b: i64 = 7;
+
+    checkpoint("before_swap");
+    trace("initial", a, b);
+
+    // Self-inverse swap operation
+    swap(a, b);
+    trace("after_swap", a, b);
+
+    // Swap back
+    swap(a, b);
+    trace("restored", a, b);
+
+    checkpoint("after_swaps");
+
+    // Verify reversibility
+    assert_invariant(a == 42, "a should be restored to 42");
+    assert_invariant(b == 7, "b should be restored to 7");
+}

@@ -1,5 +1,5 @@
-(* SPDX-License-Identifier: MIT OR Palimpsest-0.8 *)
-(* Copyright (c) 2026 Hyperpolymath *)
+(* SPDX-License-Identifier: PMPL-1.0-or-later *)
+(* Copyright (c) 2026 Jonathan D.A. Jewell *)
 
 (** Accountability Trace for Oblíbený
 
@@ -15,7 +15,7 @@ type value =
   | VBool of bool
   | VUnit
   | VRef of string
-  [@@deriving show, yojson]
+  [@@deriving show]
 
 type entry = {
   sequence: int;
@@ -23,7 +23,7 @@ type entry = {
   inputs: value list;
   outputs: value list;
   checkpoint: string option;
-} [@@deriving show, yojson]
+} [@@deriving show]
 
 type t = {
   mutable entries: entry list;
@@ -71,14 +71,21 @@ let trace_custom trace event args =
 let to_list trace =
   List.rev trace.entries
 
+(** Convert value to Yojson manually *)
+let value_to_json = function
+  | VInt i -> `Assoc [("type", `String "int"); ("value", `Intlit (Int64.to_string i))]
+  | VBool b -> `Assoc [("type", `String "bool"); ("value", `Bool b)]
+  | VUnit -> `Assoc [("type", `String "unit")]
+  | VRef r -> `Assoc [("type", `String "ref"); ("value", `String r)]
+
 (** Export trace as JSON *)
 let to_json trace =
   let entries_json = List.map (fun e ->
     `Assoc [
       ("sequence", `Int e.sequence);
       ("operation", `String e.operation);
-      ("inputs", `List (List.map value_to_yojson e.inputs));
-      ("outputs", `List (List.map value_to_yojson e.outputs));
+      ("inputs", `List (List.map value_to_json e.inputs));
+      ("outputs", `List (List.map value_to_json e.outputs));
       ("checkpoint", match e.checkpoint with Some c -> `String c | None -> `Null);
     ]
   ) (to_list trace) in

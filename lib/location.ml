@@ -1,5 +1,5 @@
-(* SPDX-License-Identifier: MIT OR Palimpsest-0.8 *)
-(* Copyright (c) 2026 Hyperpolymath *)
+(* SPDX-License-Identifier: PMPL-1.0-or-later *)
+(* Copyright (c) 2026 Jonathan D.A. Jewell *)
 
 (** Source location tracking for Oblíbený *)
 
@@ -7,13 +7,13 @@ type position = {
   pos_line: int;
   pos_col: int;
   pos_offset: int;
-} [@@deriving show, yojson]
+} [@@deriving show]
 
 type t = {
   loc_start: position;
   loc_end: position;
   loc_file: string;
-} [@@deriving show, yojson]
+} [@@deriving show]
 
 let dummy_pos = { pos_line = 0; pos_col = 0; pos_offset = 0 }
 let dummy = { loc_start = dummy_pos; loc_end = dummy_pos; loc_file = "<none>" }

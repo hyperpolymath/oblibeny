@@ -1,63 +1,16 @@
-// SPDX-License-Identifier: MIT OR Palimpsest-0.8
-// Copyright (c) 2026 Hyperpolymath
-
-// hello.obl - Oblíbený "Hello World" demonstrating core concepts
-//
-// This program demonstrates:
-// - Constrained form (Turing-incomplete)
-// - Reversible operations (incr/decr, swap)
-// - Accountability trace
-// - Bounded iteration (for-range with static bounds)
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// Example: Hello program demonstrating bounded loops and accountability
 
 fn main() -> () {
-    // Mutable binding - tracked for reversibility
-    let mut counter = 0;
-
-    // Create checkpoint for trace
+    let mut counter: i64 = 0;
     checkpoint("start");
 
-    // Bounded loop - bound must be static constant
-    // This ensures Turing-incompleteness
+    // Bounded loop with static bound (no while/loop allowed)
     for i in 0..10 {
-        // Reversible increment - inverse is decr
         incr(counter, 1);
-
-        // Record to accountability trace
-        trace("counted", counter);
+        trace("increment", counter);
     }
 
     checkpoint("end");
-
-    // Assert invariant - verified and traced
     assert_invariant(counter == 10, "counter should be 10");
-
-    // Demonstrate swap (self-inverse reversible operation)
-    let mut a = 42;
-    let mut b = 7;
-    swap(a, b);
-    // Now a == 7, b == 42
-
-    // XOR assignment is also self-inverse
-    let mut x = 0xFF00;
-    x ^= 0x00FF;  // x is now 0xFFFF
-    x ^= 0x00FF;  // x is back to 0xFF00
-
-    trace("done");
 }
-
-// Example of a non-recursive helper function
-fn add_two(x: i64) -> i64 {
-    let result = x;
-    incr(result, 2);
-    result
-}
-
-// This would be REJECTED - recursive call not allowed:
-// fn bad_recursive() -> () {
-//     bad_recursive();  // ERROR: recursive call
-// }
-
-// This would be REJECTED - while loop not allowed:
-// fn bad_while() -> () {
-//     while true { }  // ERROR: 'while' not permitted
-// }

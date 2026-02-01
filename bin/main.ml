@@ -1,5 +1,5 @@
-(* SPDX-License-Identifier: MIT OR Palimpsest-0.8 *)
-(* Copyright (c) 2026 Hyperpolymath *)
+(* SPDX-License-Identifier: PMPL-1.0-or-later *)
+(* Copyright (c) 2026 Jonathan D.A. Jewell *)
 
 (** Oblíbený CLI
 
@@ -52,39 +52,9 @@ let parse_args () =
   Arg.parse specs (fun s -> opts.input_file <- Some s) usage_msg;
   opts
 
-(** Minimal parser for f0 - just creates a test program
-    Real parser will be added in f1 *)
-let parse_file _filename =
-  (* For f0, return a simple test program demonstrating the language *)
-  Ok Oblibeny.Ast.{
-    module_name = Some "hello";
-    declarations = [
-      mk_decl Location.dummy (DFunction {
-        name = "main";
-        params = [];
-        return_type = TPrim TUnit;
-        body = [
-          (* let mut x = 0 *)
-          mk_stmt Location.dummy (SLetMut ("x", Some (TPrim TI64), mk_expr Location.dummy (ELiteral (LInt 0L))));
-          (* checkpoint("start") *)
-          mk_stmt Location.dummy (SCheckpoint "start");
-          (* for i in 0..10 { incr(x, 1); trace("increment", x); } *)
-          mk_stmt Location.dummy (SForRange ("i", 0L, 10L, [
-            mk_stmt Location.dummy (SIncr ("x", mk_expr Location.dummy (ELiteral (LInt 1L))));
-            mk_stmt Location.dummy (STrace ("increment", [mk_expr Location.dummy (EVar "x")]));
-          ]));
-          (* checkpoint("end") *)
-          mk_stmt Location.dummy (SCheckpoint "end");
-          (* assert_invariant(x == 10, "x should be 10") *)
-          mk_stmt Location.dummy (SAssertInvariant (
-            mk_expr Location.dummy (EBinop (Eq,
-              mk_expr Location.dummy (EVar "x"),
-              mk_expr Location.dummy (ELiteral (LInt 10L)))),
-            "x should be 10"));
-        ];
-      })
-    ];
-  }
+(** Parse source file using real parser *)
+let parse_file filename =
+  Oblibeny.Parse.parse_file filename
 
 let main () =
   let opts = parse_args () in
@@ -110,6 +80,16 @@ let main () =
     prerr_endline "=== AST ===";
     prerr_endline (Oblibeny.Ast.show_program program)
   end;
+
+  if opts.verbose then
+    Printf.eprintf "[oblibeny] Type checking...\n%!";
+
+  (* Type check *)
+  (match Oblibeny.Typecheck.typecheck_program program with
+   | Ok () -> ()
+   | Error diags ->
+     Oblibeny.Errors.print_diagnostics diags;
+     exit 1);
 
   if opts.verbose then
     Printf.eprintf "[oblibeny] Validating constrained form...\n%!";

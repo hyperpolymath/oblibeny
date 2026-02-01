@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// Example: XOR cipher (self-inverse operation)
+
+fn main() -> () {
+    let mut data: i64 = 12345;
+    let key: i64 = 67890;
+
+    checkpoint("plaintext");
+    trace("original_data", data);
+
+    // Encrypt (XOR is self-inverse)
+    data ^= key;
+    checkpoint("encrypted");
+    trace("encrypted_data", data);
+
+    // Decrypt (apply same operation)
+    data ^= key;
+    checkpoint("decrypted");
+    trace("decrypted_data", data);
+
+    // Verify reversibility
+    assert_invariant(data == 12345, "data should be restored");
+}
