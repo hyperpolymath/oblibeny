@@ -17,8 +17,8 @@
     (tech-stack ()))
 
   (current-position
-    (phase "initial")
-    (overall-completion 0)
+    (phase "core-complete")
+    (overall-completion 20)
     (components ())
     (working-features ()))
 
