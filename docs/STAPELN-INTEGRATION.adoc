@@ -1,0 +1,569 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell
+
+= Stapeln Integration: Interactive Image Designer
+:toc:
+:toclevels: 3
+
+== Overview
+
+**Stapeln** (German: "stacking") is an interactive GUI for designing minimal container images and distributions. It produces **Cerro Torre** images - formally verified, minimal Linux distributions built with Oblibeny.
+
+== Name: Cerro Torre Distribution
+
+**Cerro Torre** - Named after the iconic Patagonian mountain peak.
+
+* 🏔️ **Cerro** = Mountain/peak (Spanish)
+* ✅ Easy spelling (no accents needed)
+* 🎯 Metaphor: Building upward from solid foundation (like distroless → full image)
+* 💪 Minimal, elegant, iconic
+
+**Short form:** "Torre"
+
+== Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  STAPELN - Interactive Image Designer (ReScript GUI)   │
+│  ────────────────────────────────────────────────────   │
+│                                                         │
+│  ┌──────────────────┐  ┌───────────────────────────┐  │
+│  │  Sidebar Config  │  │  Main Canvas              │  │
+│  │  ──────────────  │  │  ────────────             │  │
+│  │  □ Base Layer    │  │  [Visualization]          │  │
+│  │  □ Networking    │  │                           │  │
+│  │  □ Storage       │  │  Distroless (20 files)    │  │
+│  │  □ Security      │  │    + liboqs (PQ crypto)   │  │
+│  │  □ Protocols     │  │    + obli-pkg             │  │
+│  │  □ Services      │  │    + hello binary         │  │
+│  │                  │  │                           │  │
+│  │  [Analyze]       │  │  Total: 50 files, 17.5MB  │  │
+│  │  [Export]        │  │                           │  │
+│  └──────────────────┘  └───────────────────────────┘  │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+                         │
+                         │ generates
+                         ▼
+┌─────────────────────────────────────────────────────────┐
+│  Cerro Torre Image (.zpkg or Dockerfile)               │
+│  ────────────────────────────────────────────────────   │
+│  • Formally verified                                    │
+│  • Minimal (only proven-necessary components)           │
+│  • Post-quantum crypto                                  │
+│  • Oblibeny package management                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+== GUI Design (ReScript + Deno)
+
+=== Technology Stack
+
+**Frontend:**
+- **ReScript** - Type-safe UI logic (compiles to JS)
+- **React** - Component framework
+- **TailwindCSS** - Styling (CSS-first, accessible)
+- **ARIA** - Full WCAG 2.3 AAA compliance
+
+**Backend:**
+- **Deno** - Runtime for tooling/APIs
+- **Oblibeny** - Image build coordination
+- **Zig** - Build execution
+
+=== Main Interface
+
+**Layout:**
+```
+┌──────────────────────────────────────────────────────────┐
+│  Stapeln - Cerro Torre Image Designer                   │
+├──────────────────────────────────────────────────────────┤
+│                                                          │
+│  ┌─────────────────┐  ┌────────────────────────────┐   │
+│  │ Configuration   │  │ Canvas                     │   │
+│  │ Sidebar         │  │                            │   │
+│  │ ─────────────   │  │  [Visual Layer Stack]      │   │
+│  │                 │  │                            │   │
+│  │ Build Mode:     │  │  Layer 5: hello (2MB)      │   │
+│  │ ○ Bottom-up     │  │  Layer 4: obli-pkg (1MB)   │   │
+│  │ ○ Top-down      │  │  Layer 3: liboqs (5MB)     │   │
+│  │                 │  │  Layer 2: libsodium (200KB)│   │
+│  │ Base Image:     │  │  Layer 1: Distroless (10MB)│   │
+│  │ ▼ Distroless    │  │  Layer 0: Linux kernel     │   │
+│  │   Alpine        │  │                            │   │
+│  │   Scratch       │  │  Total: 18.2MB, 52 files   │   │
+│  │                 │  │                            │   │
+│  │ Components:     │  │  [Export] [Analyze] [Build]│   │
+│  │ ☑ Security      │  │                            │   │
+│  │   ├─ PQ Crypto  │  └────────────────────────────┘   │
+│  │   └─ Signatures │                                   │
+│  │ ☐ Networking    │  ┌────────────────────────────┐   │
+│  │   ├─ IPv6       │  │ Analyzer Output            │   │
+│  │   ├─ HTTP/3     │  │ ──────────────             │   │
+│  │   └─ DNS        │  │ ✓ Security: PQ crypto OK   │   │
+│  │ ☐ Storage       │  │ ⚠ Missing: DNS resolver    │   │
+│  │ ☐ Init System   │  │ ℹ Suggest: Add musl-dns    │   │
+│  │                 │  │                            │   │
+│  │ [Clear All]     │  └────────────────────────────┘   │
+│  └─────────────────┘                                   │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+```
+
+=== Configuration Modes
+
+**1. Imperative Mode** - Manual selection
+```
+"Add this component"
+□ liboqs (PQ crypto)
+□ libsodium (symmetric crypto)
+□ obli-pkg (package manager)
+```
+
+**2. Declarative Mode** - Requirements-based
+```
+"I need these features"
+□ Single-process container
+□ Network connectivity (IPv6)
+□ Package management
+□ Post-quantum security
+```
+
+**Analyzer automatically suggests:**
+```
+Based on your requirements:
+✓ Distroless base (for single-process)
++ liboqs (for PQ security)
++ obli-pkg (for package management)
++ musl-dns (for network connectivity)
+```
+
+== Configuration Schema (Nickel)
+
+```nickel
+// stapeln-config.ncl
+{
+  build_mode: 'BottomUp | 'TopDown,
+
+  base_image: {
+    type: 'Distroless | 'Alpine | 'Scratch,
+    version: String,
+  },
+
+  components: {
+    security: {
+      post_quantum: Bool,
+      classical_compat: Bool,
+      algorithms: {
+        signatures: ['Dilithium5AES, 'Ed448, 'SPHINCSpls],
+        kem: ['Kyber1024],
+        symmetric: ['XChaCha20Poly1305],
+        hashing: ['SHAKE3_512, 'BLAKE3],
+      },
+    },
+
+    networking: {
+      enabled: Bool,
+      protocols: {
+        ipv4: Bool,  // False by default
+        ipv6: Bool,  // True by default
+        http: ['HTTP3 | 'HTTP2 | 'HTTP1_1,  // Only HTTP3 allowed
+      },
+      services: {
+        dns: Bool,
+        dhcp: Bool,
+        routing: {
+          static: Bool,
+          bgp: Bool,
+          ospf: Bool,
+        },
+      },
+    },
+
+    storage: {
+      filesystem: 'ReadOnly | 'Ephemeral | 'Persistent,
+      oram: Bool,  // Oblivious RAM for privacy
+    },
+
+    init_system: {
+      type: 'None | 'SingleProcess | 'Minimal | 'Full,
+    },
+
+    packages: [String],  // List of package names
+  },
+
+  output: {
+    format: 'Dockerfile | 'Zpkg | 'OCI,
+    name: String,
+    version: String,
+  },
+}
+```
+
+== Hierarchical Component Tree
+
+=== Example: Networking Component
+
+```
+☐ Networking
+  ├─ IP Stack
+  │   ├─ ☑ IPv6 only
+  │   └─ ☐ IPv4 (deprecated)
+  │
+  ├─ Protocols
+  │   ├─ ☑ HTTP/3 + QUIC
+  │   ├─ ☐ HTTP/2
+  │   └─ ☐ HTTP/1.1 (forbidden)
+  │
+  ├─ DNS
+  │   ├─ ☐ Resolver
+  │   ├─ ☐ Authoritative server
+  │   └─ ☐ DNS-over-HTTPS
+  │
+  ├─ Routing
+  │   ├─ ☐ Static routes
+  │   ├─ ☐ BGP
+  │   ├─ ☐ OSPF
+  │   └─ ☐ IS-IS
+  │
+  └─ Services
+      ├─ ☐ DHCP client
+      ├─ ☐ NTP client
+      └─ ☐ mDNS/Avahi
+```
+
+**Clicking "Networking" expands sub-options.**
+
+=== Example: Security Component
+
+```
+☑ Security
+  ├─ Cryptography
+  │   ├─ ☑ Post-quantum (liboqs)
+  │   │   ├─ ☑ Dilithium5-AES
+  │   │   ├─ ☑ Kyber-1024
+  │   │   └─ ☑ SPHINCS+
+  │   │
+  │   ├─ ☑ Classical (libsodium)
+  │   │   ├─ ☑ Ed448
+  │   │   ├─ ☑ XChaCha20-Poly1305
+  │   │   └─ ☑ Argon2id
+  │   │
+  │   └─ Hashing
+  │       ├─ ☑ SHAKE3-512
+  │       ├─ ☑ BLAKE3
+  │       └─ ☐ SHA-256 (deprecated)
+  │
+  ├─ Package Signatures
+  │   ├─ ☑ Verify all signatures
+  │   ├─ ☑ Dilithium5 required
+  │   └─ ☑ Ed448 required
+  │
+  └─ Access Control
+      ├─ ☐ Capabilities
+      ├─ ☐ SELinux
+      └─ ☐ AppArmor
+```
+
+== Analyzer (Smart Suggestions)
+
+=== Input: User Requirements
+
+```typescript
+// User selects in GUI:
+requirements = {
+  networking: true,
+  singleProcess: false,
+  packageManagement: true,
+  security: "post-quantum",
+}
+```
+
+=== Analyzer Logic (ReScript)
+
+```rescript
+// src/analyzer/Analyzer.res
+module Analyzer = {
+  type requirement = {
+    networking: bool,
+    singleProcess: bool,
+    packageManagement: bool,
+    security: string,
+  }
+
+  type suggestion = {
+    component: string,
+    reason: string,
+    size: int,
+    required: bool,
+  }
+
+  let analyze = (req: requirement): array<suggestion> => {
+    let suggestions = []
+
+    // Always need distroless base
+    suggestions->Array.push({
+      component: "distroless-static",
+      reason: "Minimal base layer",
+      size: 10_000_000,  // 10MB
+      required: true,
+    })
+
+    // Post-quantum security
+    if req.security == "post-quantum" {
+      suggestions->Array.push({
+        component: "liboqs",
+        reason: "Post-quantum cryptography (Dilithium5, Kyber-1024)",
+        size: 5_000_000,  // 5MB
+        required: true,
+      })
+
+      suggestions->Array.push({
+        component: "libsodium",
+        reason: "Classical crypto compatibility (Ed448, XChaCha20)",
+        size: 200_000,  // 200KB
+        required: true,
+      })
+    }
+
+    // Package management
+    if req.packageManagement {
+      suggestions->Array.push({
+        component: "obli-pkg",
+        reason: "Oblibeny package manager (Zig, static)",
+        size: 1_000_000,  // 1MB
+        required: true,
+      })
+    }
+
+    // Networking
+    if req.networking {
+      suggestions->Array.push({
+        component: "musl-dns",
+        reason: "DNS resolver for network connectivity",
+        size: 50_000,  // 50KB
+        required: true,
+      })
+
+      suggestions->Array.push({
+        component: "quiche",
+        reason: "HTTP/3 + QUIC protocol support",
+        size: 2_000_000,  // 2MB
+        required: false,  // Optional if only DNS needed
+      })
+    }
+
+    // Init system (if multi-process)
+    if !req.singleProcess {
+      suggestions->Array.push({
+        component: "minimal-init",
+        reason: "Minimal init system (Zig-based, ~100KB)",
+        size: 100_000,
+        required: true,
+      })
+    }
+
+    suggestions
+  }
+
+  let calculateTotal = (suggestions: array<suggestion>): (int, int) => {
+    let required = suggestions
+      ->Array.filter(s => s.required)
+      ->Array.reduce(0, (acc, s) => acc + s.size)
+
+    let total = suggestions
+      ->Array.reduce(0, (acc, s) => acc + s.size)
+
+    (required, total)
+  }
+}
+```
+
+=== Output: Suggestions Panel
+
+```
+┌────────────────────────────────────────┐
+│ Analyzer Suggestions                   │
+├────────────────────────────────────────┤
+│                                        │
+│ ✓ Required Components (15.2 MB):      │
+│   • distroless-static (10 MB)         │
+│   • liboqs (5 MB)                     │
+│   • libsodium (200 KB)                │
+│   • obli-pkg (1 MB)                   │
+│                                        │
+│ ℹ Optional Components (2 MB):         │
+│   • quiche (2 MB) - for HTTP/3        │
+│                                        │
+│ ⚠ Warnings:                           │
+│   • You selected networking but no    │
+│     DNS resolver. Add musl-dns?       │
+│                                        │
+│ [Apply All Required]                  │
+│ [Show Dependency Graph]               │
+│                                        │
+└────────────────────────────────────────┘
+```
+
+== Export Formats
+
+=== 1. Dockerfile Output
+
+```dockerfile
+# Generated by Stapeln - Cerro Torre Image Designer
+# Base: Distroless (bottom-up)
+# Security: Post-quantum (Dilithium5, Kyber-1024)
+# Total: 17.5 MB, 52 files
+
+FROM gcr.io/distroless/static-debian12
+
+# Add crypto libraries
+COPY --from=builder /usr/lib/liboqs.so.0.11.0 /usr/lib/
+COPY --from=builder /usr/lib/libsodium.so.26 /usr/lib/
+
+# Add package manager
+COPY --from=builder /usr/bin/obli-pkg /usr/bin/
+
+# Add application
+COPY --from=builder /usr/bin/hello /usr/bin/
+
+# Metadata
+LABEL org.opencontainers.image.title="Cerro Torre - Hello"
+LABEL org.opencontainers.image.security="post-quantum"
+LABEL org.opencontainers.image.size="17.5MB"
+
+ENTRYPOINT ["/usr/bin/hello"]
+```
+
+=== 2. Oblibeny .zpkg Manifest
+
+```scheme
+;; Generated by Stapeln
+(define cerro-torre-image
+  '((name "cerro-torre-hello")
+    (version "1.0.0")
+    (base "distroless-static")
+
+    (layers
+      ((layer-0 "distroless-static" 10485760)  ; 10MB
+       (layer-1 "liboqs" 5242880)              ; 5MB
+       (layer-2 "libsodium" 204800)            ; 200KB
+       (layer-3 "obli-pkg" 1048576)            ; 1MB
+       (layer-4 "hello" 2097152)))             ; 2MB
+
+    (security
+      ((post-quantum #t)
+       (signatures ("Dilithium5-AES" "Ed448" "SPHINCS+"))
+       (hashing ("SHAKE3-512" "BLAKE3"))))
+
+    (networking
+      ((enabled #f)))
+
+    (proven-necessary
+      ((obli-pkg "Package management required")
+       (liboqs "Post-quantum security required")
+       (libsodium "Classical crypto compatibility")))))
+```
+
+=== 3. Nickel Configuration
+
+```nickel
+# Generated by Stapeln
+{
+  name = "cerro-torre-hello",
+  version = "1.0.0",
+
+  build_mode = 'BottomUp,
+  base_image = { type = 'Distroless, version = "debian12" },
+
+  components = {
+    security = {
+      post_quantum = true,
+      algorithms = {
+        signatures = ['Dilithium5AES, 'Ed448, 'SPHINCSpls],
+        kem = ['Kyber1024],
+      },
+    },
+    networking = { enabled = false },
+    packages = ["hello"],
+  },
+
+  total_size = 17_500_000,  # 17.5 MB
+  total_files = 52,
+}
+```
+
+== Import/Export Workflow
+
+```
+User Actions:
+1. Design image in Stapeln GUI
+2. Click "Export"
+3. Choose format: Dockerfile | .zpkg | Nickel
+4. Save to file
+
+Sharing:
+5. Share file with team
+6. Team member clicks "Import"
+7. Stapeln loads configuration
+8. Visual design restored
+9. Can modify and re-export
+```
+
+== Integration with Oblibeny
+
+```
+┌──────────────────┐
+│  Stapeln GUI     │
+│  (ReScript)      │
+└────────┬─────────┘
+         │ generates
+         ▼
+┌──────────────────┐
+│  Nickel Config   │
+└────────┬─────────┘
+         │ parsed by
+         ▼
+┌──────────────────┐
+│  Oblibeny        │
+│  (Constrained)   │
+└────────┬─────────┘
+         │ calls
+         ▼
+┌──────────────────┐
+│  Zig FFI         │
+│  (Build Image)   │
+└────────┬─────────┘
+         │ outputs
+         ▼
+┌──────────────────┐
+│  Cerro Torre     │
+│  Image (.zpkg)   │
+└──────────────────┘
+```
+
+== Technology Summary
+
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| **GUI** | ReScript + React | Type-safe UI |
+| **Styling** | TailwindCSS | WCAG 2.3 AAA |
+| **Runtime** | Deno | Tooling/APIs |
+| **Config** | Nickel | Type-safe configuration |
+| **Build** | Oblibeny | Constrained-form coordination |
+| **Execution** | Zig | FFI implementation |
+| **Output** | Cerro Torre | Minimal verified image |
+
+== Next Steps
+
+1. Create Stapeln repository
+2. Implement ReScript GUI components
+3. Build analyzer logic
+4. Integrate with Oblibeny build system
+5. Add import/export functionality
+6. Create preset configurations
+
+== Related Documents
+
+* link:DISTROLESS-BOOTSTRAP.adoc[Distroless Bootstrap]
+* link:SECURITY-ARCHITECTURE.adoc[Security Architecture]
+* link:PACKAGE-FORMAT-SPEC.adoc[Package Format]

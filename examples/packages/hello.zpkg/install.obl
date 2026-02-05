@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell
+
+// ============================================================================
+// PROOF OF CONCEPT: Hello Package Installation Script
+// ============================================================================
+//
+// This is written in Oblibeny CONSTRAINED FORM:
+// - No while loops (guaranteed termination)
+// - No recursion (call graph is acyclic)
+// - All operations reversible
+// - Complete accountability trace
+//
+
+fn install_hello() -> Result<()> {
+    // Create named checkpoint for rollback
+    checkpoint("install_start");
+    trace("package", "hello");
+    trace("version", "1.0.0");
+
+    // Check dependencies (statically bounded - empty for hello)
+    let deps = [];  // No dependencies
+    for dep in deps {
+        // This loop never executes (static analysis proves this)
+        trace("dependency", dep);
+    }
+
+    // Call Zig FFI via Idris2 ABI
+    // This operation is proven reversible by Idris2
+    trace("action", "installing_binary");
+    let result = ffi_install_package("/path/to/hello.zpkg", "/");
+
+    match result {
+        Ok(_) => {
+            trace("status", "success");
+            checkpoint("install_complete");
+            assert_invariant(file_exists("/usr/bin/hello"), "hello binary must exist");
+            Ok(())
+        },
+        Err(e) => {
+            trace("status", "failed");
+            trace("error", e);
+
+            // Automatic rollback via Oblibeny runtime
+            // Uses accountability trace to reverse all operations
+            rollback_to_checkpoint("install_start");
+
+            Err(e)
+        }
+    }
+}
+
+fn uninstall_hello() -> Result<()> {
+    checkpoint("uninstall_start");
+    trace("action", "uninstalling");
+
+    // Call Zig FFI
+    let result = ffi_uninstall_package("/");
+
+    match result {
+        Ok(_) => {
+            trace("status", "success");
+            checkpoint("uninstall_complete");
+            assert_invariant(!file_exists("/usr/bin/hello"), "hello binary must not exist");
+            Ok(())
+        },
+        Err(e) => {
+            trace("status", "failed");
+            trace("error", e);
+            Err(e)
+        }
+    }
+}
+
+// Verify package installation state
+fn verify_installation() -> bool {
+    let binary_exists = file_exists("/usr/bin/hello");
+    let binary_executable = is_executable("/usr/bin/hello");
+
+    trace("verify", "binary_exists", binary_exists);
+    trace("verify", "binary_executable", binary_executable);
+
+    binary_exists && binary_executable
+}

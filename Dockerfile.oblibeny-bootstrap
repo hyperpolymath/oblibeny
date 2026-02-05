@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell
+
+# ============================================================================
+# Bootstrap Environment: Build Oblibeny toolchain from source
+# ============================================================================
+# This image builds Idris2, Zig, and Oblibeny from scratch on Alpine
+# Output: Static binaries suitable for distroless deployment
+# ============================================================================
+
+FROM alpine:latest
+
+# Install build dependencies
+RUN apk add --no-cache \
+    build-base \
+    git \
+    curl \
+    bash \
+    cmake \
+    ninja \
+    llvm-dev \
+    gmp-dev \
+    libffi-dev \
+    just
+
+# ============================================================================
+# Build Idris2 from source (not in Alpine repos)
+# ============================================================================
+WORKDIR /build
+
+RUN git clone https://github.com/idris-lang/Idris2.git && \
+    cd Idris2 && \
+    make bootstrap SCHEME=chez && \
+    make install && \
+    idris2 --version
+
+# ============================================================================
+# Install Zig (download pre-built or build from source)
+# ============================================================================
+RUN curl -L https://ziglang.org/download/0.13.0/zig-linux-x86_64-0.13.0.tar.xz | tar -xJ && \
+    mv zig-linux-x86_64-0.13.0 /usr/local/zig && \
+    ln -s /usr/local/zig/zig /usr/local/bin/zig && \
+    zig version
+
+# ============================================================================
+# Build Oblibeny compiler (OCaml-based)
+# ============================================================================
+RUN apk add --no-cache opam ocaml
+
+WORKDIR /oblibeny
+COPY . .
+
+# Install OCaml dependencies
+RUN opam init -y --disable-sandboxing && \
+    eval $(opam env) && \
+    opam install -y dune menhir
+
+# Build Oblibeny
+RUN eval $(opam env) && dune build
+
+# ============================================================================
+# Build static binaries for distroless
+# ============================================================================
+RUN just dist-build && \
+    just distroless-export
+
+# ============================================================================
+# Verification
+# ============================================================================
+RUN echo "=== Toolchain Versions ===" && \
+    idris2 --version && \
+    zig version && \
+    dune --version && \
+    echo "=== Build Complete ===" && \
+    ls -lh dist/
+
+# Export artifacts
+VOLUME ["/oblibeny/dist"]
+
+CMD ["sh", "-c", "echo 'Bootstrap complete. Artifacts in /oblibeny/dist'"]
