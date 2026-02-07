@@ -1,0 +1,143 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Kubernetes Deployment for Oblíbený Language Server
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: oblibeny-system
+  labels:
+    app: oblibeny
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oblibeny-config
+  namespace: oblibeny-system
+data:
+  lsp.conf: |
+    # Oblíbený LSP Configuration
+    log_level: info
+    max_diagnostics: 100
+    enable_trace: true
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: oblibeny-lsp
+  namespace: oblibeny-system
+  labels:
+    app: oblibeny
+    component: lsp-server
+spec:
+  serviceName: oblibeny-lsp
+  replicas: 3
+  selector:
+    matchLabels:
+      app: oblibeny
+      component: lsp-server
+  template:
+    metadata:
+      labels:
+        app: oblibeny
+        component: lsp-server
+    spec:
+      containers:
+      - name: lsp-server
+        image: hyperpolymath/oblibeny:latest
+        command: ["oblibeny-lsp"]
+        ports:
+        - containerPort: 8080
+          name: lsp
+          protocol: TCP
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - oblibeny
+            - --version
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: config
+          mountPath: /etc/oblibeny
+        - name: trace-storage
+          mountPath: /var/lib/oblibeny/traces
+      volumes:
+      - name: config
+        configMap:
+          name: oblibeny-config
+  volumeClaimTemplates:
+  - metadata:
+      name: trace-storage
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oblibeny-lsp
+  namespace: oblibeny-system
+  labels:
+    app: oblibeny
+    component: lsp-server
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: lsp
+  selector:
+    app: oblibeny
+    component: lsp-server
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: oblibeny-lsp-pdb
+  namespace: oblibeny-system
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: oblibeny
+      component: lsp-server
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: oblibeny-lsp-hpa
+  namespace: oblibeny-system
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: oblibeny-lsp
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
