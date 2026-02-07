@@ -1,20 +1,36 @@
-# OCaml / Dune
-_build/
+# SPDX-License-Identifier: PMPL-1.0-or-later
+
+# OCaml/Dune
+/_build/
 *.install
-*.merlin
 .merlin
 *.opam.locked
 
-# Editor
-*~
-*.swp
-.idea/
+# Build artifacts
+*.cmi
+*.cmo
+*.cma
+*.cmx
+*.cmxa
+*.cmxs
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+
+# IDE
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
 
 # OS
-.DS_Store
 Thumbs.db
+.Trash-*/
 
-# Generated
-*.oir.json
-.zig-cache/
+# Temporary
+*.tmp
+*.log
