@@ -17,6 +17,7 @@ type options = {
   mutable dump_ast: bool;
   mutable dump_trace: bool;
   mutable check_only: bool;
+  mutable analyze: bool;
   mutable verbose: bool;
 }
 
@@ -25,6 +26,7 @@ let default_options () = {
   dump_ast = false;
   dump_trace = false;
   check_only = false;
+  analyze = false;
   verbose = false;
 }
 
@@ -41,6 +43,8 @@ let parse_args () =
      " Dump accountability trace after execution");
     ("--check", Arg.Unit (fun () -> opts.check_only <- true),
      " Only check constrained form validity, don't execute");
+    ("--analyze", Arg.Unit (fun () -> opts.analyze <- true),
+     " Run comprehensive static analysis with resource bounds");
     ("-v", Arg.Unit (fun () -> opts.verbose <- true),
      " Verbose output");
     ("--version", Arg.Unit (fun () ->
@@ -102,6 +106,15 @@ let main () =
       prerr_endline (Oblibeny.Constrained_check.format_violation v)
     ) violations;
     exit 1
+  end;
+
+  (* Run comprehensive static analysis if requested *)
+  if opts.analyze then begin
+    if opts.verbose then
+      Printf.eprintf "[oblibeny] Running static analysis...\n%!";
+    let analysis_result = Oblibeny.Static_analyzer.analyze program in
+    print_string (Oblibeny.Static_analyzer.format_report analysis_result);
+    exit (if analysis_result.is_valid then 0 else 1)
   end;
 
   if opts.check_only then begin
