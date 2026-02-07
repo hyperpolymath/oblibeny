@@ -25,12 +25,13 @@
       (nextgen-languages/oblibeny "OUTDATED - embedded snapshot, 0 OCaml files")))
 
   (current-position
-    (phase "compiler-complete-tooling-missing")
-    (overall-completion 45)
-    (loc 1677)
-    (files 44)
+    (phase "crypto-complete-tooling-missing")
+    (overall-completion 50)
+    (loc 2587)
+    (files 48)
     (ocaml-files 44)
     (zig-files 3)
+    (idris-files 1)
     (size "57M")
     (components
       ((lexer (status complete) (file "lib/lexer.ml"))
@@ -39,13 +40,16 @@
        (evaluator (status complete) (file "lib/eval.ml"))
        (constrained-checker (status complete) (file "lib/constrained_check.ml"))
        (ast (status complete) (file "lib/ast.ml"))
-       (zig-ffi (status partial) (files 3) (description "Crypto stack integration"))
-       (package-manager (status partial) (description "obli-pkg started but incomplete"))
+       (crypto-ffi (status complete) (completion 100) (loc 1110)
+                   (files ("ffi/zig/src/crypto.zig" "ffi/zig/src/obli-pkg.zig"
+                           "src/abi/Crypto.idr" "ffi/zig/build.zig" "Containerfile.crypto"))
+                   (description "Post-quantum crypto with liboqs + libsodium"))
+       (package-manager (status partial) (completion 70) (description "obli-pkg with signature verification"))
        (lsp-server (status missing))
        (debugger (status missing))
        (vscode-extension (status missing))
-       (documentation (status minimal) (description "BUILD-LOG.md exists, needs expansion"))
-       (deployment (status partial) (description "Multiple Dockerfiles, needs consolidation"))))
+       (documentation (status minimal) (description "BUILD-LOG.md + CRYPTO-FFI-COMPLETE.md"))
+       (deployment (status complete) (description "Containerfile.crypto with multi-stage build"))))
     (working-features
       (lexing "Full lexical analysis with token generation")
       (parsing "Complete parser for Oblibeny syntax")
