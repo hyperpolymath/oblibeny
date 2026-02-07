@@ -1,0 +1,407 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell
+
+= Oblibeny Package Format (.zpkg) Specification
+:toc:
+:toclevels: 3
+
+== Overview
+
+**.zpkg** is the Oblibeny distribution package format. Each package is:
+- A compressed archive (.tar.zst)
+- Signed with post-quantum hybrid signatures
+- Hashed with SHAKE3-512
+- Includes Idris2 ABI proofs
+- Coordinated by Oblibeny constrained form
+
+== Package Structure
+
+```
+package-name-version.zpkg/
+├── META.scm                        # Package metadata (Scheme)
+├── ABI.idr                         # Idris2 interface proofs
+├── install.obl                     # Oblibeny installation script
+├── binaries/
+│   ├── x86_64/                    # Cross-compiled binaries
+│   ├── aarch64/
+│   └── riscv64/
+├── signatures/
+│   ├── package.sig.dilithium5     # Primary PQ signature (4.6KB)
+│   ├── package.sig.ed448          # Classical signature (114 bytes)
+│   └── package.sig.sphincs        # Conservative backup (49KB)
+├── hashes/
+│   ├── SHAKE3-512.txt             # Primary hash (post-quantum)
+│   └── BLAKE3.txt                 # Speed hash (metadata)
+└── proofs/
+    └── installation.v              # Coq proof (optional)
+```
+
+== META.scm Format
+
+```scheme
+;; SPDX-License-Identifier: PMPL-1.0-or-later
+
+(define package-metadata
+  '((package
+      (name "hello")
+      (version "1.0.0")
+      (architecture ("x86_64" "aarch64" "riscv64"))
+      (author "Jonathan D.A. Jewell <jonathan.jewell@open.ac.uk>")
+      (license "PMPL-1.0-or-later"))
+
+    (dependencies
+      ())  ;; Empty for hello
+
+    (files
+      ((binary "/usr/bin/hello")
+       (size 16384)
+       (permissions #o755)
+       (hash-shake3-512 "a1b2c3...")
+       (hash-blake3 "d4e5f6...")))
+
+    (signatures
+      ((dilithium5
+         (algorithm "Dilithium5-AES")
+         (public-key "pk_dilithium5_base64...")
+         (signature "sig_dilithium5_base64...")
+         (timestamp "2026-02-05T12:00:00Z"))
+       (ed448
+         (algorithm "Ed448")
+         (public-key "pk_ed448_base64...")
+         (signature "sig_ed448_base64...")
+         (timestamp "2026-02-05T12:00:00Z"))
+       (sphincs
+         (algorithm "SPHINCS+-SHA2-256f-simple")
+         (public-key "pk_sphincs_base64...")
+         (signature "sig_sphincs_base64...")
+         (timestamp "2026-02-05T12:00:00Z"))))
+
+    (verification
+      ((abi-proof-verified #t)
+       (idris2-proof "ABI.idr")
+       (coq-proof "proofs/installation.v")
+       (reversibility-proven #t)
+       (termination-proven #t)))
+
+    (security
+      ((requires-network #f)
+       (requires-filesystem #t)
+       (requires-root #f)
+       (sandboxed #t)))
+
+    (oblibeny
+      ((constrained-form #t)
+       (bounded-loops 0)
+       (max-operations 20)
+       (accountability-trace #t)))))
+```
+
+== Signature Scheme (Hybrid PQ)
+
+=== Signing Process
+
+**Step 1: Hash Package Contents**
+```bash
+# Hash with SHAKE3-512
+shake3-512 binaries/x86_64/hello > hashes/SHAKE3-512.txt
+
+# Hash with BLAKE3 (for speed)
+blake3 binaries/x86_64/hello > hashes/BLAKE3.txt
+```
+
+**Step 2: Sign with Dilithium5-AES (Primary)**
+```bash
+oqs-sig dilithium5-aes \
+    --sign \
+    --secret-key keys/package.dilithium5.sk \
+    --message hashes/SHAKE3-512.txt \
+    --output signatures/package.sig.dilithium5
+```
+
+**Step 3: Sign with Ed448 (Classical Compatibility)**
+```bash
+openssl pkeyutl \
+    -sign \
+    -inkey keys/package.ed448.sk \
+    -in hashes/SHAKE3-512.txt \
+    -out signatures/package.sig.ed448
+```
+
+**Step 4: Sign with SPHINCS+ (Conservative Backup)**
+```bash
+oqs-sig sphincs-sha2-256f-simple \
+    --sign \
+    --secret-key keys/package.sphincs.sk \
+    --message hashes/SHAKE3-512.txt \
+    --output signatures/package.sig.sphincs
+```
+
+=== Verification Process (All Must Succeed)
+
+```zig
+// ffi/zig/src/packages/verify.zig
+
+pub fn verifyPackage(pkg_path: []const u8) !void {
+    // 1. Verify SHAKE3-512 hash
+    const computed_hash = try computeShake3(pkg_path);
+    const stored_hash = try readFile("hashes/SHAKE3-512.txt");
+    if (!std.mem.eql(u8, computed_hash, stored_hash)) {
+        return error.HashMismatch;
+    }
+
+    // 2. Verify Dilithium5 signature (PRIMARY)
+    if (!try verifyDilithium5(computed_hash)) {
+        return error.Dilithium5Failed;
+    }
+
+    // 3. Verify Ed448 signature (CLASSICAL)
+    if (!try verifyEd448(computed_hash)) {
+        return error.Ed448Failed;
+    }
+
+    // 4. Verify SPHINCS+ signature (BACKUP)
+    if (!try verifySPHINCS(computed_hash)) {
+        return error.SPHINCSplusFailed;
+    }
+
+    // ALL verifications succeeded
+    return;
+}
+```
+
+== ABI.idr Format (Idris2 Proofs)
+
+```idris
+-- ABI.idr - Package interface with formal proofs
+module Package.Hello.ABI
+
+import System.ABI
+import System.Proofs
+
+-- Define package interface
+public export
+record HelloPackage where
+  constructor MkHello
+  name : String
+  version : String
+  binPath : String
+
+-- Prove installation preserves system invariants
+public export
+installPreservesInvariants :
+  (pkg : HelloPackage) ->
+  (sys : SystemState) ->
+  validState sys ->
+  validState (install pkg sys)
+
+-- Prove installation is reversible
+public export
+installReversible :
+  (pkg : HelloPackage) ->
+  (sys : SystemState) ->
+  uninstall pkg (install pkg sys) = sys
+
+-- Prove installation terminates
+public export
+installTerminates :
+  (pkg : HelloPackage) ->
+  (sys : SystemState) ->
+  Terminates (install pkg sys)
+```
+
+== install.obl Format (Oblibeny Constrained Form)
+
+```oblibeny
+// install.obl - Constrained form installation script
+// NO while loops, NO recursion, guaranteed termination
+
+fn install() -> Result<()> {
+    checkpoint("install_start");
+    trace("package", "hello");
+    trace("version", "1.0.0");
+
+    // Verify signatures (all must succeed)
+    verify_dilithium5()?;
+    verify_ed448()?;
+    verify_sphincs()?;
+
+    // Check dependencies (statically bounded)
+    let deps = [];
+    for dep in deps {
+        // Empty - no iterations
+    }
+
+    // Install binary (Zig FFI call)
+    ffi_install_binary("/usr/bin/hello")?;
+
+    // Verify installation
+    assert_invariant(file_exists("/usr/bin/hello"), "binary must exist");
+    assert_invariant(is_executable("/usr/bin/hello"), "binary must be executable");
+
+    checkpoint("install_complete");
+    Ok(())
+}
+
+fn uninstall() -> Result<()> {
+    checkpoint("uninstall_start");
+
+    // Remove binary (reversible)
+    ffi_remove_binary("/usr/bin/hello")?;
+
+    // Verify removal
+    assert_invariant(!file_exists("/usr/bin/hello"), "binary must be removed");
+
+    checkpoint("uninstall_complete");
+    Ok(())
+}
+```
+
+== Binary Format Requirements
+
+All binaries MUST be:
+1. **Statically linked** - No shared library dependencies
+2. **Stripped** - Debug symbols removed
+3. **Cross-compiled** - For x86_64, aarch64, riscv64
+4. **Compressed** - Using zstd (level 19)
+
+```bash
+# Example: Build hello for x86_64
+zig build-exe hello.zig \
+    -target x86_64-linux-musl \
+    -O ReleaseSafe \
+    -static \
+    -fstrip \
+    -femit-bin=binaries/x86_64/hello
+
+# Compress
+zstd -19 binaries/x86_64/hello
+```
+
+== Archive Format
+
+**.zpkg archive is tar.zst:**
+```bash
+# Create package
+tar -cf hello-1.0.0.tar \
+    META.scm \
+    ABI.idr \
+    install.obl \
+    binaries/ \
+    signatures/ \
+    hashes/ \
+    proofs/
+
+# Compress with zstd
+zstd -19 hello-1.0.0.tar -o hello-1.0.0.zpkg
+
+# Verify
+zstd -t hello-1.0.0.zpkg
+tar -tf hello-1.0.0.zpkg
+```
+
+== Size Estimates
+
+[cols="1,1,2"]
+|===
+| Component | Size | Notes
+
+| **META.scm**
+| ~2KB
+| Package metadata
+
+| **ABI.idr**
+| ~5KB
+| Idris2 proofs
+
+| **install.obl**
+| ~1KB
+| Installation script
+
+| **Binary (x86_64)**
+| 10-500KB
+| Depends on program
+
+| **Dilithium5 signature**
+| ~4.6KB
+| Primary PQ signature
+
+| **Ed448 signature**
+| ~114 bytes
+| Classical signature
+
+| **SPHINCS+ signature**
+| ~49KB
+| Conservative backup
+
+| **SHAKE3-512 hash**
+| 64 bytes
+| Post-quantum hash
+
+| **Total overhead**
+| ~65KB
+| Signatures + metadata
+|===
+
+**Example packages:**
+- hello (minimal): 16KB binary + 65KB overhead = ~81KB
+- curl (medium): 500KB binary + 65KB overhead = ~565KB
+- gcc (large): 50MB binary + 65KB overhead = ~50MB
+
+**Signature overhead is negligible for most packages.**
+
+== Verification Requirements
+
+Before installation, package manager MUST verify:
+
+1. ✅ **Archive integrity** - zstd decompression succeeds
+2. ✅ **SHAKE3-512 hash** - Package contents match hash
+3. ✅ **Dilithium5 signature** - Primary PQ signature valid
+4. ✅ **Ed448 signature** - Classical signature valid
+5. ✅ **SPHINCS+ signature** - Backup signature valid
+6. ✅ **Idris2 ABI proof** - Type-checks and proves properties
+7. ✅ **Oblibeny script** - Constrained form validates
+8. ✅ **Dependencies** - All deps installed with correct versions
+
+**If ANY verification fails, REJECT package.**
+
+== Repository Format
+
+Package repository is a directory tree:
+```
+repo/
+├── packages/
+│   ├── hello/
+│   │   ├── 1.0.0.zpkg
+│   │   └── 1.0.1.zpkg
+│   ├── curl/
+│   │   └── 8.5.0.zpkg
+│   └── ...
+├── index/
+│   ├── PACKAGES.scm         # Master package list
+│   └── PACKAGES.sig         # Signed index
+└── keys/
+    ├── repo.dilithium5.pk   # Repository public keys
+    ├── repo.ed448.pk
+    └── repo.sphincs.pk
+```
+
+**PACKAGES.scm format:**
+```scheme
+(define package-index
+  '((hello
+      (version "1.0.0")
+      (file "packages/hello/1.0.0.zpkg")
+      (hash-shake3-512 "a1b2c3...")
+      (dependencies ()))
+    (curl
+      (version "8.5.0")
+      (file "packages/curl/8.5.0.zpkg")
+      (hash-shake3-512 "d4e5f6...")
+      (dependencies ("zlib" "openssl")))))
+```
+
+== Related Documents
+
+* link:SECURITY-ARCHITECTURE.adoc[Security Architecture]
+* link:DISTROLESS-BOOTSTRAP.adoc[Distroless Bootstrap]
+* link:../README.adoc[Oblibeny Overview]

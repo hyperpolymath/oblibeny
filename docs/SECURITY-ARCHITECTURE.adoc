@@ -1,0 +1,445 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell
+
+= Oblibeny Distribution: Security Architecture
+:toc:
+:toclevels: 3
+
+== Security Requirements (User Specification)
+
+[source,scheme]
+----
+(define user-security-requirements
+  '(
+    (PasswordHashing "Argon2id (512 MiB, 8 iter, 4 lanes)" "—"
+     "Max memory/iterations for GPU/ASIC resistance")
+    (GeneralHashing "SHAKE3-512 (512-bit output)" "FIPS 202"
+     "Post-quantum; use for provenance, key derivation, and long-term storage")
+    (PQSignatures "Dilithium5-AES (hybrid)" "ML-DSA-87 (FIPS 204)"
+     "Hybrid with AES-256. SPHINCS+ as backup")
+    (PQKeyExchange "Kyber-1024 + SHAKE256-KDF" "ML-KEM-1024 (FIPS 203)"
+     "Kyber-1024 for KEM, SHAKE256 for KDF. SPHINCS+ as backup")
+    (ClassicalSigs "Ed448 + Dilithium5 (hybrid)" "—"
+     "Ed448 for classical compatibility; Dilithium5 for PQ. Terminate Ed25519/SHA-1 immediately")
+    (Symmetric "XChaCha20-Poly1305 (256-bit key)" "—"
+     "Larger nonce space; 256-bit keys for quantum margin")
+    (KeyDerivation "HKDF-SHAKE512" "FIPS 202"
+     "Post-quantum KDF")
+    (RNG "ChaCha20-DRBG (512-bit seed)" "SP 800-90Ar1"
+     "CSPRNG for deterministic, high-entropy needs")
+    (ProtocolStack "QUIC + HTTP/3 + IPv6 (IPv4 disabled)" "—"
+     "Terminate HTTP/1.1, IPv4, and SHA-1 per 'danger zone' policy")
+    (FormalVerification "Coq/Isabelle (for crypto primitives)" "—"
+     "Proactive attestation and transparent logic")
+    (Fallback "SPHINCS+" "—"
+     "Conservative PQ backup for all hybrid classical+PQ systems")
+  )
+)
+----
+
+== Cryptographic Primitive Mapping
+
+[cols="1,2,2,1"]
+|===
+| Use Case | Algorithm | Implementation | Size Impact
+
+| **Package Signatures**
+| Dilithium5-AES + SPHINCS+ backup
+| liboqs
+| ~5KB/sig
+
+| **Package Encryption**
+| XChaCha20-Poly1305
+| libsodium
+| ~32 bytes overhead
+
+| **Key Exchange**
+| Kyber-1024
+| liboqs
+| ~1.5KB ciphertext
+
+| **Hash (General)**
+| SHAKE3-512
+| Custom (FIPS 202)
+| n/a
+
+| **Hash (Speed)**
+| BLAKE3
+| blake3 crate → Zig
+| n/a
+
+| **Password Hash**
+| Argon2id (512 MiB, 8 iter, 4 lanes)
+| argon2 reference
+| n/a
+
+| **Key Derivation**
+| HKDF-SHAKE512
+| Custom wrapper
+| n/a
+
+| **RNG**
+| ChaCha20-DRBG
+| libsodium or custom
+| n/a
+|===
+
+== Security Properties (Idris2 Proofs)
+
+=== Package Signature Verification
+
+```idris
+-- src/abi/security/Signatures.idr
+module Security.Signatures
+
+-- Prove that package verification is correct
+data SignatureScheme = Dilithium5AES | SPHINCS256 | Ed448
+
+-- Hybrid signature: classical + PQ
+record HybridSignature where
+  constructor MkHybrid
+  classical : Ed448Signature
+  postQuantum : Dilithium5Signature
+  fallback : Maybe SPHINCS256Signature
+
+-- Verification must succeed on BOTH classical and PQ
+verifyHybrid : HybridSignature -> PublicKey -> Message -> Bool
+verifyHybrid sig pk msg =
+  verifyEd448 sig.classical pk.ed448 msg &&
+  verifyDilithium5 sig.postQuantum pk.dilithium5 msg
+
+-- PROOF: If verification succeeds, signature is authentic
+signatureAuthenticity :
+  (sig : HybridSignature) ->
+  (pk : PublicKey) ->
+  (msg : Message) ->
+  verifyHybrid sig pk msg = True ->
+  ProofOfAuthenticity msg pk
+signatureAuthenticity sig pk msg proof = ?signatureAuthenticity_rhs
+```
+
+=== Key Exchange Security
+
+```idris
+-- Prove that key exchange is post-quantum secure
+data KEMSecurity = ClassicalDH | PostQuantumKEM
+
+kyberKeyExchange :
+  (pk : Kyber1024PublicKey) ->
+  (ciphertext : Kyber1024Ciphertext) ->
+  (sharedSecret : Bytes, proof : PostQuantumSecure sharedSecret)
+kyberKeyExchange pk ct = ?kyber_kem_rhs
+```
+
+=== No Weak Crypto (Enforcement)
+
+```idris
+-- Prove that weak algorithms are NOT used
+data WeakAlgorithm = MD5 | SHA1 | Ed25519 | RSA1024
+
+-- Compile-time enforcement: weak algorithms are uninhabitable
+useWeakCrypto : WeakAlgorithm -> a
+useWeakCrypto = impossible  -- Type system prevents this!
+
+-- Runtime enforcement
+checkNoWeakCrypto : Package -> Either Error ()
+checkNoWeakCrypto pkg =
+  if usesAlgorithm pkg SHA1 then Left "SHA-1 forbidden"
+  else if usesAlgorithm pkg Ed25519 then Left "Ed25519 terminated"
+  else Right ()
+```
+
+== Implementation: Zig FFI
+
+=== Package Signature Verification (Zig)
+
+```zig
+// ffi/zig/src/crypto/signatures.zig
+const std = @import("std");
+const oqs = @cImport(@cInclude("oqs/oqs.h"));  // liboqs
+const sodium = @cImport(@cInclude("sodium.h"));
+
+pub const HybridSignature = struct {
+    ed448: [114]u8,           // Ed448 signature
+    dilithium5: [4595]u8,      // Dilithium5 signature
+    sphincs: ?[49856]u8,       // SPHINCS+ fallback (optional)
+};
+
+pub export fn verify_hybrid_signature(
+    sig: *const HybridSignature,
+    pk_ed448: [57]u8,
+    pk_dilithium5: [2592]u8,
+    message: [*]const u8,
+    message_len: usize,
+) callconv(.C) i32 {
+    // Verify Ed448 (classical)
+    if (!verify_ed448(&sig.ed448, &pk_ed448, message, message_len)) {
+        return -1;  // Classical verification failed
+    }
+
+    // Verify Dilithium5 (post-quantum)
+    if (!verify_dilithium5(&sig.dilithium5, &pk_dilithium5, message, message_len)) {
+        return -2;  // PQ verification failed
+    }
+
+    // BOTH must succeed
+    return 0;
+}
+
+fn verify_dilithium5(
+    sig: []const u8,
+    pk: []const u8,
+    msg: []const u8,
+) bool {
+    // Call liboqs Dilithium5-AES verification
+    var kem = oqs.OQS_SIG_new(oqs.OQS_SIG_alg_dilithium_5_aes);
+    defer oqs.OQS_SIG_free(kem);
+
+    const result = oqs.OQS_SIG_verify(
+        kem,
+        msg.ptr,
+        msg.len,
+        sig.ptr,
+        sig.len,
+        pk.ptr,
+    );
+
+    return result == oqs.OQS_SUCCESS;
+}
+```
+
+=== Symmetric Encryption (XChaCha20-Poly1305)
+
+```zig
+// ffi/zig/src/crypto/symmetric.zig
+const sodium = @cImport(@cInclude("sodium.h"));
+
+pub export fn encrypt_xchacha20poly1305(
+    plaintext: [*]const u8,
+    plaintext_len: usize,
+    key: [32]u8,  // 256-bit key
+    nonce: [24]u8,  // XChaCha20 nonce (larger than ChaCha20)
+    ciphertext: [*]u8,
+) callconv(.C) i32 {
+    const result = sodium.crypto_aead_xchacha20poly1305_ietf_encrypt(
+        ciphertext,
+        null,
+        plaintext,
+        plaintext_len,
+        null,
+        0,
+        null,
+        &nonce,
+        &key,
+    );
+
+    return if (result == 0) 0 else -1;
+}
+```
+
+== Cryptographic Library Dependencies
+
+=== Required Libraries (Distroless)
+
+**Core crypto stack:**
+```
+/usr/lib/
+├── liboqs.so.0.11.0          # Post-quantum (Dilithium5, Kyber, SPHINCS+)
+├── libsodium.so.26           # XChaCha20-Poly1305, Ed448
+├── libargon2.so.1            # Argon2id password hashing
+└── libshake3.so              # SHAKE3-512 (custom build)
+```
+
+**Size impact:**
+- liboqs: ~5MB (large, but necessary for PQ)
+- libsodium: ~200KB
+- libargon2: ~50KB
+- libshake3: ~100KB
+- **Total: ~5.5MB crypto libraries**
+
+**Distroless image size:**
+```
+Base (distroless):     ~10MB
+Crypto libraries:      ~5.5MB
+Oblibeny binaries:     ~2MB
+Total:                 ~17.5MB
+```
+
+**Still minimal compared to Alpine (~200MB).**
+
+=== Build Requirements
+
+```dockerfile
+# Dockerfile.oblibeny-crypto
+FROM alpine:latest AS builder
+
+# Build liboqs (post-quantum crypto)
+RUN apk add --no-cache cmake ninja gcc g++ make && \
+    git clone https://github.com/open-quantum-safe/liboqs.git && \
+    cd liboqs && \
+    mkdir build && cd build && \
+    cmake -GNinja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DOQS_ENABLE_SIG_DILITHIUM_5=ON \
+        -DOQS_ENABLE_KEM_KYBER_1024=ON \
+        -DOQS_ENABLE_SIG_SPHINCS_SHA2_256F_SIMPLE=ON \
+        .. && \
+    ninja && ninja install
+
+# Build libsodium (modern crypto)
+RUN wget https://download.libsodium.org/libsodium/releases/libsodium-1.0.20.tar.gz && \
+    tar xzf libsodium-1.0.20.tar.gz && \
+    cd libsodium-1.0.20 && \
+    ./configure --enable-minimal --disable-shared && \
+    make -j$(nproc) && make install
+
+# Build Argon2 (password hashing)
+RUN git clone https://github.com/P-H-C/phc-winner-argon2.git && \
+    cd phc-winner-argon2 && \
+    make && make install
+
+# Build SHAKE3 (may need custom - SHAKE3 is newer)
+# TODO: Find or implement SHAKE3-512
+```
+
+== Package Format (.zpkg) with PQ Signatures
+
+```
+package-name.zpkg/
+├── META.scm                   # Package metadata
+├── binaries/
+│   └── x86_64/hello
+├── signatures/
+│   ├── package.sig.dilithium5 # Primary PQ signature
+│   ├── package.sig.ed448      # Classical compatibility
+│   └── package.sig.sphincs    # Conservative backup
+└── hashes/
+    ├── SHAKE3-512.txt         # Post-quantum hash
+    └── BLAKE3.txt             # Speed hash
+```
+
+**Signature verification order:**
+1. Verify SHAKE3-512 hash of package
+2. Verify Dilithium5 signature (primary)
+3. Verify Ed448 signature (classical compatibility)
+4. Verify SPHINCS+ signature (backup)
+5. ALL must succeed
+
+== Protocol Stack Requirements
+
+=== Network Configuration
+
+**REQUIRED:**
+- ✅ IPv6 only (no IPv4 support)
+- ✅ HTTP/3 + QUIC (no HTTP/1.1, no HTTP/2)
+- ✅ TLS 1.3 only (with PQ cipher suites)
+
+**FORBIDDEN:**
+- ❌ IPv4 (removed from kernel config)
+- ❌ HTTP/1.1 (removed from all clients/servers)
+- ❌ SHA-1 (compile-time prohibition)
+- ❌ MD5 (compile-time prohibition)
+- ❌ Ed25519 (replaced with Ed448 + Dilithium5)
+
+=== Implementation
+
+```zig
+// ffi/zig/src/network/http3.zig
+// HTTP/3 client using quiche or similar
+
+const std = @import("std");
+
+pub const HTTPVersion = enum {
+    HTTP3,  // Only allowed version
+};
+
+pub fn fetchPackage(url: []const u8) ![]u8 {
+    // MUST be IPv6
+    if (!isIPv6(url)) {
+        return error.IPv4Forbidden;
+    }
+
+    // MUST be HTTP/3
+    if (!isHTTP3(url)) {
+        return error.HTTP1Forbidden;
+    }
+
+    // Proceed with QUIC connection
+    return quic_fetch(url);
+}
+```
+
+== Formal Verification Plan
+
+=== Crypto Primitive Verification (Coq/Isabelle)
+
+**Verify in formal logic:**
+1. **Dilithium5 implementation** - proves signature scheme is secure
+2. **Kyber-1024 implementation** - proves KEM is IND-CCA2 secure
+3. **XChaCha20-Poly1305** - proves AEAD construction is sound
+4. **Argon2id** - proves memory-hardness properties
+
+**Proof artifacts:**
+```
+proofs/
+├── dilithium5.v         # Coq proof of Dilithium5 security
+├── kyber1024.v          # Coq proof of Kyber KEM
+├── xchacha20poly1305.v  # Coq proof of AEAD
+└── argon2id.v           # Coq proof of password hashing
+```
+
+=== Integration with Idris2
+
+```idris
+-- Link formal proofs to Idris2 ABI
+%foreign "proof:proofs/dilithium5.v"
+dilithium5Secure : Proof (SecureSignature Dilithium5AES)
+
+%foreign "proof:proofs/kyber1024.v"
+kyber1024Secure : Proof (SecureKEM Kyber1024)
+```
+
+== Size vs Security Tradeoff
+
+[cols="1,2,2"]
+|===
+| Configuration | Size | Security Level
+
+| **Classical only** (Ed25519, AES-128)
+| ~11MB
+| Quantum-vulnerable ❌
+
+| **Minimal PQ** (Dilithium5 only)
+| ~15MB
+| PQ-resistant, no fallback
+
+| **Full spec** (Dilithium5 + SPHINCS+ + Ed448)
+| ~20MB
+| PQ-resistant + Conservative backup ✅
+|===
+
+**Recommendation: Full spec (~20MB)**
+- Security > size optimization
+- Still 10× smaller than Alpine (~200MB)
+- Includes all required crypto
+
+== Open Questions
+
+1. **SHAKE3-512 implementation:** Need to find or implement (SHAKE3 is very new)
+2. **Kernel config:** Remove IPv4 support entirely?
+3. **HTTP/3 library:** quiche (Rust) or custom Zig implementation?
+4. **Formal verification depth:** How much of crypto stack do we verify?
+
+== Next Steps
+
+1. Build distroless image with crypto libraries
+2. Implement hybrid signature verification in Zig
+3. Update package format for PQ signatures
+4. Create Coq proofs for critical primitives
+5. Test with real packages
+
+== Related Documents
+
+* link:DISTROLESS-BOOTSTRAP.adoc[Distroless Bootstrap Strategy]
+* link:DISTRIBUTION-ARCHITECTURE.adoc[Overall Architecture]
+* link:../README.adoc[Oblibeny Language Overview]

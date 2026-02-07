@@ -1,11 +1,11 @@
 ; SPDX-License-Identifier: PMPL-1.0-or-later
 ; Copyright (c) 2026 Jonathan D.A. Jewell
 
+(menhir
+ (modules parser))
+
 (library
  (name oblibeny)
  (public_name oblibeny)
  (libraries yojson)
  (preprocess (pps ppx_deriving.show)))
-
-(menhir
- (modules parser))

@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Dockerfile.argon2 - Build argon2 for Lago Grey
+
+FROM docker.io/alpine:latest AS builder
+
+# Install build dependencies
+RUN apk add --no-cache \
+    build-base \
+    git
+
+WORKDIR /build
+
+# Build Argon2 (Password hashing)
+RUN git clone https://github.com/P-H-C/phc-winner-argon2.git && \
+    cd phc-winner-argon2 && \
+    make -j$(nproc) && \
+    make install PREFIX=/usr/local && \
+    strip /usr/local/lib/x86_64-linux-gnu/libargon2.a || true
+
+# Export artifacts
+FROM scratch AS export
+COPY --from=builder /usr/local/lib/x86_64-linux-gnu/libargon2.a /libargon2.a
+COPY --from=builder /usr/local/include/argon2.h /include/argon2.h

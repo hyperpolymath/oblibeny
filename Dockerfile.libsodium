@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Dockerfile.libsodium - Build just libsodium for Lago Grey
+
+FROM docker.io/alpine:latest AS builder
+
+# Install build dependencies
+RUN apk add --no-cache \
+    build-base \
+    wget
+
+WORKDIR /build
+
+# Build libsodium (Classical crypto: Ed448, XChaCha20-Poly1305)
+RUN wget https://download.libsodium.org/libsodium/releases/libsodium-1.0.20.tar.gz && \
+    tar xzf libsodium-1.0.20.tar.gz && \
+    cd libsodium-1.0.20 && \
+    ./configure \
+        --prefix=/usr/local \
+        --enable-minimal \
+        --enable-static \
+        --disable-shared && \
+    make -j$(nproc) && \
+    make install && \
+    strip /usr/local/lib/libsodium.a
+
+# Export artifacts
+FROM scratch AS export
+COPY --from=builder /usr/local/lib/libsodium.a /libsodium.a
+COPY --from=builder /usr/local/include/sodium.h /include/sodium.h

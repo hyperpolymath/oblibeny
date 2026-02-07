@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Dockerfile.lago-grey-minimal - First complete Lago Grey distribution image
+#
+# Base: Google distroless-base (~10MB)
+# Add: hello (29KB) + obli-pkg (56KB) + crypto libs (~11.5MB)
+# Target: < 18 MB total (Small Iceberg 🏔️)
+
+FROM gcr.io/distroless/static-debian12:nonroot AS distroless-base
+
+# Stage: Prepare our binaries and libraries
+FROM docker.io/alpine:latest AS builder
+
+WORKDIR /lago-grey
+
+# Copy our built components
+COPY dist/distroless/usr/bin/hello usr/bin/hello
+COPY dist/distroless/usr/bin/obli-pkg usr/bin/obli-pkg
+COPY dist/crypto/libsodium.a usr/lib/libsodium.a
+COPY dist/crypto/liboqs.a usr/lib/liboqs.a
+COPY dist/crypto/libargon2.a usr/lib/libargon2.a
+
+# Copy headers (for future linking)
+COPY dist/crypto/include usr/include
+
+# Set proper permissions
+RUN chmod 755 usr/bin/hello usr/bin/obli-pkg && \
+    chmod 644 usr/lib/*.a
+
+# Final stage: Assemble Lago Grey
+FROM gcr.io/distroless/static-debian12:nonroot
+
+LABEL org.opencontainers.image.title="Lago Grey"
+LABEL org.opencontainers.image.description="Minimal, formally-verified Linux distribution with post-quantum crypto"
+LABEL org.opencontainers.image.version="0.1.0-alpha"
+LABEL org.opencontainers.image.vendor="hyperpolymath"
+LABEL org.opencontainers.image.licenses="PMPL-1.0-or-later"
+LABEL org.opencontainers.image.source="https://github.com/hyperpolymath/oblibeny"
+
+# Copy our components from builder
+COPY --from=builder /lago-grey/usr/bin/hello /usr/bin/hello
+COPY --from=builder /lago-grey/usr/bin/obli-pkg /usr/bin/obli-pkg
+COPY --from=builder /lago-grey/usr/lib/*.a /usr/lib/
+COPY --from=builder /lago-grey/usr/include /usr/include/
+
+# Set entrypoint to hello by default
+ENTRYPOINT ["/usr/bin/hello"]
+
+# Metadata
+ENV LAGO_GREY_VERSION="0.1.0-alpha"
+ENV LAGO_GREY_CLASSIFICATION="Small Iceberg"

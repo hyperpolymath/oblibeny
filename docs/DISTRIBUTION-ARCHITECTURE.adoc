@@ -1,0 +1,344 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell
+
+= Oblibeny Distribution Architecture
+:toc:
+:toclevels: 3
+
+== Overview
+
+Oblibeny Distribution is a **minimal, security-first Linux distribution** built with:
+
+* **Idris2** - ABI definitions with dependent type proofs
+* **Zig** - FFI implementation and system layer
+* **Oblibeny** - Package coordination in constrained form
+
+**Goal:** Maintainable by community without paid staff through heavy automation and formal verification.
+
+== Three-Layer Architecture
+
+```
+┌──────────────────────────────────────────────────────┐
+│  Layer 1: IDRIS2 VERIFICATION (ABI)                  │
+│  ─────────────────────────────────────────────────   │
+│  • Package interface contracts                       │
+│  • Security property proofs                          │
+│  • Memory layout verification                        │
+│  • ABI compatibility guarantees                      │
+└──────────────────┬───────────────────────────────────┘
+                   │ generates C headers
+                   ▼
+┌──────────────────────────────────────────────────────┐
+│  Layer 2: ZIG IMPLEMENTATION (FFI)                   │
+│  ─────────────────────────────────────────────────   │
+│  • Package extraction/installation                   │
+│  • Filesystem operations                             │
+│  • Cryptographic primitives                          │
+│  • Kernel interfaces                                 │
+└──────────────────┬───────────────────────────────────┘
+                   │ exposes to
+                   ▼
+┌──────────────────────────────────────────────────────┐
+│  Layer 3: OBLIBENY COORDINATION (Constrained Form)   │
+│  ─────────────────────────────────────────────────   │
+│  • Package install/remove (reversible)               │
+│  • Dependency resolution (guaranteed termination)    │
+│  • System configuration (traced)                     │
+│  • Automatic rollback on failure                     │
+└──────────────────────────────────────────────────────┘
+```
+
+== Why These Three Languages?
+
+[cols="1,2,2"]
+|===
+| Language | Purpose | Why Not Alternatives?
+
+| **Idris2**
+| Prove correctness of ABIs
+| C can't prove properties, Coq/Lean too complex for ABIs
+
+| **Zig**
+| Implement system layer
+| C is unsafe, Rust has runtime overhead, Go is banned
+
+| **Oblibeny**
+| Coordinate operations safely
+| Bash can hang forever, Python banned, need termination guarantees
+|===
+
+== Design Principles
+
+=== 1. Minimal Surface Area
+* Small curated package set (500-1000 packages, not 50,000)
+* Only Idris2 + Zig + Oblibeny (no language sprawl)
+* No unnecessary abstractions
+
+=== 2. Formal Verification Where It Matters
+* Package ABIs proven correct (Idris2)
+* System operations verified (Idris2 → C → Zig)
+* Installation reversibility proven
+
+=== 3. Automation-First Maintenance
+* Security updates trigger automatic rebuilds
+* Idris2 proofs validate updates automatically
+* Oblibeny traces enable automatic rollback
+* gitbot-fleet handles routine fixes
+
+=== 4. Reversibility Everywhere
+* Every package operation is reversible
+* Accountability traces log all changes
+* Boot failure → automatic rollback to last-known-good
+
+== Package Format (.zpkg)
+
+```
+package-name.zpkg/
+├── ABI.idr              # Idris2 interface contract + proofs
+├── ABI.h                # Generated C header (from Idris2)
+├── install.obl          # Oblibeny constrained form script
+├── binaries/
+│   ├── x86_64/         # Zig cross-compiled binaries
+│   ├── aarch64/
+│   └── riscv64/
+├── signatures/
+│   └── package.sig      # Cryptographic signature
+└── META.scm             # Package metadata
+```
+
+== Proof of Concept: "hello" Package
+
+=== Step 1: Define ABI in Idris2
+
+```idris
+-- src/abi/packages/hello/Interface.idr
+module Packages.Hello.Interface
+
+import System.ABI
+import System.Proofs
+
+-- Define package interface
+record HelloPackage where
+  constructor MkHello
+  version : Version
+  binPath : Path
+  manPath : Path
+
+-- Prove installation preserves system invariants
+installPreservesInvariants :
+  (pkg : HelloPackage) ->
+  (sys : SystemState) ->
+  validState sys ->
+  validState (install pkg sys)
+installPreservesInvariants pkg sys validPre =
+  -- Proof that adding hello binary doesn't break system
+  ?installPreservesInvariants_rhs
+
+-- Prove installation is reversible
+installReversible :
+  (pkg : HelloPackage) ->
+  (sys : SystemState) ->
+  uninstall pkg (install pkg sys) = sys
+installReversible pkg sys =
+  -- Proof that uninstall undoes install
+  ?installReversible_rhs
+```
+
+=== Step 2: Implement in Zig
+
+```zig
+// ffi/zig/src/packages/hello.zig
+const std = @import("std");
+const abi = @cImport(@cInclude("ABI.h")); // Generated from Idris2
+
+pub export fn hello_install(
+    pkg_path: [*:0]const u8,
+    target_root: [*:0]const u8,
+) callconv(.C) i32 {
+    // Extract binary to /usr/bin/hello
+    const bin_path = std.fs.path.join(
+        target_root, "usr/bin/hello"
+    ) catch return -1;
+
+    // Verify signature before installing
+    if (!verify_signature(pkg_path)) return -2;
+
+    // Install (atomic operation)
+    install_file(pkg_path, bin_path) catch return -3;
+
+    return 0; // Success
+}
+
+pub export fn hello_uninstall(
+    target_root: [*:0]const u8,
+) callconv(.C) i32 {
+    const bin_path = std.fs.path.join(
+        target_root, "usr/bin/hello"
+    ) catch return -1;
+
+    // Remove (reversible)
+    std.fs.deleteFileAbsolute(bin_path) catch return -2;
+
+    return 0;
+}
+```
+
+=== Step 3: Coordinate with Oblibeny
+
+```oblibeny
+// hello.zpkg/install.obl
+// Constrained form - guaranteed to terminate
+
+fn install_hello() -> Result<()> {
+    checkpoint("install_start");
+
+    // Verify dependencies (empty for hello)
+    for dep in [] {
+        // Statically empty - no iterations
+    }
+
+    // Call Zig FFI (checked by Idris2 ABI)
+    trace("installing", "hello");
+    let result = ffi_install_package("hello", "/");
+
+    match result {
+        Ok(_) => {
+            trace("installed", "hello");
+            checkpoint("install_complete");
+            Ok(())
+        },
+        Err(e) => {
+            trace("install_failed", e);
+            // Automatic rollback via Oblibeny runtime
+            rollback_to_checkpoint("install_start");
+            Err(e)
+        }
+    }
+}
+
+fn uninstall_hello() -> Result<()> {
+    checkpoint("uninstall_start");
+    trace("uninstalling", "hello");
+
+    let result = ffi_uninstall_package("hello", "/");
+
+    checkpoint("uninstall_complete");
+    result
+}
+```
+
+== Maintenance Automation
+
+=== Automated Security Updates
+
+```zig
+// ffi/zig/src/security_monitor.zig
+// Runs as daemon, monitors CVE feeds
+
+pub fn main() !void {
+    while (true) {
+        const cves = try fetchNewCVEs();
+        for (cves.items) |cve| {
+            if (affectsDistribution(cve)) {
+                try triggerRebuild(cve.affectedPackages);
+                try notifyMaintainers(cve);
+            }
+        }
+        std.time.sleep(3600 * std.time.ns_per_s); // 1 hour
+    }
+}
+```
+
+=== Automated Verification
+
+```idris
+-- Idris2 checks every update preserves invariants
+checkUpdate : Package -> OldVersion -> NewVersion -> Either Error Proof
+checkUpdate pkg old new = do
+  abiCompat <- checkABICompatibility old new
+  secureProps <- verifySecurityProperties new
+  noRegression <- proveNoRegression old new
+  pure (MkProof abiCompat secureProps noRegression)
+```
+
+=== Automated Rollback
+
+```oblibeny
+// Oblibeny runtime detects boot failure
+fn boot_init() -> Result<()> {
+    let last_good = load_last_known_good_state();
+
+    match try_boot_system() {
+        Ok(_) => {
+            save_current_as_good();
+            Ok(())
+        },
+        Err(e) => {
+            trace("boot_failed", e);
+            // Automatic rollback
+            restore_state(last_good);
+            reboot_into_recovery();
+            Err(e)
+        }
+    }
+}
+```
+
+== Bootstrapping Strategy
+
+=== Stage 0: Build on Alpine
+* Use Alpine Linux as build environment
+* Compile Idris2, Zig, Oblibeny toolchain
+* Build initial package set
+
+=== Stage 1: Replace Package Manager
+* Keep Alpine base
+* Replace apk with Oblibeny package manager
+* Prove package operations work
+
+=== Stage 2: Replace System Tools
+* Gradually replace coreutils with Zig equivalents
+* Each replacement proven safe by Idris2
+
+=== Stage 3: Self-Hosting
+* Distribution builds itself
+* No Alpine dependencies remain
+* Pure Idris2 + Zig + Oblibeny
+
+== What We AVOID
+
+To keep maintenance burden low:
+
+[cols="1,1"]
+|===
+| ❌ Avoid | ✅ Use Instead
+
+| Guix/Nix complexity | Custom minimal package manager
+| C/C++ unsafety | Zig exclusively
+| Python/Ruby scripts | Julia (if needed) or Zig
+| systemd bloat | Minimal Zig-based init
+| glibc size | musl or Zig's libc
+| npm/Node ecosystem | Deno (only if absolutely necessary)
+| LLVM dependency | Zig's built-in cross-compilation
+|===
+
+== Open Questions
+
+1. **Init system:** Write custom in Zig or adapt existing (s6, runit)?
+2. **Kernel:** Upstream Linux or custom (written in Zig/Rust)?
+3. **Package repository:** Centralized or distributed (IPFS)?
+4. **Update frequency:** Rolling or snapshot-based?
+
+== Next Steps
+
+1. Implement proof-of-concept: Idris2 ABI → C header → Zig FFI
+2. Build first package (hello-world.zpkg)
+3. Prove installation reversibility
+4. Design package repository format
+5. Bootstrap on Alpine
+
+== Related Documents
+
+* link:../SPEC.core.scm[Oblibeny Language Specification]
+* link:../README.adoc[Oblibeny Language Overview]
+* link:../.claude/CLAUDE.md[Hyperpolymath Language Policy]

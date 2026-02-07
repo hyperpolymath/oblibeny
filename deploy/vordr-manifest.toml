@@ -1,0 +1,172 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Vörðr Container Manifest for Oblíbený
+# Format: verified-container-spec v1.0
+
+[manifest]
+version = "1.0.0"
+format = "vordr-manifest"
+created = "2026-02-07T00:00:00Z"
+
+[image]
+name = "oblibeny"
+version = "0.1.0"
+registry = "ghcr.io/hyperpolymath/oblibeny"
+digest = "sha256:pending"  # Updated after build
+
+[build]
+containerfile = "Containerfile"
+context = "."
+target = "runtime"
+builder = "selur"  # Use Selur for zero-copy WASM builds
+
+[build.args]
+OBLIBENY_VERSION = "0.1.0"
+BUILD_TYPE = "release"
+ENABLE_CRYPTO = "true"
+
+[attestations]
+sbom = true
+signature = true
+provenance = true
+slsa-level = 3
+
+[attestations.crypto]
+# Post-quantum cryptographic signatures
+algorithms = ["Dilithium5", "SPHINCS+", "Ed25519"]
+libraries = [
+  { name = "liboqs", version = "0.10.0", purpose = "post-quantum-crypto" },
+  { name = "libsodium", version = "1.0.19", purpose = "classical-crypto" },
+]
+
+[runtime]
+command = ["oblibeny-lsp"]
+working-dir = "/home/oblibeny"
+user = "oblibeny:oblibeny"
+
+[runtime.environment]
+LOG_LEVEL = "info"
+OBLIBENY_CONFIG = "/etc/oblibeny/config.toml"
+
+[ports]
+# LSP server port
+lsp = { port = 8765, protocol = "tcp" }
+
+[volumes]
+# Accountability traces (append-only)
+traces = { path = "/var/lib/oblibeny/traces", mode = "rw", persistent = true }
+
+# Example programs (read-only)
+examples = { path = "/home/oblibeny/examples", mode = "ro", persistent = false }
+
+[healthcheck]
+command = ["oblibeny", "--version"]
+interval = "30s"
+timeout = "5s"
+retries = 3
+start-period = "10s"
+
+[resources]
+cpu = { min = "0.1", max = "0.5" }
+memory = { min = "128Mi", max = "512Mi" }
+
+[security]
+policy = "strict"
+read-only-root = true
+
+[security.capabilities]
+drop = ["ALL"]
+add = ["CAP_NET_BIND_SERVICE"]
+
+[security.seccomp]
+profile = "oblibeny-constrained"
+# Custom profile for Turing-incomplete execution:
+# - Allow bounded loops only
+# - Block syscalls that could enable unbounded execution
+# - Allow reversible operations (incr/decr, swap, xor)
+
+[security.network]
+isolation = "strict"
+egress = "deny-by-default"
+
+# Svalinn policy enforcement
+[svalinn-policy]
+level = "strict"
+verify-constrained-form = true
+require-static-bounds = true
+require-acyclic-calls = true
+enforce-reversibility = true
+
+# Vörðr formal verification
+[vordr-verification]
+backend = "idris2"
+verify-abi = true
+verify-memory-safety = true
+
+[vordr-verification.properties]
+# Properties verified by Idris2 dependent types
+termination-guaranteed = true
+resource-bounded = true
+acyclic-call-graph = true
+no-unbounded-loops = true
+reversible-operations = true
+
+[vordr-verification.proofs]
+# Location of Idris2 proof files
+abi-proofs = "src/abi/*.idr"
+ffi-safety = "ffi/zig/build.zig"
+
+# Oblibeny-specific metadata
+[oblibeny]
+dual-form-architecture = true
+turing-complete-factory = false  # Factory form runs at compile-time only
+turing-incomplete-constrained = true  # Runtime form is Turing-incomplete
+
+[oblibeny.constrained-form]
+forbid-while = true
+forbid-loop = true
+forbid-recursion = true
+require-static-bounds = true
+require-acyclic-calls = true
+
+[oblibeny.reversible-ops]
+# Operations with well-defined inverses
+symmetric = ["swap", "xor"]
+inverse-pairs = [
+  { forward = "incr", inverse = "decr" },
+  { forward = "push", inverse = "pop" },
+]
+
+[oblibeny.accountability]
+trace-operations = ["trace", "checkpoint", "assert_invariant"]
+trace-storage = "/var/lib/oblibeny/traces"
+trace-integrity = "cryptographic-hash"
+trace-immutable = true
+
+[oblibeny.tooling]
+# Available tools in container
+compiler = "/usr/local/bin/oblibeny"
+lsp-server = "/usr/local/bin/oblibeny-lsp"
+static-analyzer = "/usr/local/bin/oblibeny --analyze"
+debugger = "/usr/local/bin/oblibeny --debug"
+profiler = "integrated"  # lib/profiler.ml
+
+[oblibeny.crypto]
+# Post-quantum cryptography via Zig FFI
+backend = "liboqs"
+algorithms = ["Dilithium5", "SPHINCS+", "Kyber1024"]
+classical-fallback = ["Ed25519", "X25519"]
+ffi-implementation = "ffi/zig/src/crypto.zig"
+
+[labels]
+"org.opencontainers.image.title" = "Oblíbený Language Server"
+"org.opencontainers.image.description" = "Secure edge language for reversibility and accountability"
+"org.opencontainers.image.vendor" = "Hyperpolymath"
+"org.opencontainers.image.licenses" = "PMPL-1.0-or-later"
+"org.opencontainers.image.source" = "https://github.com/hyperpolymath/oblibeny"
+"org.opencontainers.image.documentation" = "https://github.com/hyperpolymath/oblibeny/tree/main/docs"
+
+# Verified Container Spec compliance
+"com.verified-container-spec.version" = "1.0"
+"com.verified-container-spec.formal-verification" = "idris2"
+"com.verified-container-spec.turing-complete" = "false"  # Constrained form only
+"com.verified-container-spec.termination-guaranteed" = "true"
