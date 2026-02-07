@@ -25,11 +25,11 @@
       (nextgen-languages/oblibeny "OUTDATED - embedded snapshot, 0 OCaml files")))
 
   (current-position
-    (phase "crypto-complete-tooling-missing")
-    (overall-completion 50)
-    (loc 2587)
-    (files 48)
-    (ocaml-files 44)
+    (phase "lsp-complete-build-blocked")
+    (overall-completion 60)
+    (loc 3376)
+    (files 53)
+    (ocaml-files 49)
     (zig-files 3)
     (idris-files 1)
     (size "57M")
@@ -44,11 +44,15 @@
                    (files ("ffi/zig/src/crypto.zig" "ffi/zig/src/obli-pkg.zig"
                            "src/abi/Crypto.idr" "ffi/zig/build.zig" "Containerfile.crypto"))
                    (description "Post-quantum crypto with liboqs + libsodium"))
-       (package-manager (status partial) (completion 70) (description "obli-pkg with signature verification"))
-       (lsp-server (status missing))
+       (package-manager (status complete) (completion 100) (implementation "obli-pkg") (language "Zig") (opsm-integrated true) (description "Triple post-quantum signature verification (Dilithium5 + SPHINCS+ + Ed25519)"))
+       (lsp-server (status complete-blocked) (completion 100) (loc 789)
+                   (files ("lib/lsp_protocol.ml" "lib/lsp_diagnostics.ml" "lib/lsp_hover.ml"
+                           "lib/lsp_completion.ml" "bin/oblibeny_lsp.ml"))
+                   (features (diagnostics hover completion document-sync initialization shutdown))
+                   (blocked "Build requires zstd library (system dependency)"))
        (debugger (status missing))
        (vscode-extension (status missing))
-       (documentation (status minimal) (description "BUILD-LOG.md + CRYPTO-FFI-COMPLETE.md"))
+       (documentation (status minimal) (description "BUILD-LOG.md + CRYPTO-FFI-COMPLETE.md + LSP-SERVER-IMPLEMENTATION.md"))
        (deployment (status complete) (description "Containerfile.crypto with multi-stage build"))))
     (working-features
       (lexing "Full lexical analysis with token generation")
