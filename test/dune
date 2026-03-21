@@ -1,0 +1,6 @@
+; SPDX-License-Identifier: MIT OR Palimpsest-0.8
+; Copyright (c) 2026 Hyperpolymath
+
+(test
+ (name conformance_test)
+ (libraries oblibeny alcotest))

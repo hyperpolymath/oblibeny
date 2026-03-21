@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Dockerfile.crypto-builder - Build crypto libraries for Lago Grey
+#
+# Builds:
+# - libsodium (200KB Floe) - Classical crypto
+# - liboqs (5MB Iceberg) - Post-quantum crypto
+# - argon2 (50KB Floe) - Password hashing
+
+FROM docker.io/alpine:latest AS builder
+
+# Install build dependencies
+RUN apk add --no-cache \
+    build-base \
+    cmake \
+    ninja \
+    git \
+    wget \
+    curl
+
+WORKDIR /build
+
+# ============================================================================
+# Build libsodium (Classical crypto: Ed448, XChaCha20-Poly1305)
+# ============================================================================
+RUN wget https://download.libsodium.org/libsodium/releases/libsodium-1.0.20.tar.gz && \
+    tar xzf libsodium-1.0.20.tar.gz && \
+    cd libsodium-1.0.20 && \
+    ./configure \
+        --prefix=/usr/local \
+        --enable-minimal \
+        --enable-static \
+        --disable-shared && \
+    make -j$(nproc) && \
+    make install && \
+    strip /usr/local/lib/libsodium.a
+
+# ============================================================================
+# Build liboqs (Post-quantum crypto: Dilithium5, Kyber-1024, SPHINCS+)
+# ============================================================================
+RUN git clone --depth 1 --branch 0.11.0 https://github.com/open-quantum-safe/liboqs.git && \
+    cd liboqs && \
+    mkdir build && cd build && \
+    cmake -GNinja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DOQS_BUILD_ONLY_LIB=ON \
+        -DOQS_MINIMAL_BUILD="KEM_kyber_1024;SIG_dilithium_5;SIG_sphincssha2256fsimple" \
+        .. && \
+    ninja && \
+    ninja install && \
+    strip /usr/local/lib/liboqs.a
+
+# ============================================================================
+# Build Argon2 (Password hashing)
+# ============================================================================
+RUN git clone https://github.com/P-H-C/phc-winner-argon2.git && \
+    cd phc-winner-argon2 && \
+    make -j$(nproc) && \
+    make install PREFIX=/usr/local && \
+    strip /usr/local/lib/libargon2.a || true
+
+# ============================================================================
+# Export artifacts
+# ============================================================================
+FROM scratch AS export
+COPY --from=builder /usr/local/lib/libsodium.a /libsodium.a
+COPY --from=builder /usr/local/lib/liboqs.a /liboqs.a
+COPY --from=builder /usr/local/lib/libargon2.a /libargon2.a
+COPY --from=builder /usr/local/include/sodium.h /include/sodium.h
+COPY --from=builder /usr/local/include/oqs /include/oqs
+COPY --from=builder /usr/local/include/argon2.h /include/argon2.h

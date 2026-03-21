@@ -1,0 +1,69 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// aLib Logical Operations - Oblíbený Implementation
+//
+// Implements: and, or, not
+// Spec: aggregate-library/specs/logical/
+
+// ============================================================================
+// and: Boolean, Boolean -> Boolean
+// ============================================================================
+// Properties: Commutative, Associative, Identity element (true)
+
+fn and_op(a: bool, b: bool) -> bool {
+    trace("alib.and", a, b);
+    let result: bool = a && b;
+    return result;
+}
+
+// ============================================================================
+// or: Boolean, Boolean -> Boolean
+// ============================================================================
+// Properties: Commutative, Associative, Identity element (false)
+
+fn or_op(a: bool, b: bool) -> bool {
+    trace("alib.or", a, b);
+    let result: bool = a || b;
+    return result;
+}
+
+// ============================================================================
+// not: Boolean -> Boolean
+// ============================================================================
+// Properties: Involutive (not(not(a)) = a), Self-inverse
+
+fn not_op(a: bool) -> bool {
+    trace("alib.not", a);
+    let result: bool = !a;
+    return result;
+}
+
+// ============================================================================
+// Test harness demonstrating aLib conformance
+// ============================================================================
+
+fn main() -> () {
+    checkpoint("alib.logical.tests");
+
+    // Test: and
+    assert_invariant(and_op(true, true) == true, "and(true,true) = true");
+    assert_invariant(and_op(true, false) == false, "and(true,false) = false");
+    assert_invariant(and_op(false, true) == false, "and(false,true) = false");
+    assert_invariant(and_op(false, false) == false, "and(false,false) = false");
+
+    // Test: or
+    assert_invariant(or_op(true, true) == true, "or(true,true) = true");
+    assert_invariant(or_op(true, false) == true, "or(true,false) = true");
+    assert_invariant(or_op(false, true) == true, "or(false,true) = true");
+    assert_invariant(or_op(false, false) == false, "or(false,false) = false");
+
+    // Test: not
+    assert_invariant(not_op(true) == false, "not(true) = false");
+    assert_invariant(not_op(false) == true, "not(false) = true");
+
+    // Test: involutive property
+    assert_invariant(not_op(not_op(true)) == true, "not(not(true)) = true");
+    assert_invariant(not_op(not_op(false)) == false, "not(not(false)) = false");
+
+    checkpoint("alib.logical.tests.complete");
+    trace("all_tests_passed", 1);
+}

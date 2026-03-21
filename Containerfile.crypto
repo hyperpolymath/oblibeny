@@ -1,0 +1,105 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Containerfile.crypto - Build oblibeny with crypto FFI
+#
+# Builds complete oblibeny toolchain with:
+# - OCaml compiler (lexer, parser, typechecker, eval)
+# - Zig FFI with liboqs + libsodium
+# - Idris2 ABI proofs
+# - obli-pkg package manager
+
+FROM docker.io/alpine:latest AS crypto-builder
+
+# ============================================================================
+# Install build dependencies
+# ============================================================================
+RUN apk add --no-cache \
+    build-base \
+    cmake \
+    ninja \
+    git \
+    wget \
+    curl \
+    ocaml \
+    ocaml-dev \
+    opam \
+    dune \
+    zig
+
+WORKDIR /build
+
+# ============================================================================
+# Build libsodium (Classical crypto)
+# ============================================================================
+RUN wget https://download.libsodium.org/libsodium/releases/libsodium-1.0.20.tar.gz && \
+    tar xzf libsodium-1.0.20.tar.gz && \
+    cd libsodium-1.0.20 && \
+    ./configure \
+        --prefix=/usr/local \
+        --enable-minimal \
+        --enable-static \
+        --disable-shared && \
+    make -j$(nproc) && \
+    make install && \
+    strip /usr/local/lib/libsodium.a
+
+# ============================================================================
+# Build liboqs (Post-quantum crypto)
+# ============================================================================
+RUN git clone --depth 1 --branch 0.11.0 https://github.com/open-quantum-safe/liboqs.git && \
+    cd liboqs && \
+    mkdir build && cd build && \
+    cmake -GNinja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DOQS_BUILD_ONLY_LIB=ON \
+        -DOQS_MINIMAL_BUILD="KEM_kyber_1024;SIG_dilithium_5;SIG_sphincssha2256fsimple" \
+        .. && \
+    ninja && \
+    ninja install && \
+    strip /usr/local/lib/liboqs.a
+
+# ============================================================================
+# Build Oblibeny Zig FFI
+# ============================================================================
+COPY ffi/zig /build/oblibeny-ffi
+WORKDIR /build/oblibeny-ffi
+
+RUN zig build -Doptimize=ReleaseSafe && \
+    strip zig-out/bin/obli-pkg || true
+
+# ============================================================================
+# Build Oblibeny OCaml Compiler
+# ============================================================================
+COPY . /build/oblibeny
+WORKDIR /build/oblibeny
+
+RUN dune build @install && \
+    strip _build/default/bin/oblibeny.exe || true
+
+# ============================================================================
+# Final image
+# ============================================================================
+FROM docker.io/alpine:latest
+
+RUN apk add --no-cache \
+    gmp \
+    libc-dev
+
+# Copy crypto libraries
+COPY --from=crypto-builder /usr/local/lib/libsodium.a /usr/local/lib/
+COPY --from=crypto-builder /usr/local/lib/liboqs.a /usr/local/lib/
+COPY --from=crypto-builder /usr/local/include/sodium.h /usr/local/include/
+COPY --from=crypto-builder /usr/local/include/oqs /usr/local/include/oqs
+
+# Copy oblibeny binaries
+COPY --from=crypto-builder /build/oblibeny-ffi/zig-out/bin/obli-pkg /usr/local/bin/
+COPY --from=crypto-builder /build/oblibeny-ffi/zig-out/lib/liboblibeny_crypto.a /usr/local/lib/
+COPY --from=crypto-builder /build/oblibeny/_build/default/bin/oblibeny.exe /usr/local/bin/oblibeny
+
+# Copy examples
+COPY examples /opt/oblibeny/examples
+
+WORKDIR /opt/oblibeny
+
+CMD ["/bin/sh"]

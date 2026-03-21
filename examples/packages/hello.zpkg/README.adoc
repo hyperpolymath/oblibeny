@@ -1,0 +1,151 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell
+
+= Hello Package - Proof of Concept
+:toc:
+
+== Overview
+
+This is a **proof-of-concept package** demonstrating the three-layer architecture:
+
+1. **Idris2 ABI** - Formal proofs of correctness
+2. **Zig FFI** - System-level implementation
+3. **Oblibeny** - Constrained form coordination
+
+== Three-Layer Integration
+
+```
+┌──────────────────────────────────────────────┐
+│  src/abi/packages/hello/Interface.idr        │
+│  ───────────────────────────────────────     │
+│  • Proves installation is reversible         │
+│  • Defines C ABI for FFI                     │
+│  • Guarantees type safety                    │
+└───────────────┬──────────────────────────────┘
+                │ generates ABI.h
+                ▼
+┌──────────────────────────────────────────────┐
+│  ffi/zig/src/packages/hello.zig              │
+│  ───────────────────────────────────────     │
+│  • Implements hello_install() in C ABI       │
+│  • Implements hello_uninstall()              │
+│  • Verifies signatures, copies files         │
+└───────────────┬──────────────────────────────┘
+                │ called by
+                ▼
+┌──────────────────────────────────────────────┐
+│  install.obl (Oblibeny Constrained Form)     │
+│  ───────────────────────────────────────     │
+│  • No while loops (guaranteed termination)   │
+│  • Reversible operations                     │
+│  • Automatic rollback on failure             │
+│  • Complete accountability trace             │
+└──────────────────────────────────────────────┘
+```
+
+== File Structure
+
+```
+hello.zpkg/
+├── README.adoc           # This file
+├── META.scm              # Package metadata
+├── install.obl           # Oblibeny installation script
+├── binaries/
+│   ├── x86_64/hello     # Cross-compiled for x86_64
+│   ├── aarch64/hello    # Cross-compiled for ARM64
+│   └── riscv64/hello    # Cross-compiled for RISC-V
+└── signatures/
+    └── package.sig       # Cryptographic signature
+```
+
+== Building the Package
+
+=== Step 1: Verify Idris2 Proofs
+
+```bash
+cd ~/Documents/hyperpolymath-repos/oblibeny
+idris2 --check src/abi/packages/hello/Interface.idr
+```
+
+This verifies:
+- Installation reversibility proof
+- Idempotence proof
+- FFI type safety
+
+=== Step 2: Generate C Headers from Idris2
+
+```bash
+idris2 --codegen c src/abi/packages/hello/Interface.idr
+# Generates: build/exec/ABI.h
+```
+
+=== Step 3: Build Zig FFI
+
+```bash
+cd ffi/zig
+zig build-lib src/packages/hello.zig \
+    -dynamic \
+    -target x86_64-linux-musl \
+    -O ReleaseSafe
+```
+
+=== Step 4: Package Everything
+
+```bash
+cd examples/packages
+tar -czf hello-1.0.0.zpkg hello.zpkg/
+```
+
+== Key Properties (Proven by Idris2)
+
+✅ **Termination** - Installation guaranteed to complete
+✅ **Reversibility** - Uninstall perfectly undoes install
+✅ **Type Safety** - FFI calls type-checked at ABI boundary
+✅ **Idempotence** - Installing twice = installing once
+
+== Oblibeny Constrained Form Guarantees
+
+The `install.obl` script provides:
+
+* **No infinite loops** - Parser rejects `while` keyword
+* **No recursion** - Call graph is acyclic (DAG)
+* **Static bounds** - All loops have compile-time constant bounds
+* **Accountability** - Every operation logged in trace
+* **Automatic rollback** - Failures trigger checkpoint restore
+
+== Testing
+
+```bash
+# Run Idris2 proofs
+just test-abi-hello
+
+# Run Zig FFI tests
+just test-ffi-hello
+
+# Integration test (requires root)
+sudo just test-integration-hello
+```
+
+== What This Demonstrates
+
+This proof-of-concept shows:
+
+1. **Formal verification works** - Idris2 proves installation properties
+2. **FFI integration works** - Zig implements what Idris2 specifies
+3. **Oblibeny coordinates safely** - Constrained form guarantees termination
+4. **Maintenance is automated** - Proofs validate updates automatically
+
+## Future Work
+
+- [ ] Add signature verification (ed25519)
+- [ ] Implement full ORAM for oblivious installation
+- [ ] Add MAA integration for accountability traces
+- [ ] Generate package from template
+- [ ] Automate cross-compilation for all architectures
+
+== Related Files
+
+* link:../../../src/abi/packages/hello/Interface.idr[Idris2 ABI]
+* link:../../../ffi/zig/src/packages/hello.zig[Zig FFI]
+* link:install.obl[Oblibeny Script]
+* link:META.scm[Package Metadata]

@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// Example: Bounded Fibonacci (demonstrates static loop bounds)
+
+fn main() -> () {
+    let mut a: i64 = 0;
+    let mut b: i64 = 1;
+
+    checkpoint("start_fibonacci");
+
+    // Compute first 10 Fibonacci numbers with bounded loop
+    for i in 0..10 {
+        trace("fib", a);
+
+        let tmp: i64 = a + b;
+        a = b;
+        b = tmp;
+    }
+
+    checkpoint("end_fibonacci");
+    assert_invariant(a == 55, "10th Fibonacci number should be 55");
+}

@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// Example: INVALID - demonstrates rejection of while loops
+
+fn main() -> () {
+    let mut x: i64 = 0;
+
+    // This should be REJECTED by the parser
+    // because 'while' is not allowed in constrained form
+    while x < 10 {
+        incr(x, 1);
+    }
+}

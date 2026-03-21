@@ -1,0 +1,87 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Oblíbený",
+  "scopeName": "source.oblibeny",
+  "patterns": [
+    { "include": "#keywords" },
+    { "include": "#reversible-ops" },
+    { "include": "#accountability" },
+    { "include": "#types" },
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" }
+  ],
+  "repository": {
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.oblibeny",
+          "match": "\\b(fn|let|mut|if|else|for|in|return|match)\\b"
+        },
+        {
+          "name": "invalid.illegal.oblibeny",
+          "match": "\\b(while|loop)\\b",
+          "comment": "while and loop are NOT allowed in constrained form"
+        }
+      ]
+    },
+    "reversible-ops": {
+      "patterns": [
+        {
+          "name": "support.function.reversible.oblibeny",
+          "match": "\\b(swap|incr|decr|push|pop)\\b",
+          "comment": "Reversible operations with explicit inverses"
+        },
+        {
+          "name": "support.function.self-inverse.oblibeny",
+          "match": "(\\^=)",
+          "comment": "Self-inverse XOR operation"
+        }
+      ]
+    },
+    "accountability": {
+      "patterns": [
+        {
+          "name": "support.function.trace.oblibeny",
+          "match": "\\b(trace|checkpoint|assert_invariant)\\b",
+          "comment": "Accountability and tracing operations"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "storage.type.oblibeny",
+          "match": "\\b(i32|i64|u32|u64|bool)\\b"
+        }
+      ]
+    },
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.oblibeny",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.oblibeny",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.oblibeny",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.oblibeny",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    }
+  }
+}

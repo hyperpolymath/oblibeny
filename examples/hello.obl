@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// Example: Hello program demonstrating bounded loops and accountability
+
+fn main() -> () {
+    let mut counter: i64 = 0;
+    checkpoint("start");
+
+    // Bounded loop with static bound (no while/loop allowed)
+    for i in 0..10 {
+        incr(counter, 1);
+        trace("increment", counter);
+    }
+
+    checkpoint("end");
+    assert_invariant(counter == 10, "counter should be 10");
+}

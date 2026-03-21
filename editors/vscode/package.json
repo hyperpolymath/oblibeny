@@ -1,0 +1,60 @@
+{
+  "name": "oblibeny",
+  "displayName": "Oblíbený Language Support",
+  "description": "Language support for Oblíbený - secure edge language for reversibility and accountability",
+  "version": "0.1.0",
+  "publisher": "hyperpolymath",
+  "license": "PMPL-1.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hyperpolymath/oblibeny"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "oblibeny",
+        "aliases": [
+          "Oblíbený",
+          "oblibeny"
+        ],
+        "extensions": [
+          ".obl"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "oblibeny",
+        "scopeName": "source.oblibeny",
+        "path": "./syntaxes/oblibeny.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Oblíbený",
+      "properties": {
+        "oblibeny.lsp.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Oblíbený Language Server"
+        },
+        "oblibeny.lsp.serverPath": {
+          "type": "string",
+          "default": "oblibeny-lsp",
+          "description": "Path to Oblíbený LSP server executable"
+        },
+        "oblibeny.highlighting.reversibleOps": {
+          "type": "boolean",
+          "default": true,
+          "description": "Highlight reversible operations (incr/decr, swap, xor) differently"
+        }
+      }
+    }
+  }
+}

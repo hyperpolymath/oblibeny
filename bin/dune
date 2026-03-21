@@ -1,0 +1,12 @@
+; SPDX-License-Identifier: PMPL-1.0-or-later
+; Copyright (c) 2026 Jonathan D.A. Jewell
+
+(executable
+ (name main)
+ (public_name oblibeny)
+ (libraries oblibeny))
+
+(executable
+ (name oblibeny_lsp)
+ (public_name oblibeny-lsp)
+ (libraries oblibeny yojson))

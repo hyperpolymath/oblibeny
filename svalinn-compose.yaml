@@ -1,0 +1,201 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Oblíbený Language Server - Svalinn Compose Configuration
+#
+# Deploy Oblibeny LSP server with formal verification via Vörðr
+# Run with: svalinn-compose up
+
+version: "1.0"
+name: oblibeny-lsp
+
+# Svalinn-specific security configuration
+x-svalinn:
+  policy: strict
+  verify: true
+  attestations:
+    require-sbom: true
+    require-signature: true
+    require-provenance: true
+  crypto:
+    post-quantum: true  # Oblibeny uses liboqs + libsodium
+  formal-verification:
+    enabled: true
+    backend: idris2
+    properties:
+      - termination-guaranteed  # All Oblibeny programs terminate
+      - resource-bounded        # Static resource bounds
+      - acyclic-call-graph      # No recursion
+
+services:
+  # Oblibeny Language Server
+  lsp-server:
+    build:
+      context: .
+      containerfile: Containerfile
+      target: runtime
+      args:
+        OBLIBENY_VERSION: "0.1.0"
+
+    # Published via Svalinn edge gateway
+    ports:
+      - "8765:8765"
+
+    environment:
+      LOG_LEVEL: info
+      MAX_DIAGNOSTICS: 100
+      ENABLE_TRACE: "true"
+      CRYPTO_BACKEND: liboqs
+
+    volumes:
+      # Accountability traces (append-only)
+      - trace_storage:/var/lib/oblibeny/traces:rw
+      # Example programs
+      - ./examples:/home/oblibeny/examples:ro
+
+    healthcheck:
+      test: ["CMD", "oblibeny", "--version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512m
+        reservations:
+          cpus: "0.1"
+          memory: 128m
+      restart_policy:
+        condition: unless-stopped
+        max_attempts: 3
+
+    # Svalinn-specific configuration
+    x-svalinn:
+      policy: strict
+      capabilities:
+        drop:
+          - ALL
+        add:
+          - CAP_NET_BIND_SERVICE  # Bind to port 8765
+      read_only_root: true
+      tmpfs:
+        - /tmp:size=100m,mode=1777
+      seccomp:
+        profile: oblibeny-constrained  # Custom profile for Turing-incomplete execution
+
+      # Formal verification requirements
+      verification:
+        constrained-form: required
+        static-bounds: required
+        acyclic-calls: required
+        reversibility: enforced
+
+      # Crypto attestation
+      crypto-policy:
+        algorithms:
+          - Dilithium5        # Post-quantum signature
+          - SPHINCS+          # Hash-based signature
+          - Ed25519           # Classical fallback
+        libraries:
+          - liboqs >= 0.10.0
+          - libsodium >= 1.0.19
+
+  # Static Analyzer Service (on-demand)
+  analyzer:
+    build:
+      context: .
+      containerfile: Containerfile
+      target: runtime
+
+    command: ["oblibeny", "--analyze", "/workdir/input.obl"]
+
+    volumes:
+      - analyzer_workspace:/workdir:rw
+
+    deploy:
+      replicas: 0  # Scale on-demand
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1g
+
+    x-svalinn:
+      policy: strict
+      read_only_root: true
+
+  # Reversible Debugger Service
+  debugger:
+    build:
+      context: .
+      containerfile: Containerfile
+      target: runtime
+
+    command: ["oblibeny", "--debug", "/workdir/input.obl"]
+
+    volumes:
+      - debugger_workspace:/workdir:rw
+      - trace_storage:/var/lib/oblibeny/traces:ro  # Read accountability traces
+
+    stdin_open: true
+    tty: true
+
+    deploy:
+      replicas: 0  # Interactive, scale manually
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512m
+
+    x-svalinn:
+      policy: standard  # Allow interactive debugging
+      read_only_root: true
+
+networks:
+  default:
+    driver: bridge
+    x-svalinn:
+      isolation: strict
+      policy: least-privilege
+
+volumes:
+  trace_storage:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/eclipse/oblibeny-traces  # Persistent accountability traces
+
+  analyzer_workspace:
+    driver: tmpfs
+    driver_opts:
+      size: 100m
+
+  debugger_workspace:
+    driver: tmpfs
+    driver_opts:
+      size: 100m
+
+# Verification constraints for Vörðr runtime
+x-vordr:
+  runtime-constraints:
+    # Oblibeny constrained form guarantees
+    termination:
+      guaranteed: true
+      max-iterations: computed-statically
+      max-call-depth: computed-statically
+
+    resources:
+      cpu-time: bounded
+      memory: bounded
+      trace-size: bounded
+
+    # Formal properties verified by Idris2
+    formal-proofs:
+      - property: no-unbounded-loops
+        proof: constrained-form-validator
+      - property: acyclic-call-graph
+        proof: call-graph-checker
+      - property: reversibility
+        proof: reversible-operations-validator

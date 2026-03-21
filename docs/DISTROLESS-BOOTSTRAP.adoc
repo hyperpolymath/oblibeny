@@ -1,0 +1,392 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell
+
+= Oblibeny Distribution: Distroless Bootstrap Strategy
+:toc:
+:toclevels: 3
+
+== Philosophy: Build Up, Not Strip Down
+
+**Traditional approach (WRONG):**
+```
+Alpine Linux (14,000 packages)
+  → Remove what you don't need
+  → Still inherit legacy complexity
+  → Attack surface: thousands of files
+```
+
+**Oblibeny approach (RIGHT):**
+```
+Distroless (20 files)
+  → Add ONLY what you can PROVE is necessary
+  → Formally verify each addition
+  → Attack surface: minimal, auditable
+```
+
+== Bidirectional Strategy
+
+=== Top-Down: Development Environment
+
+**Use Alpine as temporary build host:**
+```bash
+# On Alpine Linux (build environment)
+apk add idris2 zig just
+
+# Build Oblibeny toolchain
+just dist-build
+
+# Cross-compile packages
+just pkg-build-hello
+
+# Generate distroless-compatible artifacts
+just distroless-export
+
+# DISCARD Alpine - we're done with it
+```
+
+**Alpine is NOT the target.** It's just scaffolding.
+
+=== Bottom-Up: Runtime Target
+
+**Start with Google's distroless:**
+```dockerfile
+FROM gcr.io/distroless/static-debian12
+# This gives us:
+# - Linux kernel interface
+# - musl libc (or glibc minimal)
+# - CA certificates
+# - /etc/passwd, /etc/group
+# - /tmp
+# Total: ~20 files, ~10MB
+```
+
+**Then add ONLY what we prove necessary.**
+
+== Build Stages
+
+=== Stage 0: Absolute Minimum
+```
+/
+├── lib/
+│   └── ld-musl-x86_64.so.1    # Dynamic linker
+├── etc/
+│   ├── passwd
+│   └── group
+└── tmp/
+```
+
+**Can run:** Static binaries only
+**Attack surface:** 4 files
+**Size:** ~2MB
+
+=== Stage 1: Add Package Manager
+
+**Prove necessity:**
+```idris
+-- We need to install/update software
+data ProofOfNecessity : String -> Type where
+  NeedPackageManager :
+    (systemRequiresUpdates : Bool) ->
+    (securityPatchesMustBeApplied : Bool) ->
+    ProofOfNecessity "package-manager"
+```
+
+**Add implementation:**
+```
+/usr/
+└── bin/
+    └── obli-pkg    # Zig binary, ~500KB
+```
+
+**New attack surface:** +1 file (+500KB)
+**Total:** 5 files, ~2.5MB
+
+=== Stage 2: Add Core Utilities (If Needed)
+
+**Prove necessity for each:**
+- Need `cp`? Add Zig implementation
+- Need `ls`? Add Zig implementation
+- Need `cat`? Add Zig implementation
+
+**Or better: Don't add them.** If packages are installed via Oblibeny, you might not need shell utilities at all.
+
+=== Stage 3: Add Networking (If Needed)
+
+```idris
+addNetworking : SystemState ->
+                ProofOfNecessity "networking" ->
+                (dns : Bool) ->
+                (tls : Bool) ->
+                SystemState
+```
+
+**Only add if proven necessary.**
+
+== Comparison: Traditional vs Oblibeny
+
+[cols="1,2,2"]
+|===
+| Aspect | Alpine/Traditional | Oblibeny Distroless
+
+| **Starting point**
+| Full OS (~5,000 files)
+| Distroless (~20 files)
+
+| **Approach**
+| Remove what you don't need
+| Add only what you prove necessary
+
+| **Attack surface**
+| Large, inherited
+| Minimal, intentional
+
+| **Verification**
+| Manual audits
+| Idris2 formal proofs
+
+| **Package count**
+| 14,000+ available
+| ~100-500 curated
+
+| **Maintenance**
+| Inherit upstream issues
+| Only maintain what you added
+
+| **Philosophy**
+| Unix assumptions (1970s)
+| Prove-what-you-need (2020s)
+|===
+
+== Implementation Plan
+
+=== Phase 0: Bootstrap Toolchain (On Alpine)
+
+```bash
+# Use Alpine as build host
+docker run -it alpine:latest
+
+# Install build dependencies
+apk add idris2 zig just git
+
+# Clone Oblibeny
+git clone https://github.com/hyperpolymath/oblibeny
+cd oblibeny
+
+# Build toolchain
+just dist-build
+
+# Cross-compile for distroless
+just distroless-export
+```
+
+**Output:** Static binaries ready for distroless
+
+=== Phase 1: Minimal Distroless Runtime
+
+```dockerfile
+# Dockerfile.oblibeny-minimal
+FROM gcr.io/distroless/static-debian12
+
+# Copy ONLY what we proved necessary
+COPY --from=builder /oblibeny/bin/obli-pkg /usr/bin/
+COPY --from=builder /oblibeny/lib/libhello.so /usr/lib/
+
+# Verify: total files should be < 30
+```
+
+**Result:** Bootable system with package manager
+
+=== Phase 2: Add Packages One-by-One
+
+Each package addition requires:
+
+1. **Idris2 proof of necessity**
+```idris
+proveNecessary "curl" "Required for fetching package updates"
+```
+
+2. **Zig implementation** (memory-safe)
+```zig
+// ffi/zig/src/packages/curl.zig
+export fn curl_install() i32 { ... }
+```
+
+3. **Oblibeny coordination** (reversible)
+```oblibeny
+fn install_curl() -> Result<()> { ... }
+```
+
+4. **Formal verification**
+```idris
+installReversible curl sys = ?proof
+```
+
+=== Phase 3: Self-Hosting
+
+**Goal:** Oblibeny can build itself without Alpine
+
+```
+Oblibeny Distroless
+  → Runs Idris2 compiler
+  → Runs Zig compiler
+  → Runs Oblibeny compiler
+  → Builds new packages
+  → Bootstraps new systems
+```
+
+== Maintenance Advantages
+
+=== 1. **Minimal Surface Area**
+
+**Traditional Linux distribution:**
+- 14,000+ packages to monitor
+- Hundreds of CVEs per month
+- Complex dependency chains
+
+**Oblibeny from distroless:**
+- ~100-500 packages (curated)
+- Only what you proved necessary
+- Shallow dependency trees
+
+=== 2. **Formal Verification**
+
+Every addition requires proof:
+```idris
+addComponent : (name : String) ->
+               ProofOfNecessity name ->
+               NoSecurityRegression ->
+               PreservesInvariants ->
+               SystemState -> SystemState
+```
+
+**You literally cannot add unverified components.**
+
+=== 3. **Automatic Updates**
+
+```zig
+// Security monitor (Zig)
+while (true) {
+    const cves = fetchNewCVEs();
+    for (cves) |cve| {
+        // Only affects ~100 packages, not 14,000
+        if (affectsOurPackages(cve)) {
+            // Automatically rebuild
+            triggerRebuild(cve);
+        }
+    }
+}
+```
+
+**Small package set = manageable security updates**
+
+=== 4. **Rollback Everything**
+
+Oblibeny's accountability traces enable:
+```oblibeny
+fn rollback_to_known_good() -> Result<()> {
+    let last_good = load_checkpoint("last_boot_success");
+    restore_state(last_good);  // Reversibility!
+    reboot();
+}
+```
+
+== Concrete Example: Adding SSH
+
+**Question:** Do we need SSH server?
+
+**If YES, prove it:**
+```idris
+-- Idris2 proof
+data NeedSSH : Type where
+  RemoteAccess : (users : Nat) ->
+                 (alternative : Maybe String) ->
+                 (users > 0 && alternative == Nothing) ->
+                 NeedSSH
+
+-- If you CAN'T prove it, you CAN'T add it
+```
+
+**If proven, implement safely:**
+```zig
+// Zig implementation (memory-safe)
+// ffi/zig/src/packages/openssh.zig
+export fn ssh_install() i32 {
+    // Minimal SSH server (~200KB)
+    // No shell access by default
+    // Keys only, no passwords
+}
+```
+
+**If NOT proven necessary:**
+```
+❌ Don't add SSH
+✅ Use serial console or other method
+✅ Or add minimal SSH with formal proofs
+```
+
+== What Goes in Distroless Base
+
+**Absolute minimum (Stage 0):**
+```
+/lib/ld-musl-x86_64.so.1       # Dynamic linker (required)
+/etc/passwd                     # User database (minimal)
+/etc/group                      # Group database (minimal)
+/tmp/                           # Temp directory (required)
+/usr/share/zoneinfo/           # Timezones (optional)
+```
+
+**Everything else requires proof.**
+
+== Updated Justfile Recipes
+
+```just
+# Bootstrap from Alpine
+distroless-bootstrap:
+    docker run -v $(pwd):/src -w /src alpine:latest \
+        sh -c "apk add idris2 zig just && just dist-build"
+
+# Export for distroless
+distroless-export:
+    mkdir -p dist/distroless/usr/bin
+    cp bin/obli-pkg dist/distroless/usr/bin/
+    zig build-exe ... -target x86_64-linux-musl -static
+
+# Build minimal distroless image
+distroless-image:
+    docker build -f Dockerfile.oblibeny-minimal -t oblibeny:minimal .
+
+# Verify image size
+distroless-verify:
+    docker images oblibeny:minimal
+    docker run oblibeny:minimal ls -lhR / | wc -l
+```
+
+== Success Metrics
+
+**If we're successful:**
+- Total files: < 100 (vs Alpine's ~5,000)
+- Image size: < 50MB (vs Alpine's ~200MB)
+- CVE exposure: < 10 packages (vs Alpine's 14,000)
+- Boot time: < 1 second (vs ~5 seconds)
+- All components formally verified: 100%
+
+== Open Questions
+
+1. **Kernel:** Upstream Linux or custom minimal kernel?
+2. **Init:** Do we even need an init system? (Single process?)
+3. **Libc:** musl or Zig's libc?
+4. **Networking:** Add TCP/IP stack or stay isolated?
+
+== Next Steps
+
+1. Create `Dockerfile.oblibeny-minimal`
+2. Bootstrap toolchain on Alpine
+3. Export static binaries for distroless
+4. Build first package (`hello`) for distroless
+5. Prove we can boot with < 30 files
+
+== Related Documents
+
+* link:DISTRIBUTION-ARCHITECTURE.adoc[Overall Architecture]
+* link:../README.adoc[Oblibeny Language Overview]
+* https://github.com/GoogleContainerTools/distroless[Google Distroless]
