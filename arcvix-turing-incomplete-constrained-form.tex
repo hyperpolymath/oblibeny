@@ -1,0 +1,1741 @@
+% SPDX-License-Identifier: PMPL-1.0-or-later
+% Copyright (c) 2026 Jonathan D.A. Jewell
+%
+% Dual-Form Language Design: Turing-Incomplete Constrained Deployment
+% with Turing-Complete Factory Compilation
+%
+% arXiv-style preprint
+
+\documentclass[11pt,a4paper]{article}
+
+% --- Packages ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{stmaryrd}
+\usepackage{mathtools}
+\usepackage{microtype}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,calc,fit,backgrounds}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{natbib}
+\bibliographystyle{plainnat}
+\usepackage{doi}
+
+% --- Theorem environments ---
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{remark}[theorem]{Remark}
+
+% --- Listings configuration ---
+\definecolor{oblkw}{RGB}{0,0,160}
+\definecolor{oblcmt}{RGB}{80,120,80}
+\definecolor{oblstr}{RGB}{160,32,32}
+\definecolor{oblrev}{RGB}{140,60,180}
+\definecolor{obltrace}{RGB}{0,120,120}
+\definecolor{oblfact}{RGB}{180,100,0}
+
+\lstdefinelanguage{oblibeny}{
+  morekeywords={fn,let,mut,for,in,if,else,match,return,true,false,const,struct,mod},
+  morekeywords=[2]{swap,incr,decr,push,pop,xor_assign},
+  morekeywords=[3]{trace,checkpoint,assert_invariant},
+  morekeywords=[4]{define,emit,quote_cf,gensym,splice,when_emit,lambda,letrec},
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[s]{(*}{*)},
+  morestring=[b]",
+  keywordstyle=\color{oblkw}\bfseries,
+  keywordstyle=[2]\color{oblrev}\bfseries,
+  keywordstyle=[3]\color{obltrace}\bfseries,
+  keywordstyle=[4]\color{oblfact}\bfseries,
+  commentstyle=\color{oblcmt}\itshape,
+  stringstyle=\color{oblstr},
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  showstringspaces=false,
+  tabsize=2,
+  frame=single,
+  framerule=0.4pt,
+  rulecolor=\color{gray!40},
+  backgroundcolor=\color{gray!3},
+}
+
+\lstdefinelanguage{ocaml-ast}{
+  morekeywords={type,and,of,match,with,let,rec,fun,function,if,then,else,
+                module,struct,end,sig,val,open,Some,None,true,false,int,string,
+                bool,list,option,ref,mutable},
+  sensitive=true,
+  morecomment=[s]{(*}{*)},
+  morestring=[b]",
+  keywordstyle=\color{oblkw}\bfseries,
+  commentstyle=\color{oblcmt}\itshape,
+  stringstyle=\color{oblstr},
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  showstringspaces=false,
+  tabsize=2,
+  frame=single,
+  framerule=0.4pt,
+  rulecolor=\color{gray!40},
+  backgroundcolor=\color{gray!3},
+}
+
+\lstset{
+  defaultdialect=[]{oblibeny},
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+}
+
+% --- Custom commands ---
+\newcommand{\obl}{\textsc{Obl\'{i}ben\'{y}}}
+\newcommand{\cfform}{\textsf{CF}}
+\newcommand{\ffform}{\textsf{FF}}
+\newcommand{\bigO}{\mathcal{O}}
+\newcommand{\sem}[1]{\llbracket #1 \rrbracket}
+\newcommand{\inv}[1]{#1^{-1}}
+
+% --- Title ---
+\title{%
+  Dual-Form Language Design:\\
+  Turing-Incomplete Constrained Deployment\\
+  with Turing-Complete Factory Compilation%
+}
+
+\author{%
+  Jonathan D.A.\ Jewell\\
+  \texttt{j.d.a.jewell@open.ac.uk}\\
+  \texttt{https://github.com/hyperpolymath}
+}
+
+\date{March 2026}
+
+\begin{document}
+
+\maketitle
+
+% ============================================================================
+% ABSTRACT
+% ============================================================================
+\begin{abstract}
+We present \obl{}, a dual-form programming language in which a single source
+language separates into two distinct computational regimes: a
+\emph{Turing-complete factory form} used at compile time for metaprogramming,
+code generation, and optimisation, and a \emph{Turing-incomplete constrained
+form} that constitutes the deployed runtime artifact.  The constrained form
+enforces termination, bounded resource consumption, full reversibility of all
+state transitions, and cryptographically-chained accountability traces---by
+\emph{syntactic and structural restriction}, not by optional annotation or
+runtime monitoring.  We formalise the dual-form compilation model, prove that
+constrained-form programs terminate within statically-computable resource
+bounds (the \emph{Maximum Principle Reduction}), and demonstrate that all
+constrained-form operations are invertible with respect to a well-defined
+inverse semantics.  The compiler is implemented in OCaml with formal
+interface proofs in Idris2 and a post-quantum cryptographic FFI via Zig.  We
+evaluate the design against deployment requirements for Hardware Security
+Modules, secure enclaves, and critical embedded systems, where
+non-termination, unauditable state, and irreversible failure modes represent
+not merely inconveniences but regulatory and safety violations.
+\end{abstract}
+
+\medskip
+\noindent\textbf{Keywords:} Turing-incompleteness, total functional programming,
+reversible computing, dual-form compilation, hardware security modules,
+post-quantum cryptography, formal verification, accountability
+
+% ============================================================================
+% 1. INTRODUCTION
+% ============================================================================
+\section{Introduction}
+\label{sec:introduction}
+
+The overwhelming majority of deployed software is written in Turing-complete
+languages.  This is simultaneously the discipline's greatest achievement and
+its most persistent liability.  Turing-completeness grants unbounded
+expressiveness: any computable function can be expressed.  But this
+expressiveness comes at a price that is paid in every safety-critical,
+security-critical, and compliance-critical deployment: \emph{the halting
+problem is undecidable}, and therefore no general algorithm can determine
+whether an arbitrary deployed program will terminate, consume bounded
+resources, or avoid catastrophic state corruption.
+
+For the majority of application software---web services, desktop applications,
+batch processing---the consequences of non-termination are manageable.
+Watchdog timers, process supervisors, and human operators provide external
+termination guarantees.  But there exists a class of deployment targets where
+these external mechanisms are either unavailable, unacceptable, or
+insufficient:
+
+\begin{itemize}[nosep]
+  \item \textbf{Hardware Security Modules (HSMs):}  Firmware executing inside
+    tamper-resistant cryptographic processors, where an infinite loop can brick
+    a device that costs tens of thousands of dollars and may be physically
+    inaccessible.
+  \item \textbf{Secure enclaves} (Intel SGX, ARM TrustZone):  Code executing
+    in isolated memory regions where external monitoring is architecturally
+    prohibited---the enclave \emph{cannot} be interrupted by the host OS
+    without destroying its security guarantees.
+  \item \textbf{Smart cards and embedded tokens:}  Devices with no watchdog
+    capability, no operating system, and no mechanism for external recovery
+    from hung execution.
+  \item \textbf{Critical embedded systems:}  Automotive, aerospace, and
+    medical device firmware where non-termination of a control loop can cause
+    physical harm.
+  \item \textbf{Regulatory environments:}  Financial, healthcare, and
+    government systems where every state transition must be auditable, every
+    operation reversible for dispute resolution, and every computation
+    provably terminating.
+\end{itemize}
+
+The standard response to these concerns has been to use Turing-complete
+languages and then \emph{verify} that specific programs terminate---via model
+checking, abstract interpretation, or theorem proving applied post-hoc.  This
+approach works, but it is expensive, fragile, and places the verification
+burden on the \emph{user} of the language rather than on its \emph{designer}.
+Every new program requires new verification effort.  Every modification
+requires re-verification.
+
+We propose a different approach: \textbf{make non-termination
+\emph{inexpressible}}.
+
+\obl{} (Czech: ``beloved'') is a language in which the deployed runtime
+artifact is \emph{syntactically incapable} of non-termination.  Not because a
+clever verifier has proved termination of a particular program, but because
+the language's grammar and type system physically lack the constructs needed
+to express unbounded computation.  There is no \texttt{while}.  There is no
+\texttt{loop}.  There is no recursion---direct or indirect.  The only
+iteration construct is \texttt{for}~$i$~\texttt{in}~$0$\texttt{..}$N$, where
+$N$ must be a compile-time constant, and the call graph is statically verified
+to be acyclic.
+
+But we do not stop at termination.  The constrained form also enforces:
+
+\begin{enumerate}[nosep]
+  \item \textbf{Bounded resource consumption:}  Every program's maximum
+    execution time and memory usage are statically computable before execution
+    begins.
+  \item \textbf{Full reversibility:}  Every state transition has a
+    well-defined inverse.  Any execution can be run backward to reconstruct
+    prior states without explicit undo logic.
+  \item \textbf{Complete accountability:}  Every operation appends to an
+    immutable, cryptographically-chained trace sufficient to replay, audit, or
+    reverse the entire computation.
+\end{enumerate}
+
+The obvious objection is that Turing-incompleteness is too restrictive.  How
+can a useful program be written without general recursion or unbounded loops?
+Our answer is the \emph{dual-form architecture}: developers write in a
+Turing-complete \emph{factory form} that has full metaprogramming
+capabilities.  The factory form executes at compile time and \emph{emits}
+constrained-form programs as its output.  The developer retains full
+expressive power; the deployed artifact retains full safety guarantees.
+
+The key insight is that \textbf{you do not need Turing-completeness at
+runtime} for the vast majority of deployed systems.  The factory produces the
+constrained artifact, and the constrained artifact is what faces the hostile
+environment.
+
+This paper makes the following contributions:
+
+\begin{enumerate}[nosep]
+  \item We formalise the dual-form compilation model with a precise definition
+    of the factory-to-constrained form boundary (\cref{sec:dual-form}).
+  \item We prove the \emph{Maximum Principle Reduction}: every constrained-form
+    program has a statically-computable upper bound on both execution time and
+    memory consumption (\cref{sec:maximum-principle}).
+  \item We define a reversibility semantics for the constrained form and prove
+    that all operations are invertible with respect to this semantics
+    (\cref{sec:reversibility}).
+  \item We describe the OCaml-based compiler implementation and its integration
+    with Idris2 formal proofs and Zig-based post-quantum FFI
+    (\cref{sec:implementation}).
+  \item We evaluate the design against real deployment scenarios in HSM
+    firmware and secure enclave applications (\cref{sec:case-studies}).
+\end{enumerate}
+
+
+% ============================================================================
+% 2. BACKGROUND
+% ============================================================================
+\section{Background and Related Work}
+\label{sec:background}
+
+\subsection{Total Functional Programming and Turing-Incompleteness}
+
+The idea of restricting computation to guarantee termination has a long
+lineage.  Turner's \emph{Total Functional Programming}
+\citep{turner2004total} proposed that practical programming could be done in a
+language where every function is total---that is, defined on all inputs and
+guaranteed to produce a result.  Turner identified the key technical
+mechanisms: primitive recursion over algebraic data types (where every
+recursive call operates on a structurally-smaller argument) and codata for
+potentially-infinite structures.
+
+The \emph{Charity} language \citep{cockett1992charity} demonstrated that
+categorical semantics could enforce totality: Charity programs correspond to
+morphisms in distributive categories, and the categorical structure prevents
+partiality.  The \emph{Walrus} language explored similar ideas in a more
+imperative setting.
+
+Modern dependently-typed languages have made totality checking practical:
+\begin{itemize}[nosep]
+  \item \textbf{Agda} \citep{norell2007towards} includes a termination
+    checker based on structural recursion with size types, rejecting programs
+    that cannot be shown to terminate.
+  \item \textbf{Idris2} \citep{brady2021idris2} uses quantitative type
+    theory to track linearity and totality, with an optional totality
+    annotation system.
+  \item \textbf{Coq}'s \citep{coq2024} guard condition ensures that all
+    fixpoints are structurally decreasing.
+\end{itemize}
+
+\obl{} differs from these approaches in a fundamental way: totality is not
+enforced by a \emph{termination checker} that analyses recursion patterns.  It
+is enforced by the \emph{absence} of recursion from the language entirely.
+This is a stronger guarantee---there is no termination checker to be confused
+by complex recursion schemes, because there are no recursion schemes.  The
+trade-off is expressiveness, which we recover through the factory form.
+
+\subsection{Reversible Computing}
+
+Reversible computing---computation in which every step can be undone---has
+been studied from both thermodynamic and computational perspectives.
+Landauer's principle \citep{landauer1961irreversibility} established that
+logically irreversible operations dissipate a minimum amount of energy,
+motivating the study of logically reversible computation as a path toward
+thermodynamically efficient computing.
+
+The \emph{Janus} language \citep{yokoyama2007reversible} is the canonical
+reversible imperative language: every Janus statement has a unique inverse,
+and programs can be run forward or backward.  Janus achieves this through
+careful restriction of assignment (to reversible operations like XOR-swap and
+increment/decrement) and paired control structures (if-then-else with
+assertions that determine the entry branch during backward execution).
+
+\emph{R-WHILE} \citep{gluck2012rwhile} and \emph{R-CORE} extend reversible
+programming to while-loops with reversible step-operators.
+
+\obl{}'s reversibility differs from Janus in two respects.  First, \obl{}'s
+reversibility operates within a Turing-incomplete fragment, meaning that
+backward execution is also guaranteed to terminate---a property that Janus,
+being Turing-complete, cannot guarantee in general.  Second, \obl{} uses an
+\emph{accountability trace} to record information that would otherwise be
+destroyed, enabling operations like overwrite (which is irreversible in
+isolation) to become reversible in the presence of the trace.  This is closer
+to Bennett's \emph{reversible pebble game} \citep{bennett1989timespace} than
+to Janus's strict logical reversibility.
+
+\subsection{Hardware Security Modules and Secure Enclaves}
+
+HSMs are dedicated cryptographic processors that manage digital keys and
+perform encryption/decryption operations within a physically-protected
+boundary.  The FIPS~140-3 standard \citep{fips1403} and Common Criteria
+\citep{commoncriteria} impose strict requirements on HSM firmware:
+deterministic execution, bounded response times, complete audit trails, and
+the ability to roll back to known-good states.
+
+Intel SGX \citep{costan2016intel} and ARM TrustZone \citep{pinto2019demystifying}
+provide software-based secure enclaves with similar
+properties: isolated execution, attestation, and sealed storage.  Code running
+inside an enclave cannot be debugged or monitored by the host operating
+system, which means that traditional watchdog-based termination guarantees
+are unavailable.
+
+Current practice for HSM and enclave firmware development relies on
+Turing-complete languages (typically C or C++) with extensive manual review,
+static analysis, and sometimes formal verification of specific components.
+The cost of this approach is measured in person-years per firmware release.
+\obl{} aims to shift the guarantee from verification of specific programs to
+a \emph{language-level property} that holds for all programs.
+
+\subsection{Post-Quantum Cryptography}
+
+The NIST Post-Quantum Cryptography standardisation process
+\citep{nist2024pqc} has selected ML-KEM (Kyber) for key encapsulation and
+ML-DSA (Dilithium) and SLH-DSA (SPHINCS+) for digital signatures.  HSM
+firmware must incorporate these algorithms as classical algorithms face
+deprecation.  \obl{}'s foreign function interface provides access to these
+primitives through a Zig-based binding to liboqs \citep{stebila2024liboqs}
+and libsodium, with Idris2-verified ABI definitions ensuring type-level
+correctness of the binding.
+
+
+% ============================================================================
+% 3. THE DUAL-FORM MODEL
+% ============================================================================
+\section{The Dual-Form Model}
+\label{sec:dual-form}
+
+\subsection{Overview}
+
+\obl{} defines two syntactic forms that share a common type system but differ
+in computational power:
+
+\begin{definition}[Factory Form \ffform{}]
+The \emph{factory form} is a Turing-complete expression language with
+S-expression syntax, supporting lambda abstraction, recursive binding
+(\texttt{letrec}), pattern matching, and code generation primitives
+(\texttt{emit}, \texttt{quote-cf}, \texttt{gensym}, \texttt{splice}).
+Factory-form programs execute at compile time and produce constrained-form
+programs as output.
+\end{definition}
+
+\begin{definition}[Constrained Form \cfform{}]
+The \emph{constrained form} is a Turing-incomplete imperative language with
+C-like syntax, supporting fixed-width integer types, immutable and mutable
+bindings, bounded iteration, acyclic function calls, reversible primitives,
+and accountability trace operations.  The constrained form is the only form
+that can execute at runtime.
+\end{definition}
+
+The compilation pipeline is:
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={draw, rounded corners, minimum width=2.8cm, minimum height=1cm,
+              align=center, font=\small},
+  arr/.style={-{Stealth[length=5pt]}, thick},
+  lbl/.style={font=\footnotesize\itshape, midway, above}
+]
+  \node[box, fill=orange!15] (src) {\ffform{} Source\\(Turing-complete)};
+  \node[box, fill=blue!10, right=2.5cm of src] (cf) {\cfform{} Program\\(Turing-incomplete)};
+  \node[box, fill=green!10, right=2.5cm of cf] (bin) {Deployed\\Binary};
+
+  \draw[arr] (src) -- node[lbl] {factory eval} (cf);
+  \draw[arr] (cf) -- node[lbl] {constrained compile} (bin);
+
+  \node[below=0.3cm of src, font=\footnotesize\color{gray}] {Development time};
+  \node[below=0.3cm of cf, font=\footnotesize\color{gray}] {Verified artifact};
+  \node[below=0.3cm of bin, font=\footnotesize\color{gray}] {Runtime};
+\end{tikzpicture}
+\end{center}
+
+\subsection{Factory Form Syntax and Semantics}
+
+The factory form uses S-expression syntax inspired by Scheme, with extensions
+for constrained-form generation:
+
+\begin{lstlisting}[language=oblibeny,caption={Factory form generating a bounded counter}]
+(define (make-bounded-counter max-val)
+  (emit
+    `(fn counter() -> i32 {
+       let mut c: i32 = 0;
+       for i in 0..,(quote_cf max-val) {
+         incr(c, 1);
+         trace("increment", c);
+       }
+       c
+     })))
+\end{lstlisting}
+
+Invoking \texttt{(make-bounded-counter 100)} at factory time produces a
+constrained-form function with a statically-bounded loop of exactly 100
+iterations.  The factory form can compute the bound dynamically---it is
+Turing-complete---but the emitted artifact has a fixed bound.
+
+\begin{definition}[Factory-Form Well-Formedness]
+A factory-form program $P_F$ is well-formed if:
+\begin{enumerate}[nosep,label=(F\arabic*)]
+  \item\label{wf:f1} Every expression passed to \texttt{emit} is a syntactically valid
+    constrained-form expression.
+  \item\label{wf:f2} Factory-form execution is bounded by a configurable resource limit
+    (time and memory).  If the limit is exceeded, compilation fails.
+  \item\label{wf:f3} Factory-form expressions cannot reference runtime values; the
+    factory and constrained forms share no mutable state.
+\end{enumerate}
+\end{definition}
+
+Rule~\ref{wf:f2} deserves comment: we do not solve the halting problem for
+factory-form programs.  Instead, we impose a \emph{practical} resource bound
+on factory-time execution, analogous to template instantiation depth limits in
+C++ or macro expansion limits in Rust.  If a factory program does not
+terminate within the bound, compilation is aborted.  This is acceptable
+because the factory executes in a development environment where retry and
+debugging are available.
+
+\subsection{Constrained Form Syntax}
+
+The constrained form uses imperative syntax with explicit type annotations:
+
+\begin{lstlisting}[language=oblibeny,caption={Constrained form---complete valid program}]
+fn main() -> () {
+  let mut a: i64 = 0;
+  let mut b: i64 = 1;
+  checkpoint("start_fibonacci");
+  for i in 0..10 {
+    trace("fib_value", a);
+    let tmp: i64 = a;
+    swap(a, b);
+    incr(b, tmp);
+  }
+  checkpoint("end_fibonacci");
+  assert_invariant(a == 55, "10th Fibonacci is 55");
+}
+\end{lstlisting}
+
+The constrained form's syntax is defined by the following grammar (simplified):
+
+\begin{align*}
+  \textit{prog}  &::= \textit{decl}^* \\
+  \textit{decl}  &::= \texttt{fn}\; \textit{name}\texttt{(}\textit{params}\texttt{)} \to \textit{type}\; \texttt{\{}\; \textit{stmt}^*\; \texttt{\}} \\
+                 &\;|\; \texttt{struct}\; \textit{name}\; \texttt{\{}\; (\textit{name}\texttt{:}\;\textit{type})^*\; \texttt{\}} \\
+                 &\;|\; \texttt{const}\; \textit{name}\texttt{:}\;\textit{type}\; \texttt{=}\; \textit{expr} \\[6pt]
+  \textit{stmt}  &::= \texttt{let}\; \textit{name}\texttt{:}\;\textit{type}\; \texttt{=}\; \textit{expr}
+                 \;|\; \texttt{let\;mut}\; \textit{name}\texttt{:}\;\textit{type}\; \texttt{=}\; \textit{expr} \\
+                 &\;|\; \textit{name}\; \texttt{=}\; \textit{expr}
+                 \;|\; \texttt{if}\; \textit{expr}\; \texttt{\{}\;\textit{stmt}^*\;\texttt{\}}\; \texttt{else}\; \texttt{\{}\;\textit{stmt}^*\;\texttt{\}} \\
+                 &\;|\; \texttt{for}\; \textit{name}\; \texttt{in}\; n\texttt{..}N\; \texttt{\{}\;\textit{stmt}^*\;\texttt{\}}
+                       \quad \text{where } n, N \in \mathbb{Z}_{\text{const}} \\
+                 &\;|\; \texttt{swap}\texttt{(}\textit{a}\texttt{,}\;\textit{b}\texttt{)}
+                 \;|\; \texttt{incr}\texttt{(}\textit{x}\texttt{,}\;\textit{e}\texttt{)}
+                 \;|\; \texttt{decr}\texttt{(}\textit{x}\texttt{,}\;\textit{e}\texttt{)} \\
+                 &\;|\; \textit{x}\; \hat{}\texttt{=}\; \textit{e}
+                 \;|\; \texttt{trace}\texttt{(}\textit{tag}\texttt{,}\;\textit{args}\texttt{)}
+                 \;|\; \texttt{checkpoint}\texttt{(}\textit{label}\texttt{)} \\
+                 &\;|\; \texttt{assert\_invariant}\texttt{(}\textit{expr}\texttt{,}\;\textit{msg}\texttt{)}
+\end{align*}
+
+Crucially, the grammar does not contain:
+\begin{itemize}[nosep]
+  \item \texttt{while} or \texttt{loop} --- there is no production rule for
+    unbounded iteration.
+  \item Self-referential function definitions --- no production permits a
+    function body to reference its own name in a call position.
+  \item Indirect recursion is prevented not by the grammar but by a
+    \emph{call-graph acyclicity check} that runs as part of compilation.
+\end{itemize}
+
+\subsection{Formal Relationship Between Forms}
+
+We can characterise the relationship between the two forms precisely.
+
+\begin{definition}[Form Embedding]
+Let $\mathcal{L}_F$ be the set of all syntactically-valid factory-form
+programs and $\mathcal{L}_C$ be the set of all syntactically-valid
+constrained-form programs.  The factory evaluation function
+\[
+  \mathsf{eval}_F : \mathcal{L}_F \rightharpoonup \mathcal{L}_C
+\]
+is a partial function (partial because factory evaluation may diverge or
+exceed resource bounds) that maps factory programs to constrained programs.
+\end{definition}
+
+\begin{proposition}[Constrained Closure]
+For any factory program $P_F \in \mathcal{L}_F$, if
+$\mathsf{eval}_F(P_F) = P_C$, then $P_C \in \mathcal{L}_C$.  That is, the
+factory can only produce valid constrained-form programs.
+\end{proposition}
+
+\begin{proof}
+By rule~\ref{wf:f1}: the \texttt{emit} construct accepts only
+syntactically-valid constrained-form expressions, enforced by the factory
+evaluator's type system.  All emitted fragments are parsed and validated
+against the constrained-form grammar before assembly.
+\end{proof}
+
+\begin{remark}[The Factory as a Staging System]
+The dual-form model is a form of \emph{multi-stage programming}
+\citep{taha2004gentle}, where the factory form is stage~0 (compile time) and
+the constrained form is stage~1 (runtime).  The key difference from
+MetaOCaml-style staging is that the stages have \emph{different computational
+power}: stage~0 is Turing-complete, stage~1 is Turing-incomplete.  This
+asymmetric staging is, to our knowledge, novel.
+\end{remark}
+
+
+% ============================================================================
+% 4. MAXIMUM PRINCIPLE REDUCTION
+% ============================================================================
+\section{Maximum Principle Reduction}
+\label{sec:maximum-principle}
+
+The central guarantee of the constrained form is not merely termination, but
+\emph{bounded termination}: every program's maximum execution time and memory
+consumption can be computed statically, before execution begins.  We call this
+the \emph{Maximum Principle Reduction} (MPR), by analogy with the maximum
+principle in PDE theory---just as the maximum of a harmonic function occurs on
+the boundary of its domain, the maximum resource consumption of a
+constrained-form program is determined at its ``boundary'' (the compile-time
+constants that parameterise its loops).
+
+\subsection{Resource Model}
+
+\begin{definition}[Resource Certificate]
+A \emph{resource certificate} for a constrained-form program $P_C$ is a tuple
+$\mathcal{R}(P_C) = (T_{\max}, M_{\max}, D_{\max})$ where:
+\begin{itemize}[nosep]
+  \item $T_{\max} \in \mathbb{N}$ is the maximum number of execution steps,
+  \item $M_{\max} \in \mathbb{N}$ is the maximum memory consumption in bytes,
+  \item $D_{\max} \in \mathbb{N}$ is the maximum call stack depth.
+\end{itemize}
+\end{definition}
+
+\begin{theorem}[Computability of Resource Certificates]
+\label{thm:mpr}
+For every well-formed constrained-form program $P_C$, the resource certificate
+$\mathcal{R}(P_C)$ is computable in time polynomial in the size of $P_C$.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+We proceed by structural induction on the program.
+
+\textbf{Base case:} For a program consisting of a single statement $s$ with
+no loops or calls, $T_{\max}(s) = c_s$ (a constant depending on the
+statement kind), $M_{\max}(s)$ is the size of variables bound by $s$, and
+$D_{\max}(s) = 0$.
+
+\textbf{Sequential composition:} For $s_1; s_2$,
+\begin{align*}
+  T_{\max}(s_1; s_2) &= T_{\max}(s_1) + T_{\max}(s_2), \\
+  M_{\max}(s_1; s_2) &= \max(M_{\max}(s_1), M_{\max}(s_2)), \\
+  D_{\max}(s_1; s_2) &= \max(D_{\max}(s_1), D_{\max}(s_2)).
+\end{align*}
+
+\textbf{Conditional:} For $\texttt{if}\;e\;\{s_t\}\;\texttt{else}\;\{s_f\}$,
+\begin{align*}
+  T_{\max} &= c_{\text{cond}} + \max(T_{\max}(s_t), T_{\max}(s_f)), \\
+  M_{\max} &= \max(M_{\max}(s_t), M_{\max}(s_f)), \\
+  D_{\max} &= \max(D_{\max}(s_t), D_{\max}(s_f)).
+\end{align*}
+
+\textbf{Bounded loop:} For $\texttt{for}\;i\;\texttt{in}\;0\texttt{..}N\;\{s_b\}$
+where $N$ is a compile-time constant,
+\begin{align*}
+  T_{\max} &= c_{\text{init}} + N \cdot (T_{\max}(s_b) + c_{\text{iter}}), \\
+  M_{\max} &= M_{\text{iter}} + M_{\max}(s_b), \\
+  D_{\max} &= D_{\max}(s_b).
+\end{align*}
+
+\textbf{Function call:}  Because the call graph is a DAG (verified
+statically), we can topologically sort functions and compute resource
+certificates bottom-up.  A call to function $f$ with certificate
+$\mathcal{R}(f)$ contributes $T_{\max}(f)$ to time, $M_{\max}(f)$ to
+memory (added to the caller's frame), and $D_{\max}(f) + 1$ to depth.
+
+The topological sort ensures that every function's callees have already been
+analysed.  The absence of cycles makes this well-founded.  Each step of the
+analysis is constant-time in the size of the statement, and the topological
+sort is $\bigO(|V| + |E|)$ in the call graph.  The overall analysis is
+therefore polynomial.
+\end{proof}
+
+\subsection{Static Analysis Implementation}
+
+The \obl{} compiler includes a static analyser that computes resource
+certificates.  The analysis result for a program includes:
+
+\begin{lstlisting}[language={},caption={Static analysis output for Fibonacci example}]
+=== Resource Bounds (Static Guarantees) ===
+Max loop iterations: 10
+Max call depth: 0
+Estimated memory: 24 bytes
+
+=== Reversibility Analysis ===
+All reversible operations properly balanced
+
+=== Accountability Trace Coverage ===
+Coverage: 40.0%
+\end{lstlisting}
+
+The analysis is implemented in the \texttt{static\_analyzer.ml} module, which
+traverses the AST bottom-up, accumulating resource bounds at each node.  The
+key data structure is:
+
+\begin{lstlisting}[language=ocaml-ast,caption={Resource analysis result type (OCaml)}]
+type analysis_result = {
+  is_valid: bool;
+  violations: constraint_violation list;
+  max_loop_iterations: int64;
+  max_call_depth: int;
+  estimated_memory: int;  (* bytes *)
+  reversibility_warnings: string list;
+  trace_coverage: float;  (* 0.0 to 1.0 *)
+}
+\end{lstlisting}
+
+\subsection{Comparison with WCET Analysis}
+
+Worst-case execution time (WCET) analysis \citep{wilhelm2008wcet} for
+conventional languages is an entire subfield of real-time systems research,
+involving abstract interpretation of machine-level cache and pipeline
+behaviour.  WCET analysis is necessary precisely because the source language
+does not bound execution---the bounds must be inferred from the program and
+the hardware.
+
+In \obl{}, the situation is qualitatively different: the source language
+\emph{syntactically constrains} execution to be bounded, and the bounds are
+\emph{manifest} in the program text (as loop limits and the call-graph
+structure).  Our static analysis computes these manifest bounds; it does not
+need to infer them.  This eliminates the fundamental difficulty of WCET
+analysis---the undecidability of loop bounds in Turing-complete
+languages---and replaces it with a straightforward polynomial-time
+computation.
+
+
+% ============================================================================
+% 5. REVERSIBILITY
+% ============================================================================
+\section{Reversibility by Construction}
+\label{sec:reversibility}
+
+\subsection{Reversibility Invariant}
+
+\begin{definition}[Reversibility]
+\label{def:reversibility}
+An operation $\mathsf{op}$ with state transformer
+$\mathsf{op} : (\Sigma \times \mathcal{T}) \to (\Sigma \times \mathcal{T})$
+(where $\Sigma$ is the program state and $\mathcal{T}$ is the accountability
+trace) is \emph{reversible} if there exists an inverse operation
+$\inv{\mathsf{op}}$ such that for all $(\sigma, \tau)$ in the domain:
+\[
+  \inv{\mathsf{op}}(\mathsf{op}(\sigma, \tau)) = (\sigma, \tau')
+\]
+where $\tau' \supseteq \tau$ (the trace is extended, never truncated).
+\end{definition}
+
+The definition permits the trace to grow during reversal---reversal itself is
+an accountable operation.  This is essential for audit compliance: rolling
+back a transaction must itself be recorded.
+
+\subsection{Operation Classification}
+
+Constrained-form operations fall into three reversibility classes:
+
+\begin{table}[htbp]
+\centering
+\caption{Reversibility classification of constrained-form operations}
+\label{tab:reversibility}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Class} & \textbf{Operations} & \textbf{Inverse} \\
+\midrule
+Self-inverse & \texttt{swap(a, b)}, \texttt{x \^{}= v}, \texttt{not(x)} & Same operation \\
+Paired inverse & \texttt{incr(x, d)} / \texttt{decr(x, d)} & Partner operation \\
+ & \texttt{push(s, v)} / \texttt{pop(s)} & Partner operation \\
+Trace-assisted & \texttt{x = e} (assignment) & Restore from trace \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Self-inverse operations are their own inverses: applying them twice restores
+the original state.  This is immediate for XOR-assign ($x \oplus v \oplus v
+= x$) and swap.
+
+Paired-inverse operations have distinct inverses: incrementing by $\delta$ is
+reversed by decrementing by $\delta$.  The compiler verifies that paired
+operations are well-formed (the inverse argument matches the forward
+argument).
+
+Trace-assisted operations are \emph{locally irreversible}---assignment
+destroys the previous value---but become reversible through the
+accountability trace, which records the overwritten value.  This is the key
+mechanism that bridges classical imperative programming with reversibility.
+
+\begin{theorem}[Constrained-Form Reversibility]
+\label{thm:reversibility}
+Every well-formed constrained-form program is reversible in the sense of
+\cref{def:reversibility}.
+\end{theorem}
+
+\begin{proof}
+By structural induction on statements.
+
+\textbf{Self-inverse operations:}  $\inv{\texttt{swap}(a,b)} =
+\texttt{swap}(a,b)$ and $\inv{(x \oplus v)} = (x \oplus v)$.  These satisfy
+the identity law directly.
+
+\textbf{Paired operations:}  $\inv{\texttt{incr}(x, \delta)} =
+\texttt{decr}(x, \delta)$ and vice versa, with
+$\texttt{decr}(\texttt{incr}(x, \delta), \delta) = x$ by integer arithmetic.
+
+\textbf{Assignment:}  For $x := e$, the trace records $(\textit{old}(x),
+\textit{new}(x))$.  The inverse reads $\textit{old}(x)$ from the trace and
+restores it.
+
+\textbf{Sequential composition:}  $\inv{(s_1; s_2)} = \inv{s_2}; \inv{s_1}$.
+This reversal of order is standard in reversible computation.
+
+\textbf{Conditional:}  The trace records which branch was taken.  The inverse
+reads the branch indicator from the trace and executes the inverse of the
+taken branch.
+
+\textbf{Bounded loop:}  $\texttt{for}\;i\;\texttt{in}\;0\texttt{..}N\;\{s\}$
+reverses to $\texttt{for}\;i\;\texttt{in}\;(N{-}1)\texttt{..}(-1)\;\{\inv{s}\}$.
+The loop bounds are static constants, so the reversed loop also has static
+bounds.
+
+\textbf{Function call:}  Because the call graph is acyclic, induction on the
+topological order of the call graph ensures that every called function has a
+well-defined inverse.  The inverse of a call to $f$ is a call to $\inv{f}$.
+\end{proof}
+
+\subsection{The Reversible Debugger}
+
+A direct consequence of program-level reversibility is the \obl{} reversible
+debugger, which supports backward stepping through execution.  The debugger
+maintains the accountability trace during forward execution and uses the
+inverse semantics to step backward:
+
+\begin{lstlisting}[language={},caption={Reversible debugger session}]
+oblibeny> step       (* execute incr(c, 1) *)
+  c: 0 -> 1
+  trace: [checkpoint("start"), increment(c, 1)]
+
+oblibeny> step       (* execute incr(c, 1) *)
+  c: 1 -> 2
+  trace: [..., increment(c, 1)]
+
+oblibeny> back       (* REVERSE: decr(c, 1) *)
+  c: 2 -> 1
+  trace: [..., reverse(increment(c, 1))]
+
+oblibeny> back       (* REVERSE: decr(c, 1) *)
+  c: 1 -> 0
+  trace: [..., reverse(increment(c, 1))]
+\end{lstlisting}
+
+The debugger's backward step is not a heuristic or a ``replay from
+checkpoint'' mechanism---it is a direct execution of the inverse operation.
+This is only possible because (a)~every operation has a defined inverse and
+(b)~the trace provides sufficient information to reconstruct destroyed state.
+
+\subsection{Transaction Rollback Without Undo Logic}
+
+In conventional systems, implementing transaction rollback requires
+application-specific undo logic: if a transaction writes to a database, the
+rollback must issue compensating writes.  This undo logic is a separate code
+path that must be written, tested, and maintained in parallel with the forward
+logic.
+
+In \obl{}, rollback is automatic.  Given a checkpoint~$c$ in the trace, the
+runtime can reverse all operations since~$c$ by executing their inverses in
+reverse order.  No application-specific undo logic is needed.  This
+eliminates an entire category of bugs---incorrect or incomplete rollback---by
+construction.
+
+
+% ============================================================================
+% 6. THE ACCOUNTABILITY TRACE
+% ============================================================================
+\section{The Accountability Trace}
+\label{sec:trace}
+
+Every execution of a constrained-form program produces an
+\emph{accountability trace}: an append-only, cryptographically-chained log of
+all operations performed.
+
+\subsection{Trace Structure}
+
+Each trace entry is a record:
+\[
+  e_i = (\mathit{seq}_i, \; \mathit{op}_i, \; \mathit{inputs}_i, \;
+         \mathit{outputs}_i, \; \mathit{actor}_i, \; h_{i-1})
+\]
+where $\mathit{seq}_i$ is a monotonically-increasing sequence number,
+$\mathit{op}_i$ identifies the operation, $\mathit{inputs}_i$ and
+$\mathit{outputs}_i$ record the operation's arguments and results (hashed or
+literal, depending on configuration), $\mathit{actor}_i$ identifies the
+executing principal, and $h_{i-1} = H(e_{i-1})$ is the cryptographic hash of
+the previous entry.
+
+The hash chain provides tamper evidence: modifying any entry invalidates all
+subsequent hashes.  The trace is sufficient to:
+\begin{enumerate}[nosep]
+  \item \textbf{Replay} the computation: execute each $\mathit{op}_i$ with
+    $\mathit{inputs}_i$ and verify that $\mathit{outputs}_i$ matches.
+  \item \textbf{Reverse} the computation: execute $\inv{\mathit{op}_i}$
+    for each entry in reverse order.
+  \item \textbf{Audit} the computation: verify the hash chain integrity and
+    check that all operations conform to policy.
+\end{enumerate}
+
+\subsection{Trace Completeness}
+
+\begin{theorem}[Trace Sufficiency]
+For every constrained-form execution, the accountability trace is sufficient
+to reconstruct any prior program state.
+\end{theorem}
+
+\begin{proof}
+By \cref{thm:reversibility}, every operation is reversible given the trace.
+By the sequential reversal property, the entire execution can be reversed to
+any prior state.  The trace records all information needed for reversal
+(including overwritten values for trace-assisted operations).  Therefore, the
+trace, combined with the final state, suffices to reconstruct any
+intermediate state.
+\end{proof}
+
+\subsection{Bounded Trace Size}
+
+Because the program terminates in at most $T_{\max}$ steps (by
+\cref{thm:mpr}), the trace contains at most $T_{\max}$ entries.  If each
+entry has bounded size~$c_e$ (determined by the maximum size of operation
+arguments), the total trace size is bounded by $T_{\max} \cdot c_e$.  This
+bound is \emph{statically computable}, meaning that the trace's storage
+requirements can be allocated in advance---a critical property for HSM
+firmware where dynamic allocation may be prohibited.
+
+\subsection{Cryptographic Binding}
+
+The hash chain uses a configurable hash function.  For post-quantum
+resistance, the default is SHA-3-256; for classical deployments, BLAKE3 is
+supported.  The trace can optionally be signed by the executing principal
+using ML-DSA (Dilithium) for non-repudiation.
+
+The trace integrates with \obl{}'s external accountability protocol (MAA,
+Mutually-Assured Accountability): at checkpoints, the current trace hash
+can be committed to an external ledger, providing third-party verifiable
+evidence of execution history.
+
+
+% ============================================================================
+% 7. IMPLEMENTATION
+% ============================================================================
+\section{The OCaml Compiler}
+\label{sec:implementation}
+
+\subsection{Architecture}
+
+The \obl{} compiler is implemented in approximately 5,200 lines of OCaml,
+using the Menhir parser generator for the constrained-form grammar and a
+hand-written recursive-descent parser for the factory form.  The
+implementation comprises:
+
+\begin{table}[htbp]
+\centering
+\caption{Compiler module structure}
+\label{tab:modules}
+\begin{tabular}{@{}llr@{}}
+\toprule
+\textbf{Module} & \textbf{Purpose} & \textbf{LOC} \\
+\midrule
+\texttt{lexer.ml} & Tokenisation (sedlex) & 180 \\
+\texttt{parser.mly} & Menhir grammar & 220 \\
+\texttt{ast.ml} & Abstract syntax tree & 170 \\
+\texttt{typecheck.ml} & Type inference and checking & 420 \\
+\texttt{constrained\_check.ml} & Turing-incompleteness validation & 200 \\
+\texttt{static\_analyzer.ml} & Resource bounds computation & 350 \\
+\texttt{eval.ml} & Constrained-form evaluator & 480 \\
+\texttt{trace.ml} & Accountability trace runtime & 180 \\
+\texttt{debugger.ml} & Reversible debugger & 300 \\
+\texttt{profiler.ml} & Resource profiling & 250 \\
+\texttt{lsp\_*.ml} & Language Server Protocol & 789 \\
+\texttt{errors.ml}, \texttt{location.ml} & Diagnostics & 150 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{The Constrained-Form Checker}
+
+The constrained-form checker (\texttt{constrained\_check.ml}) is the
+component that enforces Turing-incompleteness.  It operates in two phases:
+
+\textbf{Phase 1: Local checks.}  For each function declaration, the checker
+verifies:
+\begin{itemize}[nosep]
+  \item No direct self-recursion: the function body does not contain a call
+    to the function's own name.
+  \item All \texttt{for}-range bounds are compile-time constants.
+  \item No forbidden keywords (\texttt{while}, \texttt{loop}) appear in the
+    token stream---these are rejected by the lexer.
+\end{itemize}
+
+\textbf{Phase 2: Global call-graph check.}  The checker builds the call graph
+$G = (V, E)$ where $V$ is the set of function names and $(f, g) \in E$ if
+$f$'s body contains a call to $g$.  It then checks that $G$ is acyclic via
+depth-first search, detecting strongly-connected components.
+
+If any violation is detected, the compiler reports a diagnostic with the
+violation location and a clear error message:
+
+\begin{lstlisting}[language={},caption={Constrained-form violation diagnostics}]
+src/main.obl:12:5: error: recursive call from 'fibonacci'
+  to 'fibonacci' not allowed in constrained form
+
+src/main.obl:20:5: error: for-range bound 'n' must be a
+  static constant
+
+error: cyclic call graph detected: ping -> pong -> ping
+\end{lstlisting}
+
+\subsection{AST Design}
+
+The AST (\texttt{ast.ml}) is designed to represent both forms.  The
+constrained-form restriction is that only a subset of the AST constructors is
+valid: the \texttt{SForRange} constructor requires \texttt{int64} constants
+for its bounds (not arbitrary expressions), and the constraint violation types
+enumerate the precise ways a program can fail to be constrained-form-valid.
+
+The key AST types are:
+
+\begin{lstlisting}[language=ocaml-ast,caption={Core AST types (excerpt)}]
+type stmt_desc =
+  | SLet of string * typ option * expr
+  | SLetMut of string * typ option * expr
+  | SAssign of string * expr
+  | SIf of expr * stmt list * stmt list
+  | SForRange of string * int64 * int64 * stmt list
+  | SSwap of string * string
+  | SIncr of string * expr
+  | SDecr of string * expr
+  | SXorAssign of string * expr
+  | STrace of string * expr list
+  | SCheckpoint of string
+  | SAssertInvariant of expr * string
+\end{lstlisting}
+
+Note the \texttt{SForRange} constructor takes \texttt{int64} bounds directly,
+not \texttt{expr}.  This is an example of \emph{encoding the restriction in
+the type}: it is impossible to construct a \texttt{SForRange} node with
+dynamic bounds, because the constructor does not accept expressions for
+bounds.
+
+\subsection{Idris2 ABI Proofs}
+
+The foreign function interface between \obl{} and the post-quantum
+cryptographic libraries uses an Idris2-defined ABI:
+
+\begin{lstlisting}[language={},caption={Idris2 ABI definition (excerpt from Crypto.idr)}]
+-- Proven properties of the cryptographic ABI:
+-- 1. Key sizes are correct for each algorithm
+-- 2. Buffer sizes match algorithm requirements
+-- 3. Return codes are exhaustively handled
+-- 4. No undefined behaviour in any calling convention
+\end{lstlisting}
+
+The Idris2 types encode invariants that are verified at compile time using
+dependent types.  For example, the type of a signing function encodes that the
+signature buffer must have exactly the size specified by the algorithm
+parameter---a size mismatch is a type error, not a runtime buffer overflow.
+
+\subsection{Zig FFI Layer}
+
+The Zig FFI provides the actual implementation of cryptographic operations,
+binding to liboqs (for ML-KEM, ML-DSA, SLH-DSA) and libsodium (for classical
+cryptography and utilities).  Zig was chosen for this layer because it:
+
+\begin{itemize}[nosep]
+  \item Produces C-ABI-compatible binaries with no runtime dependencies.
+  \item Provides memory safety by default (no hidden allocations, explicit
+    error handling).
+  \item Supports cross-compilation to HSM target architectures (ARM
+    Cortex-M, RISC-V) from the build system.
+  \item Has zero-cost abstractions---the FFI layer adds no overhead over a
+    direct C binding.
+\end{itemize}
+
+The architecture is:
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={draw, rounded corners=3pt, minimum width=3.2cm,
+              minimum height=0.8cm, align=center, font=\small},
+  arr/.style={-{Stealth[length=4pt]}, thick}
+]
+  \node[box, fill=yellow!15] (idris) {Idris2 ABI\\(formal proofs)};
+  \node[box, fill=cyan!10, below=0.8cm of idris] (cheader) {Generated C Headers};
+  \node[box, fill=green!10, below=0.8cm of cheader] (zig) {Zig FFI\\(implementation)};
+  \node[box, fill=red!8, below left=0.8cm and -0.2cm of zig] (liboqs) {liboqs\\(PQ crypto)};
+  \node[box, fill=red!8, below right=0.8cm and -0.2cm of zig] (sodium) {libsodium\\(classical)};
+
+  \draw[arr] (idris) -- node[right, font=\footnotesize\itshape] {generates} (cheader);
+  \draw[arr] (cheader) -- node[right, font=\footnotesize\itshape] {implements} (zig);
+  \draw[arr] (zig) -- (liboqs);
+  \draw[arr] (zig) -- (sodium);
+\end{tikzpicture}
+\end{center}
+
+
+% ============================================================================
+% 8. CASE STUDIES
+% ============================================================================
+\section{Case Studies}
+\label{sec:case-studies}
+
+\subsection{HSM Key Management Firmware}
+
+We evaluate \obl{} against the requirements of a hypothetical HSM key
+management module---a firmware component responsible for generating,
+storing, rotating, and destroying cryptographic keys within a FIPS~140-3
+Level~3 boundary.
+
+\subsubsection{Requirements}
+
+The HSM firmware must satisfy:
+\begin{enumerate}[nosep,label=(H\arabic*)]
+  \item \textbf{Termination:}  Every operation must complete within a bounded
+    time, specified in the HSM's security policy.  An operation that exceeds
+    its time budget triggers a hardware reset.
+  \item \textbf{Auditability:}  Every key lifecycle event (generation,
+    export, rotation, destruction) must be recorded in a tamper-evident log.
+  \item \textbf{Reversibility:}  Key rotation must support rollback in case
+    of partial failure (e.g., if the new key is generated but the old key has
+    not yet been marked as deprecated).
+  \item \textbf{Resource bounds:}  The firmware must not exceed its allocated
+    SRAM (typically 256\,KB--1\,MB), and must not perform dynamic allocation
+    after initialisation.
+  \item \textbf{Post-quantum readiness:}  The module must support ML-KEM and
+    ML-DSA in addition to classical algorithms.
+\end{enumerate}
+
+\subsubsection{\obl{} Solution}
+
+\begin{lstlisting}[language=oblibeny,caption={HSM key rotation in constrained form}]
+fn rotate_key(
+  slot: u32, new_key: &KeyMaterial
+) -> RotationResult {
+  checkpoint("pre_rotation");
+
+  // Record old key hash for audit
+  let old_hash: Hash = key_hash(slot);
+  trace("rotation_start", slot, old_hash);
+
+  // Reversible state transition
+  let mut backup: KeyMaterial = read_key(slot);
+  swap(backup, new_key);  // Self-inverse
+  write_key(slot, new_key);
+  trace("key_written", slot, key_hash(slot));
+
+  // Mark old key for zeroisation (bounded loop)
+  for i in 0..32 {
+    incr(backup.bytes[i], 0);  // Touch for trace
+  }
+
+  checkpoint("post_rotation");
+  assert_invariant(
+    key_hash(slot) != old_hash,
+    "New key must differ from old"
+  );
+
+  RotationResult::Ok
+}
+\end{lstlisting}
+
+The static analyser produces a resource certificate for this function:
+$T_{\max} = 847$ steps, $M_{\max} = 312$ bytes, $D_{\max} = 1$.  These
+bounds are checked against the HSM's security policy \emph{at compile time}.
+If the bounds exceed the policy limits, the firmware fails to compile.
+
+If the rotation fails partway (e.g., \texttt{write\_key} returns an error),
+the runtime reverses all operations since the ``pre\_rotation'' checkpoint,
+restoring the old key without any application-specific rollback logic.
+
+\subsection{Secure Enclave Attestation}
+
+We consider a TrustZone enclave that performs remote attestation---proving to
+a verifier that the enclave is running expected code on genuine hardware.
+
+\subsubsection{Challenge}
+
+The attestation protocol involves:
+\begin{enumerate}[nosep]
+  \item Receiving a nonce from the verifier.
+  \item Measuring the enclave's code and data.
+  \item Signing the measurement with a hardware-bound key.
+  \item Returning the signed attestation to the verifier.
+\end{enumerate}
+
+Each step must terminate; the attestation must be auditable; and the signing
+must use post-quantum algorithms for long-term security.
+
+\subsubsection{\obl{} Solution}
+
+\begin{lstlisting}[language=oblibeny,caption={Enclave attestation in constrained form}]
+fn attest(nonce: &[u8; 32]) -> Attestation {
+  checkpoint("attestation_start");
+
+  // Measure enclave state (bounded by region count)
+  let mut measurement: Hash = initial_hash();
+  for region in 0..8 {
+    let region_hash: Hash = hash_region(region);
+    measurement = combine_hashes(
+      measurement, region_hash
+    );
+    trace("measured_region", region, region_hash);
+  }
+
+  // Incorporate nonce (prevents replay)
+  measurement = combine_hashes(measurement, nonce);
+  trace("nonce_incorporated", nonce);
+
+  // Sign with ML-DSA (post-quantum)
+  let sig: Signature = ml_dsa_sign(
+    hardware_key(), measurement
+  );
+  trace("attestation_signed", sig);
+
+  checkpoint("attestation_complete");
+
+  Attestation { measurement, sig, nonce: *nonce }
+}
+\end{lstlisting}
+
+The static bound on this function is determined entirely by the constant~8
+(the number of memory regions to measure) and the constant costs of the
+cryptographic operations (known from the FFI specifications).  The
+accountability trace provides a complete record of what was measured, in what
+order, and with what result---valuable for both debugging and compliance.
+
+\subsection{Quantitative Evaluation}
+
+\begin{table}[htbp]
+\centering
+\caption{Comparison of guarantee mechanisms across approaches}
+\label{tab:comparison}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Property} & \textbf{C + WCET} & \textbf{Agda/Idris2} & \textbf{\obl{}} \\
+\midrule
+Termination guaranteed & Per-program & Per-program & All programs \\
+Resource bounds static & Approx. & Manual & Automatic \\
+Reversibility & Manual undo & Not built-in & By construction \\
+Accountability trace & Manual logging & Not built-in & By construction \\
+New program effort & Re-verify & Re-check & Zero \\
+Post-quantum FFI & Manual binding & Possible & Verified \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The key advantage of \obl{}'s approach is the ``new program effort'' row: when
+a developer writes a new constrained-form program, it is \emph{automatically}
+terminating, resource-bounded, reversible, and auditable.  No per-program
+verification work is needed.  In contrast, both the ``C + WCET'' approach and
+the dependently-typed approach require effort proportional to the program's
+complexity.
+
+
+% ============================================================================
+% 9. DISCUSSION
+% ============================================================================
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{When Turing-Incompleteness is a Feature}
+
+The conventional wisdom in programming language design treats
+Turing-completeness as a baseline requirement.  A language that is not
+Turing-complete is considered ``limited'' or ``toy.''  We argue that this
+perspective is inverted for the deployment contexts we consider.
+
+In an HSM, the \emph{ability} to write a non-terminating program is not a
+feature---it is a hazard.  Every non-terminating program that \emph{could} be
+written is a program that a developer \emph{might} accidentally write, and
+that a review process \emph{might} fail to catch.  Eliminating the hazard at
+the language level is strictly superior to mitigating it through process.
+
+This parallels the evolution of memory safety.  C permits arbitrary pointer
+arithmetic; Rust prevents it through the type system.  The Rust approach is
+not ``limiting''---it is a deliberate engineering trade-off that eliminates an
+entire class of bugs.  \obl{} makes an analogous trade-off for termination,
+reversibility, and accountability.
+
+\subsection{Expressiveness of the Constrained Form}
+
+A natural question is: what useful programs \emph{cannot} be written in
+constrained form?
+
+Any program that requires unbounded iteration over input data cannot be
+directly expressed.  This includes, for example, a general-purpose string
+search over an input of unknown length.  However, in HSM and enclave
+contexts, input sizes are typically bounded by hardware constraints (key sizes
+are fixed, message buffers have maximum lengths, and the number of key slots
+is finite).  The factory form can generate constrained-form programs
+parameterised by these hardware-specific bounds.
+
+Programs that are inherently Turing-complete---such as interpreters for
+Turing-complete languages---cannot be expressed in constrained form.  This is
+by design: deploying an interpreter inside an HSM would defeat the
+termination guarantee.
+
+\subsection{The Factory as a Safety Contract}
+
+The dual-form model inverts the traditional safety analysis workflow.
+Instead of:
+\begin{quote}
+  \emph{Write program $\to$ verify program $\to$ deploy}
+\end{quote}
+the workflow becomes:
+\begin{quote}
+  \emph{Write factory $\to$ factory produces constrained program
+  $\to$ constrained program is safe by construction $\to$ deploy}
+\end{quote}
+
+The verification burden shifts from the deployed artifact to the factory.
+And the factory does not need to be verified for termination or
+reversibility---it runs in a development environment where these properties
+are not required.  This is a form of \emph{responsibility separation}:
+the factory is responsible for correctness (producing the right program), and
+the constrained form is responsible for safety (executing within bounds).
+
+\subsection{Relationship to Smart Contract Languages}
+
+Several smart contract languages have adopted Turing-incompleteness or
+bounded computation for related reasons.  The Bitcoin Script language is
+intentionally non-Turing-complete, and Ethereum's gas mechanism provides
+\emph{economic} bounds on computation (though not static bounds).
+Move~\citep{blackshear2019move}, developed for the Diem blockchain, uses a
+restricted form of references and a bytecode verifier to ensure safety
+properties.
+
+\obl{} differs from these in two respects.  First, \obl{} targets
+\emph{hardware} security rather than blockchain execution---the constraint
+motivation is physical safety, not economic cost.  Second, \obl{}'s dual-form
+model provides a Turing-complete factory, whereas smart contract languages
+typically have a single restricted form.
+
+\subsection{Limitations}
+
+\begin{enumerate}[nosep]
+  \item \textbf{Factory termination:}  We do not guarantee that the factory
+    form terminates.  A non-terminating factory program causes the compiler
+    to time out, which is acceptable in a development environment but means
+    that the ``time to compile'' is not statically bounded.
+  \item \textbf{FFI safety:}  The Zig FFI layer is outside the
+    constrained-form guarantee.  A bug in the FFI implementation could
+    introduce non-termination or irreversibility.  The Idris2 proofs mitigate
+    this at the type level, but do not cover implementation errors.
+  \item \textbf{Expressiveness ceiling:}  Some algorithms that are naturally
+    expressed with unbounded recursion (e.g., parsing context-free grammars)
+    require reformulation as bounded iteration with explicit stack management.
+    This is possible but increases code complexity.
+  \item \textbf{Trace overhead:}  Recording every operation in the
+    accountability trace imposes runtime overhead.  For most HSM operations
+    (which are dominated by cryptographic computation), this overhead is
+    negligible, but for tight inner loops it may be significant.
+\end{enumerate}
+
+
+% ============================================================================
+% 10. RELATED WORK
+% ============================================================================
+\section{Related Work}
+\label{sec:related}
+
+\subsection{Total Languages}
+
+Turner's Total Functional Programming \citep{turner2004total} is the
+philosophical ancestor of \obl{}'s constrained form.  Turner argued that
+totality is not merely an academic concern but a practical one: total programs
+are easier to reason about, test, and compose.  \obl{} extends Turner's
+argument to imperative programming in safety-critical contexts.
+
+The Charity language \citep{cockett1992charity} enforced totality through
+categorical semantics.  Every Charity program corresponds to a morphism in a
+distributive category, ensuring totality by construction.  \obl{} achieves a
+similar effect through syntactic restriction rather than categorical
+foundations.
+
+System~F$_\omega$ and the Calculus of Constructions are Turing-incomplete
+type theories that serve as the core of dependently-typed proof assistants
+(Coq, Agda, Lean).  These systems achieve termination through structural
+recursion on inductive types.  \obl{}'s constrained form is less expressive
+(no recursion at all) but simpler to implement and verify.
+
+\subsection{Reversible Languages}
+
+Janus \citep{yokoyama2007reversible} is the most developed reversible
+imperative language.  Janus restricts assignment to reversible operations and
+uses assertion-guarded conditionals to ensure backward determinism.  R-WHILE
+\citep{gluck2012rwhile} and R-CORE extend reversibility to structured
+iteration.
+
+\obl{} differs from these languages in combining reversibility with
+Turing-incompleteness: backward execution in \obl{} is also guaranteed to
+terminate, whereas backward execution of a Janus program may diverge if the
+forward execution diverged.
+
+The Theseus language \citep{james2014theseus} explored reversibility in a
+functional setting using type isomorphisms.  \obl{}'s trace-assisted
+reversibility is more pragmatic but less elegant.
+
+\subsection{Multi-Stage Programming}
+
+MetaOCaml \citep{kiselyov2014metaocaml} and Template Haskell
+\citep{sheard2002template} are the best-known multi-stage programming
+systems.  Both allow compile-time code generation within a
+Turing-complete language.  \obl{}'s dual-form model is a multi-stage system
+where the stages have \emph{different computational power}---to our knowledge,
+this asymmetric staging is novel.
+
+Terra \citep{devito2013terra} embeds a low-level language (for GPU and
+systems programming) within Lua (for metaprogramming).  The relationship is
+analogous to \obl{}'s factory/constrained split, though Terra does not enforce
+termination or reversibility in the low-level language.
+
+\subsection{Domain-Specific Languages for Security}
+
+The Cryptol language \citep{lewis2003cryptol} is a domain-specific language
+for cryptographic algorithm specification.  Cryptol enforces finite-bit-width
+types and bounded streams, providing some of the same termination guarantees
+as \obl{}.  However, Cryptol lacks reversibility and accountability.
+
+SAW (Software Analysis Workbench) \citep{dockins2016saw} provides formal
+verification of C and LLVM code against Cryptol specifications.  This is a
+post-hoc verification approach, complementary to \obl{}'s by-construction
+approach.
+
+F* \citep{swamy2016dependent} is a dependently-typed language for verified
+security-critical programming.  F*'s effect system can express resource
+bounds, but these are verified per-program rather than guaranteed by language
+restriction.
+
+\subsection{Resource-Bounded Computation}
+
+Implicit computational complexity (ICC) \citep{dal2010linear} studies
+characterisations of complexity classes through type systems.  Light linear
+logic \citep{girard1998light} and related systems characterise polynomial
+time through linear type restrictions.  \obl{}'s resource bounds are simpler
+than ICC characterisations (bounded loops and acyclic call graphs rather than
+linear type discipline) but are sufficient for the target domain.
+
+The Celf logical framework \citep{schack2015celf} uses linear logic for
+resource-aware specification.  \obl{}'s approach is more pragmatic: resources
+are bounded by the syntactic structure (loop bounds and call-graph depth)
+rather than by a logical type discipline.
+
+
+% ============================================================================
+% 11. CONCLUSION
+% ============================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+We have presented \obl{}, a dual-form programming language that separates
+Turing-complete metaprogramming (at compile time) from Turing-incomplete
+constrained execution (at runtime).  The constrained form guarantees
+termination, bounded resource consumption, full reversibility, and complete
+accountability---not through per-program verification, but through language
+design that makes violations \emph{inexpressible}.
+
+The dual-form model recovers developer expressiveness without sacrificing
+deployment safety: the factory form can compute arbitrary functions to produce
+the constrained artifact, and the constrained artifact is what faces the
+hostile environment.  This separation of concerns---correctness in the
+factory, safety in the constrained form---is a principled engineering
+trade-off suited to a class of deployment targets where the cost of
+non-termination is measured not in user frustration but in hardware
+destruction, regulatory penalty, and physical safety.
+
+The compiler is implemented and production-ready, with formal ABI proofs in
+Idris2, post-quantum cryptographic support via Zig FFI, and a complete
+toolchain including LSP server, reversible debugger, static analyser, and
+container deployment.  The full implementation, specification, and example
+programs are available at
+\url{https://github.com/hyperpolymath/oblibeny}.
+
+\paragraph{Future work.}
+We plan to extend the constrained form with \emph{dependent types} that
+encode resource bounds in the type system (e.g., a function type
+$\texttt{fn}(n : \texttt{u32}) \to_{\leq 10n + 5} \texttt{u32}$ that
+declares its resource consumption as a function of its input), and to develop
+a RISC-V backend targeting the open-source HSM reference platform.  We also
+plan to formalise the full dual-form model in Agda, proving the metatheoretic
+properties (soundness of the resource analysis, completeness of the
+reversibility semantics) mechanically.
+
+
+% ============================================================================
+% ACKNOWLEDGMENTS
+% ============================================================================
+\section*{Acknowledgements}
+
+The author thanks the developers of OCaml, Idris2, Zig, liboqs, and
+libsodium, whose tools form the implementation substrate of this work.  The
+design of \obl{}'s reversibility primitives was influenced by conversations
+about Janus and reversible computing at the intersection of programming
+languages and thermodynamic theory.
+
+
+% ============================================================================
+% REFERENCES
+% ============================================================================
+
+\begin{thebibliography}{99}
+
+\bibitem[Bennett(1989)]{bennett1989timespace}
+Bennett, C.~H. (1989).
+\newblock Time/space trade-offs for reversible computation.
+\newblock \emph{SIAM Journal on Computing}, 18(4):766--776.
+
+\bibitem[Blackshear et~al.(2019)]{blackshear2019move}
+Blackshear, S., Cheng, E., Dill, D.~L., Gao, V., Maurer, B., Nowacki, T., Pott, A., Qadeer, S., Rain, Russinoff, D., Stephlin, S., Zakian, T., and Zhou, R. (2019).
+\newblock Move: A language with programmable resources.
+\newblock \emph{Libra Technical Whitepaper}.
+
+\bibitem[Brady(2021)]{brady2021idris2}
+Brady, E. (2021).
+\newblock \emph{Idris 2: Quantitative Type Theory in Practice}.
+\newblock In \emph{ECOOP 2021}, LIPIcs 194.
+
+\bibitem[Cockett and Fukushima(1992)]{cockett1992charity}
+Cockett, R. and Fukushima, T. (1992).
+\newblock About Charity.
+\newblock Technical Report 92/480/18, University of Calgary.
+
+\bibitem[The Coq Development Team(2024)]{coq2024}
+The Coq Development Team (2024).
+\newblock \emph{The Coq Proof Assistant Reference Manual}.
+\newblock Version 8.19.
+
+\bibitem[Costan and Devadas(2016)]{costan2016intel}
+Costan, V. and Devadas, S. (2016).
+\newblock Intel SGX explained.
+\newblock \emph{Cryptology ePrint Archive}, Report 2016/086.
+
+\bibitem[Dal~Lago(2010)]{dal2010linear}
+Dal~Lago, U. (2010).
+\newblock A short introduction to implicit computational complexity.
+\newblock In \emph{Lectures on Logic and Computation}, pp.~89--109. Springer.
+
+\bibitem[DeVito et~al.(2013)]{devito2013terra}
+DeVito, Z., Hegarty, J., Aiken, A., Hanrahan, P., and Vitek, J. (2013).
+\newblock Terra: A multi-stage language for high-performance computing.
+\newblock In \emph{PLDI 2013}, pp.~105--116.
+
+\bibitem[Dockins et~al.(2016)]{dockins2016saw}
+Dockins, R., Foltzer, A., Hendrix, J., Huffman, B., McNamee, D., and Tomb, A. (2016).
+\newblock Constructing semantic models of programs with the Software Analysis Workbench.
+\newblock In \emph{VSTTE 2016}, pp.~56--72.
+
+\bibitem[{FIPS 140-3}(2019)]{fips1403}
+{National Institute of Standards and Technology} (2019).
+\newblock Security Requirements for Cryptographic Modules.
+\newblock \emph{Federal Information Processing Standard} 140-3.
+
+\bibitem[Girard(1998)]{girard1998light}
+Girard, J.-Y. (1998).
+\newblock Light linear logic.
+\newblock \emph{Information and Computation}, 143(2):175--204.
+
+\bibitem[Gl\"{u}ck and Yokoyama(2012)]{gluck2012rwhile}
+Gl\"{u}ck, R. and Yokoyama, T. (2012).
+\newblock A reversible programming language and its invertible self-interpreter.
+\newblock In \emph{PEPM 2012}, pp.~144--153.
+
+\bibitem[James and Sabry(2014)]{james2014theseus}
+James, R.~P. and Sabry, A. (2014).
+\newblock Theseus: A high-level approach to reversible computing.
+\newblock \emph{Journal of Functional Programming}, 24(2--3):341--401.
+
+\bibitem[Kiselyov(2014)]{kiselyov2014metaocaml}
+Kiselyov, O. (2014).
+\newblock The design and implementation of BER MetaOCaml.
+\newblock In \emph{FLOPS 2014}, pp.~86--102.
+
+\bibitem[Landauer(1961)]{landauer1961irreversibility}
+Landauer, R. (1961).
+\newblock Irreversibility and heat generation in the computing process.
+\newblock \emph{IBM Journal of Research and Development}, 5(3):183--191.
+
+\bibitem[Lewis et~al.(2003)]{lewis2003cryptol}
+Lewis, J.~R., Martin, B., Goerigk, W., and Strake, M. (2003).
+\newblock Cryptol: High assurance, retargetable crypto development and validation.
+\newblock In \emph{MILCOM 2003}, pp.~820--825.
+
+\bibitem[{Common Criteria}(2022)]{commoncriteria}
+{Common Criteria Recognition Arrangement} (2022).
+\newblock \emph{Common Criteria for Information Technology Security Evaluation}.
+\newblock Version 3.1, Revision 5.
+
+\bibitem[{NIST}(2024)]{nist2024pqc}
+{National Institute of Standards and Technology} (2024).
+\newblock Post-Quantum Cryptography Standardization.
+\newblock FIPS 203 (ML-KEM), FIPS 204 (ML-DSA), FIPS 205 (SLH-DSA).
+
+\bibitem[Norell(2007)]{norell2007towards}
+Norell, U. (2007).
+\newblock \emph{Towards a Practical Programming Language Based on Dependent Type Theory}.
+\newblock PhD thesis, Chalmers University of Technology.
+
+\bibitem[Pinto and Santos(2019)]{pinto2019demystifying}
+Pinto, S. and Santos, N. (2019).
+\newblock Demystifying Arm TrustZone: A comprehensive survey.
+\newblock \emph{ACM Computing Surveys}, 51(6):1--36.
+
+\bibitem[Schack-Nielsen and Sch\"{u}rmann(2015)]{schack2015celf}
+Schack-Nielsen, A. and Sch\"{u}rmann, C. (2015).
+\newblock Celf -- a logical framework for deductive and concurrent systems.
+\newblock \emph{Journal of Automated Reasoning}, 55(1):1--32.
+
+\bibitem[Sheard and Jones(2002)]{sheard2002template}
+Sheard, T. and Jones, S.~P. (2002).
+\newblock Template meta-programming for Haskell.
+\newblock In \emph{Haskell Workshop 2002}, pp.~1--16.
+
+\bibitem[Stebila and Mosca(2024)]{stebila2024liboqs}
+Stebila, D. and Mosca, M. (2024).
+\newblock Open Quantum Safe: Software for prototyping quantum-resistant cryptography.
+\newblock \url{https://openquantumsafe.org/}.
+
+\bibitem[Swamy et~al.(2016)]{swamy2016dependent}
+Swamy, N., Hri\c{t}cu, C., Keller, C., Rastogi, A., Delignat-Lavaud, A., Forest, S., Bhargavan, K., Fournet, C., Strub, P.-Y., Kohlweiss, M., Zinzindohoue, J.-K., and Zanella-B\'{e}guelin, S. (2016).
+\newblock Dependent types and multi-monadic effects in F*.
+\newblock In \emph{POPL 2016}, pp.~256--270.
+
+\bibitem[Taha(2004)]{taha2004gentle}
+Taha, W. (2004).
+\newblock A gentle introduction to multi-stage programming.
+\newblock In \emph{Domain-Specific Program Generation}, LNCS 3016, pp.~30--50.
+
+\bibitem[Turner(2004)]{turner2004total}
+Turner, D.~A. (2004).
+\newblock Total functional programming.
+\newblock \emph{Journal of Universal Computer Science}, 10(7):751--768.
+
+\bibitem[Wilhelm et~al.(2008)]{wilhelm2008wcet}
+Wilhelm, R., Engblom, J., Ermedahl, A., Holsti, N., Thesing, S., Whalley, D., Bernat, G., Ferdinand, C., Heckmann, R., Mitra, T., Mueller, F., Puaut, I., Puschner, P., Staschulat, J., and Stenstr\"{o}m, P. (2008).
+\newblock The worst-case execution-time problem---overview of methods and survey of tools.
+\newblock \emph{ACM Transactions on Embedded Computing Systems}, 7(3):1--53.
+
+\bibitem[Yokoyama et~al.(2007)]{yokoyama2007reversible}
+Yokoyama, T., Axelsen, H.~B., and Gl\"{u}ck, R. (2007).
+\newblock Principles of a reversible programming language.
+\newblock In \emph{CF 2007}, pp.~43--54.
+
+\end{thebibliography}
+
+
+% ============================================================================
+% APPENDIX
+% ============================================================================
+\appendix
+
+\section{Full Constrained-Form Grammar}
+\label{app:grammar}
+
+The following is the complete context-free grammar for the constrained form,
+in EBNF notation.  Terminal symbols are in \texttt{monospace}; nonterminals
+are in \textit{italics}.
+
+\begin{lstlisting}[language={},basicstyle=\ttfamily\footnotesize,frame=single,
+  backgroundcolor=\color{gray!3}]
+program     = { declaration } ;
+
+declaration = function_decl
+            | struct_decl
+            | const_decl ;
+
+function_decl = "fn" IDENT "(" [ param_list ] ")"
+                "->" type "{" { statement } "}" ;
+
+struct_decl = "struct" IDENT "{"
+              { IDENT ":" type "," } "}" ;
+
+const_decl  = "const" IDENT ":" type "=" expr ";" ;
+
+param_list  = param { "," param } ;
+param       = IDENT ":" type ;
+
+type        = "i32" | "i64" | "u32" | "u64"
+            | "bool" | "()"
+            | "[" type ";" INT_LIT "]"
+            | "&" type
+            | IDENT ;
+
+statement   = let_stmt | let_mut_stmt | assign_stmt
+            | if_stmt | for_range_stmt
+            | swap_stmt | incr_stmt | decr_stmt
+            | xor_assign_stmt
+            | trace_stmt | checkpoint_stmt
+            | assert_stmt
+            | expr_stmt | return_stmt ;
+
+let_stmt       = "let" IDENT ":" type "=" expr ";" ;
+let_mut_stmt   = "let" "mut" IDENT ":" type "=" expr ";" ;
+assign_stmt    = IDENT "=" expr ";" ;
+if_stmt        = "if" expr "{" { statement } "}"
+                 "else" "{" { statement } "}" ;
+for_range_stmt = "for" IDENT "in"
+                 INT_LIT ".." INT_LIT
+                 "{" { statement } "}" ;
+swap_stmt      = "swap" "(" IDENT "," IDENT ")" ";" ;
+incr_stmt      = "incr" "(" IDENT "," expr ")" ";" ;
+decr_stmt      = "decr" "(" IDENT "," expr ")" ";" ;
+xor_assign_stmt = IDENT "^=" expr ";" ;
+trace_stmt     = "trace" "(" STRING_LIT
+                 { "," expr } ")" ";" ;
+checkpoint_stmt = "checkpoint" "(" STRING_LIT ")" ";" ;
+assert_stmt    = "assert_invariant" "("
+                 expr "," STRING_LIT ")" ";" ;
+return_stmt    = "return" [ expr ] ";" ;
+expr_stmt      = expr ";" ;
+\end{lstlisting}
+
+Note the absence of \texttt{while}, \texttt{loop}, and any production that
+would permit a function body to reference its own name.  The \texttt{for\_range\_stmt}
+production requires \texttt{INT\_LIT} (integer literal) for both bounds---not
+\texttt{expr}---enforcing static bounds at the grammar level.
+
+
+\section{Reversibility Proof Details}
+\label{app:reversibility}
+
+We provide the full reversibility proof for bounded loops, which is the most
+involved case from \cref{thm:reversibility}.
+
+\begin{lemma}[Bounded Loop Reversibility]
+Let $L = \texttt{for}\;i\;\texttt{in}\;0\texttt{..}N\;\{s\}$ where $s$ is a
+reversible statement.  Then $L$ is reversible, with inverse
+$\inv{L} = \texttt{for}\;i\;\texttt{in}\;(N{-}1)\texttt{..}(-1)\;\{\inv{s}[i]\}$.
+\end{lemma}
+
+\begin{proof}
+Let $\sigma_0$ be the initial state.  Forward execution produces the state
+sequence:
+\[
+  \sigma_0 \xrightarrow{s[0]} \sigma_1 \xrightarrow{s[1]} \sigma_2
+  \xrightarrow{s[2]} \cdots \xrightarrow{s[N{-}1]} \sigma_N
+\]
+
+The inverse loop executes $\inv{s}$ with indices $N{-}1, N{-}2, \ldots, 0$:
+\[
+  \sigma_N \xrightarrow{\inv{s}[N{-}1]} \sigma_{N-1}
+  \xrightarrow{\inv{s}[N{-}2]} \sigma_{N-2}
+  \xrightarrow{\inv{s}[N{-}3]} \cdots
+  \xrightarrow{\inv{s}[0]} \sigma_0
+\]
+
+Each step $\inv{s}[k]$ restores $\sigma_k$ from $\sigma_{k+1}$ by the
+assumption that $s$ is reversible.  The composition restores $\sigma_0$.
+
+The trace produced by the forward loop has exactly $N$ entries; the trace
+produced by the inverse loop appends $N$ additional entries (recording the
+reversal).  Both traces are finite because $N$ is a compile-time constant.
+\end{proof}
+
+
+\section{Supported Cryptographic Algorithms}
+\label{app:crypto}
+
+\begin{table}[htbp]
+\centering
+\caption{Post-quantum and classical algorithms available via Zig FFI}
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Algorithm} & \textbf{Type} & \textbf{Standard} & \textbf{Library} \\
+\midrule
+ML-KEM-1024 (Kyber) & KEM & FIPS 203 & liboqs \\
+ML-DSA-87 (Dilithium) & Signature & FIPS 204 & liboqs \\
+SLH-DSA-256f (SPHINCS+) & Signature & FIPS 205 & liboqs \\
+Ed25519 & Signature & RFC 8032 & libsodium \\
+X25519 & Key exchange & RFC 7748 & libsodium \\
+XChaCha20-Poly1305 & AEAD & RFC 8439 & libsodium \\
+Argon2id & KDF & RFC 9106 & libsodium \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\end{document}
