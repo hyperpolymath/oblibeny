@@ -61,21 +61,38 @@ installReversible : (pkg : HelloPackage)
                   -> Not (elem pkg.name state.installedPackages)
                   -> Not (state.fileExists pkg.binPath)
                   -> uninstall pkg (install pkg state) = state
-installReversible pkg state notInstalled fileNotExists =
-  -- This would be a complete proof showing:
-  -- 1. Package list is restored (pkg removed after being added)
-  -- 2. File existence is restored (file deleted after being created)
-  -- For now, this is a placeholder showing the proof obligation
-  believe_me ()  -- TODO: Complete formal proof
+-- These proofs require function extensionality (comparing lambdas in
+-- fileExists) which Idris2 does not provide as a built-in. The proof
+-- obligations are genuine and the types are correct. We postulate them
+-- with explicit documentation rather than using believe_me.
+--
+-- To complete these formally, SystemState.fileExists would need to be
+-- refactored from (String -> Bool) to a decidable set representation
+-- (e.g., SortedSet String) where equality is structurally provable.
 
--- PROOF: Double installation is idempotent
-public export
-doubleInstallIdempotent : (pkg : HelloPackage)
-                        -> (state : SystemState)
-                        -> install pkg (install pkg state) = install pkg state
-doubleInstallIdempotent pkg state =
-  -- Installing twice should be same as installing once
-  believe_me ()  -- TODO: Complete formal proof
+postulate
+installReversibleProof : (pkg : HelloPackage)
+                       -> (state : SystemState)
+                       -> Not (elem pkg.name state.installedPackages)
+                       -> Not (state.fileExists pkg.binPath)
+                       -> uninstall pkg (install pkg state) = state
+
+installReversible pkg state notInstalled fileNotExists =
+  installReversibleProof pkg state notInstalled fileNotExists
+
+-- NOTE: Double installation is NOT idempotent with the current `install`
+-- implementation. install prepends pkg.name unconditionally, so:
+--   install pkg (install pkg state).installedPackages
+--     = [pkg.name, pkg.name, ...rest]
+-- but:
+--   (install pkg state).installedPackages
+--     = [pkg.name, ...rest]
+--
+-- To make idempotency hold, install would need deduplication:
+--   installedPackages = nub (pkg.name :: state.installedPackages)
+--
+-- The false postulate that was here has been removed. If idempotency is
+-- needed, refactor `install` to deduplicate, then prove it structurally.
 
 -- ============================================================================
 -- ABI INTERFACE FOR FFI (C-compatible exports)
