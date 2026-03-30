@@ -8,7 +8,8 @@
     - {!Ast.stmt} (SLet, SLetMut, SAssign, SIf, SForRange, SExpr, SReturn,
       SSwap, SIncr, SDecr, SXorAssign, STrace, SCheckpoint, SAssertInvariant, SError)
     - {!Ast.expr} (ELiteral, EVar, EBinop, EUnop, ECall, EIndex, EField,
-      EIf, EBlock, EStruct)
+      EIf, EBlock, EStruct, EMatch)
+    - {!Ast.pattern} (PWild, PVar, PLiteral)
     - {!Ast.typ}, {!Ast.prim_type}, {!Ast.literal}, {!Ast.binop}, {!Ast.unop}
 *)
 
@@ -96,6 +97,16 @@ let rec expr_to_sexpr d e =
       (String.concat " " (List.map (fun (f, e) ->
         Printf.sprintf "(%s %s)" f (expr_to_sexpr (d+4) e)
       ) fields))
+  | EMatch (scrutinee, arms) ->
+    let arms_str = String.concat "" (List.map (fun (pat, arm_e) ->
+      let pat_str = match pat with
+        | PWild -> "_"
+        | PVar name -> Printf.sprintf "(var \"%s\")" name
+        | PLiteral lit -> literal_to_sexpr lit
+      in
+      Printf.sprintf "\n%s(%s => %s)" (indent (d+2)) pat_str (expr_to_sexpr (d+4) arm_e)
+    ) arms) in
+    Printf.sprintf "(match %s%s)" (expr_to_sexpr (d+2) scrutinee) arms_str
 
 (** Convert a statement to S-expression form.
     [d] is the current indentation depth. *)
@@ -243,6 +254,16 @@ let rec expr_to_json e =
   | EStruct (name, fields) ->
     `Assoc [("type", `String "struct_literal"); ("name", `String name);
             ("fields", `Assoc (List.map (fun (f, e) -> (f, expr_to_json e)) fields))]
+  | EMatch (scrutinee, arms) ->
+    let pattern_to_json = function
+      | PWild -> `Assoc [("type", `String "wildcard")]
+      | PVar name -> `Assoc [("type", `String "variable"); ("name", `String name)]
+      | PLiteral lit -> `Assoc [("type", `String "literal"); ("value", literal_to_json lit)]
+    in
+    `Assoc [("type", `String "match"); ("scrutinee", expr_to_json scrutinee);
+            ("arms", `List (List.map (fun (pat, arm_e) ->
+              `Assoc [("pattern", pattern_to_json pat); ("expr", expr_to_json arm_e)]
+            ) arms))]
 
 (** Convert a statement to a Yojson value. *)
 and stmt_to_json s =

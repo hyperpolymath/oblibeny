@@ -160,6 +160,37 @@ let rec eval_expr state env expr =
     let field_values = List.map (fun (n, e) -> (n, eval_expr state env e)) fields in
     VStruct field_values
 
+  | EMatch (scrutinee, arms) ->
+    let scrutinee_v = eval_expr state env scrutinee in
+    let rec try_arms = function
+      | [] -> raise (EvalError "match: no arm matched")
+      | (pat, arm_expr) :: rest ->
+        (match pat with
+         | PWild ->
+           eval_expr state env arm_expr
+         | PVar name ->
+           (* Bind the scrutinee value to the variable in a temporary scope *)
+           let prev = Hashtbl.find_opt env.mutable_vars name in
+           Hashtbl.replace env.mutable_vars name (ref scrutinee_v);
+           let result = eval_expr state env arm_expr in
+           (* Restore previous binding or remove *)
+           (match prev with
+            | Some old -> Hashtbl.replace env.mutable_vars name old
+            | None -> Hashtbl.remove env.mutable_vars name);
+           result
+         | PLiteral lit ->
+           let lit_v = match lit with
+             | LInt i -> VInt i
+             | LBool b -> VBool b
+             | LUnit -> VUnit
+           in
+           if scrutinee_v = lit_v then
+             eval_expr state env arm_expr
+           else
+             try_arms rest)
+    in
+    try_arms arms
+
 and eval_stmt state env stmt =
   match stmt.stmt_desc with
   | SLet (name, _, init) ->

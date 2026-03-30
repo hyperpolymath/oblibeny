@@ -51,6 +51,13 @@ type unop =
   | Neg | Not | BitNot
   [@@deriving show]
 
+(** Match patterns for pattern matching expressions *)
+type pattern =
+  | PWild                              (** _ - matches anything *)
+  | PVar of string                     (** x - binds matched value to variable *)
+  | PLiteral of literal                (** 42, true, false, () *)
+  [@@deriving show]
+
 (** ==========================================================================
     CONSTRAINED FORM EXPRESSIONS
     These are the only expressions allowed in the Turing-incomplete form.
@@ -73,6 +80,7 @@ and expr_desc =
   | EIf of expr * expr * expr           (** Conditional expression *)
   | EBlock of stmt list * expr option   (** Block with optional final expression *)
   | EStruct of string * (string * expr) list  (** Struct construction *)
+  | EMatch of expr * (pattern * expr) list  (** Match expression: scrutinee and arms *)
   [@@deriving show]
 
 (** ==========================================================================

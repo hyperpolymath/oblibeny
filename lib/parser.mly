@@ -201,6 +201,7 @@ expr:
   | e = unary_expr { e }
   | e = if_expr { e }
   | e = block_expr { e }
+  | e = match_expr { e }
   ;
 
 primary_expr:
@@ -259,4 +260,24 @@ if_expr:
 block_expr:
   | LBRACE stmts = list(stmt) e = option(expr) RBRACE
     { mk_expr dummy_loc (EBlock (stmts, e)) }
+  ;
+
+/* ========== MATCH EXPRESSION ========== */
+
+match_expr:
+  | KW_MATCH scrutinee = expr LBRACE arms = separated_nonempty_list(COMMA, match_arm) RBRACE
+    { mk_expr dummy_loc (EMatch (scrutinee, arms)) }
+  ;
+
+match_arm:
+  | p = pattern FAT_ARROW e = expr { (p, e) }
+  ;
+
+pattern:
+  | name = IDENT
+    { if name = "_" then PWild else PVar name }
+  | n = INT    { PLiteral (LInt n) }
+  | KW_TRUE    { PLiteral (LBool true) }
+  | KW_FALSE   { PLiteral (LBool false) }
+  | LPAREN RPAREN { PLiteral LUnit }
   ;

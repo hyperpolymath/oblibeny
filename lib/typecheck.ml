@@ -237,6 +237,43 @@ let rec infer_expr env expr =
          Printf.sprintf "undefined struct: %s" name,
          expr.expr_loc)))
 
+  | EMatch (scrutinee, arms) ->
+    let scrutinee_t = infer_expr env scrutinee in
+    (* Check that match has at least one arm *)
+    if arms = [] then
+      raise (TypeError ("match expression must have at least one arm", expr.expr_loc));
+    (* Check each pattern is compatible with scrutinee type, and infer arm types *)
+    let arm_types = List.map (fun (pat, arm_expr) ->
+      (* Check pattern compatibility and extend env with bindings *)
+      let arm_env = match pat with
+        | PWild -> env
+        | PVar name -> { env with vars = Env.add name scrutinee_t env.vars }
+        | PLiteral lit ->
+          let lit_t = match lit with
+            | LInt _ -> TPrim TI64
+            | LBool _ -> TPrim TBool
+            | LUnit -> TPrim TUnit
+          in
+          if not (types_equal scrutinee_t lit_t) then
+            raise (TypeError (
+              Printf.sprintf "match pattern type %s incompatible with scrutinee type %s"
+                (format_type lit_t) (format_type scrutinee_t),
+              expr.expr_loc));
+          env
+      in
+      infer_expr arm_env arm_expr
+    ) arms in
+    (* All arms must have the same type *)
+    let first_t = List.hd arm_types in
+    List.iter (fun arm_t ->
+      if not (types_equal first_t arm_t) then
+        raise (TypeError (
+          Printf.sprintf "match arms must have same type: expected %s, got %s"
+            (format_type first_t) (format_type arm_t),
+          expr.expr_loc))
+    ) (List.tl arm_types);
+    first_t
+
 (** Check statements and return updated environment *)
 and check_stmts env stmts =
   List.fold_left check_stmt env stmts

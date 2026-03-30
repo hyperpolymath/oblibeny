@@ -106,6 +106,10 @@ let rec call_depth_expr expr funcs =
   | EIndex (arr, idx) -> max (call_depth_expr arr funcs) (call_depth_expr idx funcs)
   | EField (e, _) -> call_depth_expr e funcs
   | EStruct (_, fields) -> List.fold_left (fun acc (_, e) -> max acc (call_depth_expr e funcs)) 0 fields
+  | EMatch (scrutinee, arms) ->
+    let scrutinee_depth = call_depth_expr scrutinee funcs in
+    let arms_depth = List.fold_left (fun acc (_, arm_e) -> max acc (call_depth_expr arm_e funcs)) 0 arms in
+    max scrutinee_depth arms_depth
   | ELiteral _ | EVar _ -> 0
 
 and call_depth_stmt stmt funcs =
