@@ -165,7 +165,7 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: /mnt/eclipse/oblibeny-traces  # Persistent accountability traces
+      device: $ECLIPSE_DIR/oblibeny-traces  # Persistent accountability traces
 
   analyzer_workspace:
     driver: tmpfs
