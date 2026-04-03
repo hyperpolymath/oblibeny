@@ -129,10 +129,22 @@ verifyTripleSignature msg msgLen d5Sig d5SigLen spSig spSigLen edSig edSigLen d5
   pure $ if result == 0 then Valid else Invalid
 
 -- ============================================================================
--- FORMAL PROPERTIES (To be proved)
+-- FORMAL PROPERTIES — INTENTIONAL FFI AXIOMS
+--
+-- These postulates assert correctness/soundness of EXTERNAL cryptographic
+-- primitives accessed via C FFI (prim__verify_signature, prim__verify_triple).
+-- They CANNOT be proved in Idris2 because the implementations are opaque
+-- native code (libsodium / PQC libraries). Their correctness depends on:
+--   1. The external C library implementing the algorithm correctly
+--   2. The FFI marshalling preserving buffer contents
+--
+-- AXIOM JUSTIFICATION: Standard practice for FFI boundary properties.
+-- The alternative (believe_me / assert_total) would be strictly worse.
+-- These axioms make the trust boundary explicit and auditable.
 -- ============================================================================
 
--- PROPERTY: Valid signature always verifies
+-- INTENTIONAL AXIOM [FFI-CRYPTO-CORRECTNESS]:
+-- Valid signature always verifies — assumes external crypto lib is correct.
 postulate
 signatureCorrectness : (scheme : SignatureScheme)
                     -> (msg : Buffer)
@@ -144,7 +156,8 @@ signatureCorrectness : (scheme : SignatureScheme)
                     -> verifySignature scheme msg msgLen sig sigLen pk pkLen = pure Valid
                     -> IO VerificationResult
 
--- PROPERTY: Invalid signature never verifies
+-- INTENTIONAL AXIOM [FFI-CRYPTO-SOUNDNESS]:
+-- Invalid signature never verifies — assumes external crypto lib is correct.
 postulate
 signatureSoundness : (scheme : SignatureScheme)
                   -> (msg : Buffer)
@@ -156,7 +169,9 @@ signatureSoundness : (scheme : SignatureScheme)
                   -> Not (verifySignature scheme msg msgLen sig sigLen pk pkLen = pure Valid)
                   -> IO VerificationResult
 
--- PROPERTY: Triple signature requires all three to verify
+-- INTENTIONAL AXIOM [FFI-CRYPTO-CONJUNCTION]:
+-- Triple signature requires all three to verify — structural property of
+-- the C triple-verification function that conjuncts three separate checks.
 postulate
 tripleSignatureConjunction : (msg : Buffer) -> (msgLen : Nat)
                           -> (d5Sig : Buffer) -> (d5SigLen : Nat)

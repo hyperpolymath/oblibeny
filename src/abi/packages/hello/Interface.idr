@@ -61,6 +61,7 @@ installReversible : (pkg : HelloPackage)
                   -> Not (elem pkg.name state.installedPackages)
                   -> Not (state.fileExists pkg.binPath)
                   -> uninstall pkg (install pkg state) = state
+-- INTENTIONAL AXIOM [FUNEXT-INSTALL-REVERSIBILITY]:
 -- These proofs require function extensionality (comparing lambdas in
 -- fileExists) which Idris2 does not provide as a built-in. The proof
 -- obligations are genuine and the types are correct. We postulate them
@@ -69,6 +70,8 @@ installReversible : (pkg : HelloPackage)
 -- To complete these formally, SystemState.fileExists would need to be
 -- refactored from (String -> Bool) to a decidable set representation
 -- (e.g., SortedSet String) where equality is structurally provable.
+-- This is a standard mathematical axiom (function extensionality) that
+-- is consistent with Idris2's type theory but not derivable in it.
 
 postulate
 installReversibleProof : (pkg : HelloPackage)
