@@ -27,7 +27,7 @@ Lago Grey is a 14.6 MB minimal Linux distribution with post-quantum cryptography
 
 ### Development
 - [[Contributing]]
-- [[Build System]] (justfile reference)
+- [[Build System]] (Justfile reference)
 - [[Testing]]
 - [[Release Process]]
 
