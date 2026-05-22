@@ -308,7 +308,7 @@ spec:
 **File:** `shared/sig-verify.zig` (used by both projects)
 
 ```zig
-// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 // Shared by Cerro Torre and Lago Grey
 
 const std = @import("std");

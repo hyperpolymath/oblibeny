@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 // SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell
 
 = Lago Grey vs Alpine vs Chainguard: Comparison Chart
@@ -224,7 +224,7 @@
 | Community
 
 | *Primary license*
-| *PMPL-1.0-or-later*
+| *MPL-2.0*
 | Apache 2.0
 | MIT
 
@@ -540,7 +540,7 @@ It's the **first and only** distribution with:
 * ✅ Formal verification of all components
 * ✅ Reversible package operations
 * ✅ Automated maintenance (no paid staff needed)
-* ✅ True community governance (PMPL-1.0-or-later)
+* ✅ True community governance (MPL-2.0)
 
 **Classification:**
 * **Lago Grey** = 🏔️ Small Iceberg (agile, modern)

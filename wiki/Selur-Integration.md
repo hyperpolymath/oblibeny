@@ -32,7 +32,7 @@ All Lago Grey images include metadata labels:
 LABEL org.opencontainers.image.title="Lago Grey"
 LABEL org.opencontainers.image.version="0.1.0-alpha"
 LABEL org.opencontainers.image.vendor="hyperpolymath"
-LABEL org.opencontainers.image.licenses="PMPL-1.0-or-later"
+LABEL org.opencontainers.image.licenses="MPL-2.0"
 
 # Lago Grey specific
 LABEL io.hyperpolymath.classification="Small Iceberg"

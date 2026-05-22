@@ -1,5 +1,5 @@
 (lang dune 3.0)
-; SPDX-License-Identifier: PMPL-1.0-or-later
+; SPDX-License-Identifier: MPL-2.0
 ; Copyright (c) 2026 Jonathan D.A. Jewell
 
 (using menhir 2.1)
@@ -10,7 +10,7 @@
 (generate_opam_files true)
 
 (source (github hyperpolymath/oblibeny))
-(license "PMPL-1.0-or-later")
+(license "MPL-2.0")
 (authors "Jonathan D.A. Jewell <jonathan.jewell@open.ac.uk>")
 (maintainers "Jonathan D.A. Jewell <jonathan.jewell@open.ac.uk>")
 

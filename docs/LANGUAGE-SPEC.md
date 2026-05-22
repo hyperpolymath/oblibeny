@@ -2,7 +2,7 @@
 
 **Version:** 0.1.0
 **Status:** Draft
-**License:** PMPL-1.0-or-later
+**License:** MPL-2.0
 
 ## 1. Introduction
 

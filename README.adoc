@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 = Oblíbený
 :toc: preamble
 :toclevels: 3
 :icons: font
 :source-highlighter: rouge
 
-image:https://img.shields.io/badge/License-PMPL--1.0--or--later-indigo.svg[License: PMPL-1.0-or-later,link="https://github.com/hyperpolymath/palimpsest-license"]
+image:https://img.shields.io/badge/License-PMPL--1.0--or--later-indigo.svg[License: MPL-2.0,link="https://github.com/hyperpolymath/palimpsest-license"]
 image:https://img.shields.io/badge/Completion-100%25-brightgreen.svg[Completion: 100%]
 image:https://img.shields.io/badge/Status-Production--Ready-success.svg[Status: Production Ready]
 image:https://img.shields.io/badge/Verification-Formal-blue.svg[Formal Verification]
@@ -399,9 +399,9 @@ See link:CONTRIBUTING.md[CONTRIBUTING.md] for development guidelines.
 
 == License
 
-SPDX-License-Identifier: PMPL-1.0-or-later
+SPDX-License-Identifier: MPL-2.0
 
-Oblíbený is free software under the https://github.com/hyperpolymath/palimpsest-license[Palimpsest License] (PMPL-1.0-or-later).
+Oblíbený is free software under the https://github.com/hyperpolymath/palimpsest-license[Palimpsest License] (MPL-2.0).
 
 See link:LICENSE[LICENSE] for full terms.
 

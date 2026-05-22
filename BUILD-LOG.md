@@ -24,7 +24,7 @@ Minimal Linux distribution:
   • 17.5 MB base (Small Iceberg 🏔️)
   • Post-quantum crypto (Dilithium5, Kyber-1024)
   • Formally verified (Idris2 + Zig)
-  • Community governed (PMPL-1.0-or-later)
+  • Community governed (MPL-2.0)
 ```
 
 ---
@@ -277,5 +277,5 @@ Ready to create the first complete Lago Grey distribution image:
 ---
 
 **Built by:** hyperpolymath
-**License:** PMPL-1.0-or-later
+**License:** MPL-2.0
 **Status:** Core components complete → Ready for first image assembly! 🚀

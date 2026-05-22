@@ -48,7 +48,7 @@ Lago Grey is a 14.6 MB minimal Linux distribution with post-quantum cryptography
 - **Post-quantum ready** - Dilithium5, Kyber-1024, SPHINCS+ by default
 - **Formally verified** - Idris2 ABI proofs + Coq crypto proofs
 - **Reversible operations** - All package changes are traceable and reversible
-- **Community governed** - PMPL-1.0-or-later license
+- **Community governed** - MPL-2.0 license
 - **Zero corporate control** - True community project
 
 ### Comparison
@@ -67,7 +67,7 @@ Lago Grey is a 14.6 MB minimal Linux distribution with post-quantum cryptography
 - **Version:** 0.1.0-alpha
 - **Status:** Proof of Concept → MVP
 - **Completion:** 50%
-- **License:** PMPL-1.0-or-later
+- **License:** MPL-2.0
 - **Repository:** [github.com/hyperpolymath/oblibeny](https://github.com/hyperpolymath/oblibeny)
 
 ---

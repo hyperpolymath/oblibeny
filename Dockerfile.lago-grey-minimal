@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: PMPL-1.0-or-later
+# SPDX-License-Identifier: MPL-2.0
 # Dockerfile.lago-grey-minimal - First complete Lago Grey distribution image
 #
 # Base: Google distroless-base (~10MB)
@@ -33,7 +33,7 @@ LABEL org.opencontainers.image.title="Lago Grey"
 LABEL org.opencontainers.image.description="Minimal, formally-verified Linux distribution with post-quantum crypto"
 LABEL org.opencontainers.image.version="0.1.0-alpha"
 LABEL org.opencontainers.image.vendor="hyperpolymath"
-LABEL org.opencontainers.image.licenses="PMPL-1.0-or-later"
+LABEL org.opencontainers.image.licenses="MPL-2.0"
 LABEL org.opencontainers.image.source="https://github.com/hyperpolymath/oblibeny"
 
 # Copy our components from builder

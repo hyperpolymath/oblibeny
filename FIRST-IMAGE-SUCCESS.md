@@ -51,7 +51,7 @@ We've successfully built the first **Lago Grey** minimal Linux distribution imag
 - **27-63% smaller** (14.6 MB vs 20-40 MB)
 - No corporate control
 - PQ crypto by default
-- True community license (PMPL-1.0-or-later)
+- True community license (MPL-2.0)
 
 ---
 
@@ -91,7 +91,7 @@ Minimal Linux distribution:
   • 17.5 MB base (Small Iceberg 🏔️)
   • Post-quantum crypto (Dilithium5, Kyber-1024)
   • Formally verified (Idris2 + Zig)
-  • Community governed (PMPL-1.0-or-later)
+  • Community governed (MPL-2.0)
 ```
 **Status:** ✅ PASS
 
@@ -104,7 +104,7 @@ Features:
   • Post-quantum signature verification (Dilithium5, Ed448, SPHINCS+)
   • Reversible installations with accountability traces
   • Formally verified with Idris2 ABI proofs
-  • Community governed (PMPL-1.0-or-later)
+  • Community governed (MPL-2.0)
 ```
 **Status:** ✅ PASS
 
@@ -165,7 +165,7 @@ We've gone from concept to working distribution in a single session:
 - 14.6 MB Small Iceberg 🏔️
 - 4× smaller than Alpine
 - Post-quantum crypto included
-- Community governed (PMPL-1.0-or-later)
+- Community governed (MPL-2.0)
 - No corporate control
 
 **This is not vaporware. This is the future of minimal Linux distributions.**
@@ -188,7 +188,7 @@ We've gone from concept to working distribution in a single session:
 ## Community
 
 **Built by:** Jonathan D.A. Jewell (hyperpolymath)
-**License:** PMPL-1.0-or-later
+**License:** MPL-2.0
 **Repository:** github.com/hyperpolymath/oblibeny
 **Status:** Proof of Concept → MVP ✅
 

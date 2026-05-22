@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 // SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell
 
 = Oblibeny Package Format (.zpkg) Specification
@@ -39,7 +39,7 @@ package-name-version.zpkg/
 == META.scm Format
 
 ```scheme
-;; SPDX-License-Identifier: PMPL-1.0-or-later
+;; SPDX-License-Identifier: MPL-2.0
 
 (define package-metadata
   '((package
@@ -47,7 +47,7 @@ package-name-version.zpkg/
       (version "1.0.0")
       (architecture ("x86_64" "aarch64" "riscv64"))
       (author "Jonathan D.A. Jewell <jonathan.jewell@open.ac.uk>")
-      (license "PMPL-1.0-or-later"))
+      (license "MPL-2.0"))
 
     (dependencies
       ())  ;; Empty for hello

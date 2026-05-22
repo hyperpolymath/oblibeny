@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: PMPL-1.0-or-later
+# SPDX-License-Identifier: MPL-2.0
 # Vörðr Container Manifest for Oblíbený
 # Format: verified-container-spec v1.0
 
@@ -161,7 +161,7 @@ ffi-implementation = "ffi/zig/src/crypto.zig"
 "org.opencontainers.image.title" = "Oblíbený Language Server"
 "org.opencontainers.image.description" = "Secure edge language for reversibility and accountability"
 "org.opencontainers.image.vendor" = "Hyperpolymath"
-"org.opencontainers.image.licenses" = "PMPL-1.0-or-later"
+"org.opencontainers.image.licenses" = "MPL-2.0"
 "org.opencontainers.image.source" = "https://github.com/hyperpolymath/oblibeny"
 "org.opencontainers.image.documentation" = "https://github.com/hyperpolymath/oblibeny/tree/main/docs"
 

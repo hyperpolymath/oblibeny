@@ -54,4 +54,4 @@ code --install-extension oblibeny-0.1.0.vsix
 
 ## License
 
-PMPL-1.0-or-later (Palimpsest License)
+MPL-2.0 (Palimpsest License)

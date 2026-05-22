@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 // obli-pkg.zig - Oblibeny package manager for Lago Grey
 //
 // Provides package management for .zpkg archives with:
@@ -64,7 +64,7 @@ fn printVersion() !void {
         \\  • Post-quantum signature verification (Dilithium5, Ed448, SPHINCS+)
         \\  • Reversible installations with accountability traces
         \\  • Formally verified with Idris2 ABI proofs
-        \\  • Community governed (PMPL-1.0-or-later)
+        \\  • Community governed (MPL-2.0)
         \\
     ;
 

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: PMPL-1.0-or-later
+# SPDX-License-Identifier: MPL-2.0
 # Dockerfile.argon2 - Build argon2 for Lago Grey
 
 FROM docker.io/alpine:latest AS builder

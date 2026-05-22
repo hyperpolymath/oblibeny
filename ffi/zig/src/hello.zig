@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 // hello.zig - Simple hello binary for Lago Grey proof-of-concept
 
 const std = @import("std");
@@ -11,7 +11,7 @@ pub fn main() !void {
         \\  • 17.5 MB base (Small Iceberg 🏔️)
         \\  • Post-quantum crypto (Dilithium5, Kyber-1024)
         \\  • Formally verified (Idris2 + Zig)
-        \\  • Community governed (PMPL-1.0-or-later)
+        \\  • Community governed (MPL-2.0)
         \\
     ;
 
