@@ -30,7 +30,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - language: javascript-typescript
+          # The repository contains no JavaScript/TypeScript source (the estate
+          # language policy bans TS; only JSON config files exist), so the
+          # javascript-typescript extractor errored with "no source code seen".
+          # CodeQL's GitHub Actions analysis scans the workflow YAML that does
+          # exist here, keeping this a meaningful security check.
+          - language: actions
             build-mode: none
 
     steps:
