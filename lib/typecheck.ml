@@ -64,14 +64,27 @@ let rec format_type = function
 (** ==========================================================================
     AFFINE ECHO DISCIPLINE
 
-    An echo is the residue of a non-injective collapse.  To keep that meaning
-    (rather than degenerating into an ordinary product A * B that you can freely
-    read from both sides), a *non-copyable* echo is affine: it may be referenced
-    at most once.  Each reference -- in particular each [echo_visible] /
-    [echo_witness] projection -- consumes it.
+    An echo is the residue of a non-injective collapse.  The discipline is
+    content-sensitive:
 
-    A *copyable* echo (one whose components are all copyable, e.g. echo[i64, i64])
-    is unrestricted, mirroring how copyable values may be duplicated freely.
+        echo[A, B] is affine  iff  A or B is non-copyable.
+
+    So echo[i64, i64] is unrestricted (project it freely), while echo[Cargo, i64],
+    echo[i64, Cargo] and echo[array[i64], i64] are affine.  Echo never makes
+    copyable data non-copyable by magic; it preserves the copyability discipline
+    of its contents.
+
+    For non-copyable contents, affine consumption is essential: otherwise
+    echo[A, B] degenerates into an ordinary product A * B you can freely read from
+    both sides, an unrestricted way to duplicate or inspect non-copyable residue.
+    A non-copyable echo may be referenced at most once -- each reference, in
+    particular each [echo_visible] / [echo_witness] projection, consumes it.
+
+    A *copyable* echo (both components copyable, e.g. echo[i64, i64]) is
+    unrestricted, mirroring how copyable values may be duplicated freely: if both
+    sides are copyable, duplicating the echo smuggles in no extra authority, heap
+    state, trace state, or hidden capability -- it is a bounded pair of copyable
+    observations, and the "no rhino" boundary stays intact.
 
     This discipline is scoped to echo bindings only; all other variables keep
     their existing unrestricted usage.

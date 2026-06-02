@@ -348,6 +348,28 @@ fn main() -> () {
   | Error _ -> Alcotest.(check bool) "double use of non-copyable echo is rejected" true true
   | Ok () -> Alcotest.fail "non-copyable echo used twice should not typecheck"
 
+(* Affine discipline is content-sensitive on *either* side: a copyable witness
+   with a non-copyable visible (echo[i64, Cargo]) is still affine.  This pins the
+   "A or B is non-copyable" half of the rule, not just the witness. *)
+let test_echo_noncopyable_visible_is_affine () =
+  let src = {|
+struct Cargo { mass: i64 }
+
+fn ship(m: i64) -> echo[i64, Cargo] {
+  return echo(m, Cargo { mass: m % 2 });
+}
+
+fn main() -> () {
+  let e: echo[i64, Cargo] = ship(7);
+  let v: Cargo = echo_visible(e);
+  let w: i64 = echo_witness(e);
+}
+|} in
+  let prog = parse_ok src in
+  match Typecheck.typecheck_program prog with
+  | Error _ -> Alcotest.(check bool) "echo with non-copyable visible side is affine" true true
+  | Ok () -> Alcotest.fail "echo[i64, Cargo] used twice should not typecheck"
+
 (* Safety ("no rhino"): an echo expression must not let a recursive call slip
    past the constrained-form checker. *)
 let test_echo_does_not_bypass_recursion () =
@@ -410,6 +432,7 @@ let () =
       Alcotest.test_case "copyable echo is unrestricted" `Quick test_echo_copyable_unrestricted;
       Alcotest.test_case "non-copyable echo: single use ok" `Quick test_echo_noncopyable_single_use_ok;
       Alcotest.test_case "non-copyable echo: double use rejected" `Quick test_echo_noncopyable_double_use_rejected;
+      Alcotest.test_case "non-copyable visible side is affine (A or B)" `Quick test_echo_noncopyable_visible_is_affine;
       Alcotest.test_case "echo does not bypass recursion checks" `Quick test_echo_does_not_bypass_recursion;
       Alcotest.test_case "echo memory bounded (witness + visible)" `Quick test_echo_memory_bounded;
     ];

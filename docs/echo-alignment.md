@@ -34,14 +34,31 @@ Echo must respect that boundary.
 - **Runtime value:** a runnable pair `(witness, visible)` (`VEcho`). There is **no**
   statically enforced proof that `f witness = visible`. An optional dynamic
   checked introduction may come later; the core type does not depend on it.
+- **Affine discipline is content-sensitive:**
+
+  ```
+  echo[A, B] is affine  iff  A or B is non-copyable.
+  ```
+
+  So `echo[i64, i64]` can be projected freely, while `echo[Trace, i64]`,
+  `echo[array[i64], i64]` and `echo[i64, Cargo]` (non-copyable on *either* side)
+  are affine. Echo does **not** make copyable data non-copyable by magic; it
+  **preserves the copyability discipline of its contents**. Oblíbený is a factory
+  for constrained mini-languages, not a proof calculus making every echo linearly
+  precious — the boundary should be small, analysable, and resource-aware, not
+  gratuitously restrictive for primitive copyable data.
 - **Projections are affine-consuming for non-copyable echoes:**
   `echo_visible(e)` and `echo_witness(e)` each consume `e` when `e` is
   non-copyable. Without this, `echo[A, B]` degenerates into an ordinary
   duplicable product `A * B` that can be freely destructured from both sides —
-  the wrong semantic smell, and a new unrestricted pairing/decomposition
-  mechanism the constrained form must not admit.
-- **Copyable echoes may remain unrestricted** (e.g. `echo[i64, i64]`), mirroring
-  how copyable values may be duplicated freely.
+  an unrestricted way to duplicate or inspect non-copyable residue, and a new
+  unrestricted pairing/decomposition mechanism the constrained form must not
+  admit.
+- **Copyable echoes remain unrestricted** (e.g. `echo[i64, i64]`), mirroring how
+  copyable values may be duplicated freely. If both sides are copyable,
+  duplicating the echo smuggles in no extra authority, heap state, trace state,
+  or hidden capability — it is a bounded pair of copyable observations, so the
+  "no rhino" boundary stays intact.
 - **"residue"** names the whole retained-loss object in prose; `echo_witness` /
   `echo_visible` stay as the projection names (the witness projection returns the
   source value, not the residue object).
