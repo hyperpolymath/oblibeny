@@ -48,9 +48,13 @@ Oblíbený (Czech for "favorite" or "beloved") is a dual-form programming langua
 |✅ 100%
 |Syntax highlighting, reversible op highlighting, invalid keyword detection
 
+|*Echo Residue Type*
+|✅ 100%
+|First-class `echo[A, B]` type: structured, proof-relevant residue of irreversible collapse; content-sensitive affinity discipline
+
 |*Documentation*
 |✅ 100%
-|Language specification, tutorial, security model, API reference
+|Language specification, tutorial, security model, API reference, EXPLAINME, contractiles, echo-6a2 spec
 
 |*Crypto FFI*
 |✅ 100%
@@ -121,6 +125,57 @@ checkpoint("end");
 ----
 
 Traces are cryptographically hashed for integrity.
+
+=== Echo Residue Type
+
+The type-level dual of the reversible core. Where a computation _cannot_ be reversed, it can still retain a structured *echo* of what was lost:
+
+[source,rust]
+----
+// Parity collapse: distinct sources (7, 9) → same visible (1)
+// but the witness retains the original source value
+fn collapse(n: i64) -> echo[i64, i64] {
+    return echo(n, n % 2);
+}
+
+fn main() -> () {
+    let a: echo[i64, i64] = collapse(7);
+    let b: echo[i64, i64] = collapse(9);
+
+    // Same observation survived (both odd)
+    assert_invariant(echo_visible(a) == echo_visible(b), "same parity");
+    // Witnesses tell the sources apart
+    assert_invariant(echo_witness(a) != echo_witness(b), "distinct sources");
+}
+----
+
+[cols="1,2,2",options="header"]
+|===
+|Form |Syntax |Meaning
+
+|Type
+|`echo[A, B]`
+|Residue of a collapse `A → B`
+
+|Introduction
+|`echo(source, base)`
+|Form a residue
+
+|Elimination
+|`echo_visible(e) : B`
+|The surviving observation
+
+|Elimination
+|`echo_witness(e) : A`
+|The retained source constraint
+|===
+
+**Affinity discipline**: `echo[A, B]` is affine (may be used at most once) if and only if `A` or `B` is non-copyable. `echo[i64, i64]` projects freely; `echo[Cargo, i64]` is consumed on first projection.
+
+This realises, in a non-dependent constrained language, the echo-types fibre
+`Echo f y := Σ (x : A), f x ≡ y`
+from link:https://github.com/hyperpolymath/echo-types[hyperpolymath/echo-types] (Agda).
+See link:docs/echo-alignment.md[docs/echo-alignment.md] and link:docs/specs/echo-6a2.adoc[docs/specs/echo-6a2.adoc] for the ecosystem alignment decisions.
 
 == Installation
 
@@ -299,10 +354,14 @@ podman run -p 8765:8765 oblibeny:latest
 
 == Documentation
 
+- link:EXPLAINME.adoc[EXPLAINME] - What Oblíbený is, why it exists, and why it matters (start here)
 - link:docs/LANGUAGE-SPEC.md[Language Specification] - Complete grammar and semantics
 - link:docs/TUTORIAL.md[Tutorial] - Step-by-step guide with examples
 - link:examples/[Examples] - 10+ example programs
 - link:SPEC.core.scm[Core Specification] - Formal specification in Scheme
+- link:docs/CONTRACTILES.adoc[Contractiles] - Formal behavioral contracts and invariants
+- link:docs/specs/echo-6a2.adoc[Echo Interface Spec §6.a.2] - Echo-types external interface contract
+- link:docs/echo-alignment.md[Echo Alignment] - Decisions ledger for echo-types ecosystem alignment
 
 == Architecture
 

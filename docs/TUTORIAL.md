@@ -154,7 +154,74 @@ fn main() -> () {
 - `assert_invariant()` validates correctness
 - Traces create a complete audit trail
 
-## Part 6: What NOT to Do
+## Part 6: Echo Types — Structured, Non-Total Loss
+
+The `echo[A, B]` type is the type-level dual of the reversible core. Where a computation cannot be reversed, it can still retain a structured *echo* of what was lost.
+
+**Concept**: a parity collapse maps any integer to `0` (even) or `1` (odd). The mapping is not injective — both 7 and 9 collapse to 1. An echo retains the original value (the *witness*) alongside the surviving observation (the *visible*):
+
+```rust
+fn collapse(n: i64) -> echo[i64, i64] {
+    return echo(n, n % 2);
+}
+```
+
+`echo(n, n % 2)` builds a residue: `n` is the witness (the full source), `n % 2` is the visible (the surviving observation after the parity collapse).
+
+**Reading the echo back**:
+
+```rust
+fn main() -> () {
+    let a: echo[i64, i64] = collapse(7);
+    let b: echo[i64, i64] = collapse(9);
+
+    checkpoint("compare");
+
+    // Both collapsed to 1 (odd parity) — the collapse lost which number it was
+    assert_invariant(echo_visible(a) == echo_visible(b), "same surviving observation");
+
+    // But the witnesses retain the original sources — loss was not total
+    assert_invariant(echo_witness(a) != echo_witness(b), "distinct retained witnesses");
+
+    checkpoint("done");
+}
+```
+
+Run this:
+```bash
+oblibeny examples/echo-types.obl
+```
+
+**Affinity**: `echo[A, B]` is usable at most once (affine) if `A` or `B` is a non-copyable type (struct, array, trace). For primitive echoes like `echo[i64, i64]`, both projections can be used freely:
+
+```rust
+let e: echo[i64, i64] = collapse(7);
+let v: i64 = echo_visible(e);   // fine
+let w: i64 = echo_witness(e);   // also fine — echo[i64, i64] is copyable
+```
+
+For a non-copyable echo:
+
+```rust
+struct Cargo { mass: i64 }
+fn ship(m: i64) -> echo[Cargo, i64] {
+    return echo(Cargo { mass: m }, m % 2);
+}
+fn main() -> () {
+    let e: echo[Cargo, i64] = ship(7);
+    let v: i64 = echo_visible(e);    // OK — e is consumed here
+    // let w: Cargo = echo_witness(e); // COMPILE ERROR: e was already consumed
+}
+```
+
+**Key concepts**:
+- `echo(source, base)` forms a residue
+- `echo_visible(e)` returns the surviving observation
+- `echo_witness(e)` returns the retained source constraint
+- Echo is *not* reversible — it exists precisely for computations that cannot be reversed
+- See link:LANGUAGE-SPEC.md#_3_4_echo_residue_type[Language Spec §3.4] for the full type rules
+
+## Part 7: What NOT to Do
 
 ```rust
 // ❌ INVALID: while loop (unbounded)

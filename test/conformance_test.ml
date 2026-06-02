@@ -219,6 +219,187 @@ let test_eval_xor_self_inverse () =
   Alcotest.(check bool) "xor self-inverse" true true
 
 (* ============================================================================
+   TEST: Echo types (structured, non-total loss)
+   ============================================================================ *)
+
+let parse_ok src =
+  match Parse.parse_string src with
+  | Ok p -> p
+  | Error e -> Alcotest.failf "parse failed: %s" e
+
+(* A non-injective collapse: parity erases the source, but the echo retains a
+   witness on it.  Mirrors echo-types'  Echo f y := Σ (x : A), f x ≡ y. *)
+let echo_program_src = {|
+fn collapse(n: i64) -> echo[i64, i64] {
+  return echo(n, n % 2);
+}
+
+fn main() -> () {
+  let e: echo[i64, i64] = collapse(7);
+  let v: i64 = echo_visible(e);
+  let w: i64 = echo_witness(e);
+  assert_invariant(v == 1, "visible parity retained");
+  assert_invariant(w == 7, "source witness retained");
+}
+|}
+
+let test_echo_typechecks () =
+  let prog = parse_ok echo_program_src in
+  match Typecheck.typecheck_program prog with
+  | Ok () -> Alcotest.(check bool) "echo program typechecks" true true
+  | Error _ -> Alcotest.fail "echo program should typecheck"
+
+let test_echo_no_constraint_violations () =
+  let prog = parse_ok echo_program_src in
+  let violations = Constrained_check.validate_program prog in
+  Alcotest.(check int) "echo program is valid constrained form" 0 (List.length violations)
+
+let test_echo_evaluates () =
+  let prog = parse_ok echo_program_src in
+  (* Asserts inside main must all pass, so this must not raise. *)
+  let _ = Eval.eval_program prog in
+  Alcotest.(check bool) "echo program evaluates" true true
+
+(* The defining property: a non-injective map loses information (equal visible
+   projections) yet the echo retains enough to distinguish the sources. *)
+let test_echo_non_injective () =
+  let src = {|
+fn collapse(n: i64) -> echo[i64, i64] {
+  return echo(n, n % 2);
+}
+
+fn main() -> () {
+  let a: echo[i64, i64] = collapse(7);
+  let b: echo[i64, i64] = collapse(9);
+  assert_invariant(echo_visible(a) == echo_visible(b), "same surviving observation");
+  assert_invariant(echo_witness(a) != echo_witness(b), "distinct retained witnesses");
+}
+|} in
+  let prog = parse_ok src in
+  let _ = Eval.eval_program prog in
+  Alcotest.(check bool) "distinct witnesses under equal visible" true true
+
+let test_echo_visible_requires_echo () =
+  let src = {|
+fn main() -> () {
+  let bad: i64 = echo_visible(5);
+}
+|} in
+  let prog = parse_ok src in
+  match Typecheck.typecheck_program prog with
+  | Error _ -> Alcotest.(check bool) "echo_visible on non-echo is a type error" true true
+  | Ok () -> Alcotest.fail "echo_visible on i64 should not typecheck"
+
+(* A non-copyable echo: its witness is a struct (conservatively non-copyable),
+   so the echo is affine -- usable at most once. *)
+let noncopyable_echo_prelude = {|
+struct Cargo { mass: i64 }
+
+fn ship(m: i64) -> echo[Cargo, i64] {
+  return echo(Cargo { mass: m }, m % 2);
+}
+|}
+
+(* Affine: copyable echoes (echo[i64, i64]) may be projected repeatedly. *)
+let test_echo_copyable_unrestricted () =
+  let src = {|
+fn collapse(n: i64) -> echo[i64, i64] {
+  return echo(n, n % 2);
+}
+
+fn main() -> () {
+  let e: echo[i64, i64] = collapse(7);
+  let v: i64 = echo_visible(e);
+  let w: i64 = echo_witness(e);
+  assert_invariant(v == 1, "copyable echo reused freely");
+  assert_invariant(w == 7, "copyable echo reused freely");
+}
+|} in
+  let prog = parse_ok src in
+  match Typecheck.typecheck_program prog with
+  | Ok () -> Alcotest.(check bool) "copyable echo is unrestricted" true true
+  | Error _ -> Alcotest.fail "copyable echo should be freely usable"
+
+(* Affine: a non-copyable echo may be projected once. *)
+let test_echo_noncopyable_single_use_ok () =
+  let src = noncopyable_echo_prelude ^ {|
+fn main() -> () {
+  let e: echo[Cargo, i64] = ship(7);
+  let v: i64 = echo_visible(e);
+  assert_invariant(v == 1, "single projection is fine");
+}
+|} in
+  let prog = parse_ok src in
+  match Typecheck.typecheck_program prog with
+  | Ok () -> Alcotest.(check bool) "single use of non-copyable echo is allowed" true true
+  | Error _ -> Alcotest.fail "single projection of a non-copyable echo should typecheck"
+
+(* Affine: projecting a non-copyable echo twice is a type error. *)
+let test_echo_noncopyable_double_use_rejected () =
+  let src = noncopyable_echo_prelude ^ {|
+fn main() -> () {
+  let e: echo[Cargo, i64] = ship(7);
+  let v: i64 = echo_visible(e);
+  let w: Cargo = echo_witness(e);
+}
+|} in
+  let prog = parse_ok src in
+  match Typecheck.typecheck_program prog with
+  | Error _ -> Alcotest.(check bool) "double use of non-copyable echo is rejected" true true
+  | Ok () -> Alcotest.fail "non-copyable echo used twice should not typecheck"
+
+(* Affine discipline is content-sensitive on *either* side: a copyable witness
+   with a non-copyable visible (echo[i64, Cargo]) is still affine.  This pins the
+   "A or B is non-copyable" half of the rule, not just the witness. *)
+let test_echo_noncopyable_visible_is_affine () =
+  let src = {|
+struct Cargo { mass: i64 }
+
+fn ship(m: i64) -> echo[i64, Cargo] {
+  return echo(m, Cargo { mass: m % 2 });
+}
+
+fn main() -> () {
+  let e: echo[i64, Cargo] = ship(7);
+  let v: Cargo = echo_visible(e);
+  let w: i64 = echo_witness(e);
+}
+|} in
+  let prog = parse_ok src in
+  match Typecheck.typecheck_program prog with
+  | Error _ -> Alcotest.(check bool) "echo with non-copyable visible side is affine" true true
+  | Ok () -> Alcotest.fail "echo[i64, Cargo] used twice should not typecheck"
+
+(* Safety ("no rhino"): an echo expression must not let a recursive call slip
+   past the constrained-form checker. *)
+let test_echo_does_not_bypass_recursion () =
+  let src = {|
+fn loops() -> echo[i64, i64] {
+  return echo(loops(), 0);
+}
+
+fn main() -> () {
+}
+|} in
+  let prog = parse_ok src in
+  let violations = Constrained_check.validate_program prog in
+  let is_recursive = function Ast.RecursiveCall _ -> true | _ -> false in
+  Alcotest.(check bool) "recursion hidden inside an echo is still rejected" true
+    (List.exists is_recursive violations)
+
+(* Safety ("no rhino"): echo memory is bounded as witness + visible, not open-ended. *)
+let test_echo_memory_bounded () =
+  let prog = program_with_main [
+    mk_stmt Location.dummy (SLet ("e",
+      Some (TEcho (TPrim TI64, TPrim TI64)),
+      mk_expr Location.dummy (EEcho (
+        mk_expr Location.dummy (ELiteral (LInt 0L)),
+        mk_expr Location.dummy (ELiteral (LInt 0L))))));
+  ] in
+  Alcotest.(check int) "echo[i64, i64] memory = witness + visible (8 + 8)"
+    16 (Static_analyzer.estimate_memory prog)
+
+(* ============================================================================
    TEST SUITE
    ============================================================================ *)
 
@@ -241,5 +422,18 @@ let () =
       Alcotest.test_case "incr/decr reversible" `Quick test_eval_incr_decr_reversible;
       Alcotest.test_case "swap reversible" `Quick test_eval_swap_reversible;
       Alcotest.test_case "xor self-inverse" `Quick test_eval_xor_self_inverse;
+    ];
+    "echo-types", [
+      Alcotest.test_case "echo program typechecks" `Quick test_echo_typechecks;
+      Alcotest.test_case "echo program is valid constrained form" `Quick test_echo_no_constraint_violations;
+      Alcotest.test_case "echo program evaluates" `Quick test_echo_evaluates;
+      Alcotest.test_case "non-injective: distinct witnesses, equal visible" `Quick test_echo_non_injective;
+      Alcotest.test_case "echo_visible requires echo type" `Quick test_echo_visible_requires_echo;
+      Alcotest.test_case "copyable echo is unrestricted" `Quick test_echo_copyable_unrestricted;
+      Alcotest.test_case "non-copyable echo: single use ok" `Quick test_echo_noncopyable_single_use_ok;
+      Alcotest.test_case "non-copyable echo: double use rejected" `Quick test_echo_noncopyable_double_use_rejected;
+      Alcotest.test_case "non-copyable visible side is affine (A or B)" `Quick test_echo_noncopyable_visible_is_affine;
+      Alcotest.test_case "echo does not bypass recursion checks" `Quick test_echo_does_not_bypass_recursion;
+      Alcotest.test_case "echo memory bounded (witness + visible)" `Quick test_echo_memory_bounded;
     ];
   ]

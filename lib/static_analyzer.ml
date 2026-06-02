@@ -106,6 +106,8 @@ let rec call_depth_expr expr funcs =
   | EIndex (arr, idx) -> max (call_depth_expr arr funcs) (call_depth_expr idx funcs)
   | EField (e, _) -> call_depth_expr e funcs
   | EStruct (_, fields) -> List.fold_left (fun acc (_, e) -> max acc (call_depth_expr e funcs)) 0 fields
+  | EEcho (e1, e2) -> max (call_depth_expr e1 funcs) (call_depth_expr e2 funcs)
+  | EEchoVisible e | EEchoWitness e -> call_depth_expr e funcs
   | ELiteral _ | EVar _ -> 0
 
 and call_depth_stmt stmt funcs =
@@ -195,6 +197,7 @@ let estimate_memory program =
     | TFun _ -> 0  (* Functions are not stored *)
     | TStruct _ -> 0  (* TODO: Need struct definitions *)
     | TTrace -> 1024  (* Estimated trace storage *)
+    | TEcho (a, b) -> size_of_type a + size_of_type b  (* Retained witness + surviving value *)
   in
 
   let rec memory_of_stmt stmt =

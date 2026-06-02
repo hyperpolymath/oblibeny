@@ -19,6 +19,9 @@ let dummy_loc = Location.dummy
 /* Trace operations */
 %token KW_TRACE KW_CHECKPOINT KW_ASSERT_INVARIANT
 
+/* Echo residues (structured, non-total loss) */
+%token KW_ECHO KW_ECHO_VISIBLE KW_ECHO_WITNESS
+
 /* Type keywords */
 %token KW_I32 KW_I64 KW_U32 KW_U64 KW_BOOL
 
@@ -130,6 +133,7 @@ typ:
   | LPAREN RPAREN { TPrim TUnit }
   | LBRACK t = typ RBRACK { TArray (t, None) }
   | LBRACK t = typ SEMICOLON n = INT RBRACK { TArray (t, Some (Int64.to_int n)) }
+  | KW_ECHO LBRACK src = typ COMMA base = typ RBRACK { TEcho (src, base) }
   | name = IDENT { TStruct name }
   ;
 
@@ -217,6 +221,12 @@ primary_expr:
   | LPAREN e = expr RPAREN { e }
   | name = IDENT LBRACE fields = separated_list(COMMA, struct_field) RBRACE
     { mk_expr dummy_loc (EStruct (name, fields)) }
+  | KW_ECHO LPAREN src = expr COMMA base = expr RPAREN
+    { mk_expr dummy_loc (EEcho (src, base)) }
+  | KW_ECHO_VISIBLE LPAREN e = expr RPAREN
+    { mk_expr dummy_loc (EEchoVisible e) }
+  | KW_ECHO_WITNESS LPAREN e = expr RPAREN
+    { mk_expr dummy_loc (EEchoWitness e) }
   ;
 
 struct_field:

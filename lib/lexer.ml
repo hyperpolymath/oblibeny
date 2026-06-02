@@ -63,6 +63,11 @@ let () = List.iter (fun (kw, tok) -> Hashtbl.add keywords kw tok) [
   ("checkpoint", Parser.KW_CHECKPOINT);
   ("assert_invariant", Parser.KW_ASSERT_INVARIANT);
 
+  (* Echo residues (structured, non-total loss) *)
+  ("echo", Parser.KW_ECHO);
+  ("echo_visible", Parser.KW_ECHO_VISIBLE);
+  ("echo_witness", Parser.KW_ECHO_WITNESS);
+
   (* Types *)
   ("i32", Parser.KW_I32);
   ("i64", Parser.KW_I64);

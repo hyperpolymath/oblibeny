@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: MPL-2.0
+// Example: Echo types -- structured, non-total loss
+//
+// An echo type  echo[A, B]  is the proof-relevant residue of a non-injective
+// (lossy / irreversible) map from a source type A onto a visible base type B.
+// It is the type-level dual of Oblibeny's reversible core: where a computation
+// cannot be reversed, it retains an *echo* of what was lost.
+//
+// This mirrors the echo-types fibre  Echo f y := Sigma (x : A), f x == y :
+//   - echo_visible  recovers the surviving observation (the base value), and
+//   - echo_witness  recovers the retained constraint on the source.
+//
+// Affinity: a non-copyable echo residue is affine -- it may be projected at
+// most once, so you cannot freely read both its visible and witness sides (that
+// would make it an ordinary product, not structured loss).  A *copyable* echo,
+// such as the echo[i64, i64] below, is unrestricted, so this example projects
+// each residue more than once.
+//
+// See: https://github.com/hyperpolymath/echo-types        (Agda formalisation)
+//      https://github.com/hyperpolymath/EchoTypes.jl       (finite-domain model)
+
+// A deliberately non-injective collapse: parity erases most of the source,
+// but the echo retains a witness on the original value.
+fn collapse(n: i64) -> echo[i64, i64] {
+    return echo(n, n % 2);
+}
+
+fn main() -> () {
+    // Two different sources that collapse to the same visible observation.
+    let a: echo[i64, i64] = collapse(7);
+    let b: echo[i64, i64] = collapse(9);
+
+    checkpoint("echoes_formed");
+    trace("visible", echo_visible(a), echo_visible(b));
+
+    // Loss: the surviving observations are indistinguishable (both odd -> 1).
+    assert_invariant(echo_visible(a) == echo_visible(b),
+                     "non-total loss: equal visible projections");
+
+    // Not erasure: the echo still constrains the source enough to tell them apart.
+    assert_invariant(echo_witness(a) != echo_witness(b),
+                     "structured loss: distinct retained witnesses");
+}

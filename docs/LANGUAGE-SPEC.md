@@ -78,6 +78,64 @@ fn main() -> () {
 ### 3.3 Special Types
 
 - `Trace` - Accountability trace type (system-managed)
+- `echo[A, B]` - Echo residue type: structured, proof-relevant residue of a non-injective collapse from source type `A` to visible type `B`
+
+### 3.4 Echo Residue Type
+
+`echo[A, B]` is the type of a value that holds both the surviving observation of a lossy collapse and a retained witness to the original source.
+
+#### Introduction
+
+```rust
+echo(source: A, base: B) : echo[A, B]
+```
+
+Forms a residue. `source` is the retained witness (the full source value); `base` is the visible observation (what survives the collapse).
+
+#### Elimination
+
+```rust
+echo_visible(e: echo[A, B]) : B   // the surviving observation
+echo_witness(e: echo[A, B]) : A   // the retained source constraint
+```
+
+#### Affinity discipline
+
+`echo[A, B]` is **affine** (usable at most once) if and only if `A` or `B` is non-copyable.
+
+| Type | Copyable? | Projection behaviour |
+|------|-----------|----------------------|
+| `echo[i64, i64]` | Yes | Projections unrestricted |
+| `echo[Cargo, i64]` | No (`Cargo` is a struct) | Each projection consumes `e` |
+| `echo[i64, Cargo]` | No | Each projection consumes `e` |
+| `echo[array[i64], i64]` | No | Each projection consumes `e` |
+
+This preserves the copyability discipline of the echo's contents: Echo does not make copyable data non-copyable by magic.
+
+#### Non-injectivity
+
+The characteristic property of echo is demonstrable non-injectivity:
+
+```rust
+fn collapse(n: i64) -> echo[i64, i64] {
+    return echo(n, n % 2);   // parity collapse: 7 and 9 both → 1
+}
+fn main() -> () {
+    let a: echo[i64, i64] = collapse(7);
+    let b: echo[i64, i64] = collapse(9);
+    assert_invariant(echo_visible(a) == echo_visible(b), "same parity");   // true: 1 == 1
+    assert_invariant(echo_witness(a) != echo_witness(b), "distinct sources"); // true: 7 != 9
+}
+```
+
+#### Constrained form properties
+
+- Echo does **not** participate in `incr`/`decr`/`swap` balancing (it is not reversible)
+- Recursion hidden inside an echo expression is still rejected by the constrained checker
+- Echo memory is bounded: `sizeof(echo[A, B]) = sizeof(A) + sizeof(B)`
+- A non-copyable echo bound before a loop and used inside it is rejected (would be consumed every iteration)
+
+See link:CONTRACTILES.adoc[docs/CONTRACTILES.adoc] for the full formal contracts (E-series and A-series).
 
 ## 4. Reversible Operations
 
