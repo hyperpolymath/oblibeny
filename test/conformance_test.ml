@@ -348,6 +348,35 @@ fn main() -> () {
   | Error _ -> Alcotest.(check bool) "double use of non-copyable echo is rejected" true true
   | Ok () -> Alcotest.fail "non-copyable echo used twice should not typecheck"
 
+(* Safety ("no rhino"): an echo expression must not let a recursive call slip
+   past the constrained-form checker. *)
+let test_echo_does_not_bypass_recursion () =
+  let src = {|
+fn loops() -> echo[i64, i64] {
+  return echo(loops(), 0);
+}
+
+fn main() -> () {
+}
+|} in
+  let prog = parse_ok src in
+  let violations = Constrained_check.validate_program prog in
+  let is_recursive = function Ast.RecursiveCall _ -> true | _ -> false in
+  Alcotest.(check bool) "recursion hidden inside an echo is still rejected" true
+    (List.exists is_recursive violations)
+
+(* Safety ("no rhino"): echo memory is bounded as witness + visible, not open-ended. *)
+let test_echo_memory_bounded () =
+  let prog = program_with_main [
+    mk_stmt Location.dummy (SLet ("e",
+      Some (TEcho (TPrim TI64, TPrim TI64)),
+      mk_expr Location.dummy (EEcho (
+        mk_expr Location.dummy (ELiteral (LInt 0L)),
+        mk_expr Location.dummy (ELiteral (LInt 0L))))));
+  ] in
+  Alcotest.(check int) "echo[i64, i64] memory = witness + visible (8 + 8)"
+    16 (Static_analyzer.estimate_memory prog)
+
 (* ============================================================================
    TEST SUITE
    ============================================================================ *)
@@ -381,5 +410,7 @@ let () =
       Alcotest.test_case "copyable echo is unrestricted" `Quick test_echo_copyable_unrestricted;
       Alcotest.test_case "non-copyable echo: single use ok" `Quick test_echo_noncopyable_single_use_ok;
       Alcotest.test_case "non-copyable echo: double use rejected" `Quick test_echo_noncopyable_double_use_rejected;
+      Alcotest.test_case "echo does not bypass recursion checks" `Quick test_echo_does_not_bypass_recursion;
+      Alcotest.test_case "echo memory bounded (witness + visible)" `Quick test_echo_memory_bounded;
     ];
   ]
