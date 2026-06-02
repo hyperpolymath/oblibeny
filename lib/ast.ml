@@ -87,8 +87,10 @@ and expr_desc =
   | EBlock of stmt list * expr option   (** Block with optional final expression *)
   | EStruct of string * (string * expr) list  (** Struct construction *)
   | EEcho of expr * expr                (** [echo(source, base)] - introduce an echo residue *)
-  | EEchoVisible of expr                (** [echo_visible(e)] - project the surviving base value *)
-  | EEchoWitness of expr                (** [echo_witness(e)] - project the retained source witness *)
+  | EEchoVisible of expr                (** [echo_visible(e)] - project the surviving base value.
+                                            Consumes [e] when its echo type is non-copyable (affine). *)
+  | EEchoWitness of expr                (** [echo_witness(e)] - project the retained source witness.
+                                            Consumes [e] when its echo type is non-copyable (affine). *)
   [@@deriving show]
 
 (** ==========================================================================

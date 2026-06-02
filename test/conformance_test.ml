@@ -290,6 +290,64 @@ fn main() -> () {
   | Error _ -> Alcotest.(check bool) "echo_visible on non-echo is a type error" true true
   | Ok () -> Alcotest.fail "echo_visible on i64 should not typecheck"
 
+(* A non-copyable echo: its witness is a struct (conservatively non-copyable),
+   so the echo is affine -- usable at most once. *)
+let noncopyable_echo_prelude = {|
+struct Cargo { mass: i64 }
+
+fn ship(m: i64) -> echo[Cargo, i64] {
+  return echo(Cargo { mass: m }, m % 2);
+}
+|}
+
+(* Affine: copyable echoes (echo[i64, i64]) may be projected repeatedly. *)
+let test_echo_copyable_unrestricted () =
+  let src = {|
+fn collapse(n: i64) -> echo[i64, i64] {
+  return echo(n, n % 2);
+}
+
+fn main() -> () {
+  let e: echo[i64, i64] = collapse(7);
+  let v: i64 = echo_visible(e);
+  let w: i64 = echo_witness(e);
+  assert_invariant(v == 1, "copyable echo reused freely");
+  assert_invariant(w == 7, "copyable echo reused freely");
+}
+|} in
+  let prog = parse_ok src in
+  match Typecheck.typecheck_program prog with
+  | Ok () -> Alcotest.(check bool) "copyable echo is unrestricted" true true
+  | Error _ -> Alcotest.fail "copyable echo should be freely usable"
+
+(* Affine: a non-copyable echo may be projected once. *)
+let test_echo_noncopyable_single_use_ok () =
+  let src = noncopyable_echo_prelude ^ {|
+fn main() -> () {
+  let e: echo[Cargo, i64] = ship(7);
+  let v: i64 = echo_visible(e);
+  assert_invariant(v == 1, "single projection is fine");
+}
+|} in
+  let prog = parse_ok src in
+  match Typecheck.typecheck_program prog with
+  | Ok () -> Alcotest.(check bool) "single use of non-copyable echo is allowed" true true
+  | Error _ -> Alcotest.fail "single projection of a non-copyable echo should typecheck"
+
+(* Affine: projecting a non-copyable echo twice is a type error. *)
+let test_echo_noncopyable_double_use_rejected () =
+  let src = noncopyable_echo_prelude ^ {|
+fn main() -> () {
+  let e: echo[Cargo, i64] = ship(7);
+  let v: i64 = echo_visible(e);
+  let w: Cargo = echo_witness(e);
+}
+|} in
+  let prog = parse_ok src in
+  match Typecheck.typecheck_program prog with
+  | Error _ -> Alcotest.(check bool) "double use of non-copyable echo is rejected" true true
+  | Ok () -> Alcotest.fail "non-copyable echo used twice should not typecheck"
+
 (* ============================================================================
    TEST SUITE
    ============================================================================ *)
@@ -320,5 +378,8 @@ let () =
       Alcotest.test_case "echo program evaluates" `Quick test_echo_evaluates;
       Alcotest.test_case "non-injective: distinct witnesses, equal visible" `Quick test_echo_non_injective;
       Alcotest.test_case "echo_visible requires echo type" `Quick test_echo_visible_requires_echo;
+      Alcotest.test_case "copyable echo is unrestricted" `Quick test_echo_copyable_unrestricted;
+      Alcotest.test_case "non-copyable echo: single use ok" `Quick test_echo_noncopyable_single_use_ok;
+      Alcotest.test_case "non-copyable echo: double use rejected" `Quick test_echo_noncopyable_double_use_rejected;
     ];
   ]

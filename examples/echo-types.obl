@@ -10,6 +10,12 @@
 //   - echo_visible  recovers the surviving observation (the base value), and
 //   - echo_witness  recovers the retained constraint on the source.
 //
+// Affinity: a non-copyable echo residue is affine -- it may be projected at
+// most once, so you cannot freely read both its visible and witness sides (that
+// would make it an ordinary product, not structured loss).  A *copyable* echo,
+// such as the echo[i64, i64] below, is unrestricted, so this example projects
+// each residue more than once.
+//
 // See: https://github.com/hyperpolymath/echo-types        (Agda formalisation)
 //      https://github.com/hyperpolymath/EchoTypes.jl       (finite-domain model)
 

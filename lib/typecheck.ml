@@ -61,6 +61,54 @@ let rec format_type = function
   | TTrace -> "Trace"
   | TEcho (a, b) -> Printf.sprintf "echo[%s, %s]" (format_type a) (format_type b)
 
+(** ==========================================================================
+    AFFINE ECHO DISCIPLINE
+
+    An echo is the residue of a non-injective collapse.  To keep that meaning
+    (rather than degenerating into an ordinary product A * B that you can freely
+    read from both sides), a *non-copyable* echo is affine: it may be referenced
+    at most once.  Each reference -- in particular each [echo_visible] /
+    [echo_witness] projection -- consumes it.
+
+    A *copyable* echo (one whose components are all copyable, e.g. echo[i64, i64])
+    is unrestricted, mirroring how copyable values may be duplicated freely.
+
+    This discipline is scoped to echo bindings only; all other variables keep
+    their existing unrestricted usage.
+    ========================================================================== *)
+
+(** A type is copyable when it can be duplicated without affine cost. *)
+let rec is_copyable = function
+  | TPrim _ -> true
+  | TEcho (a, b) -> is_copyable a && is_copyable b
+  | TArray _ | TStruct _ | TRef _ | TFun _ | TTrace -> false
+
+let is_affine_echo t = match t with
+  | TEcho _ -> not (is_copyable t)
+  | _ -> false
+
+(* Names of non-copyable echo bindings that have already been used, mapped to
+   the location of that use.  Reset per function body. *)
+let affine_used : (string, Location.t) Hashtbl.t ref = ref (Hashtbl.create 16)
+let affine_reset () = affine_used := Hashtbl.create 16
+let affine_snapshot () = Hashtbl.copy !affine_used
+let affine_restore s = affine_used := s
+let affine_merge (other : (string, Location.t) Hashtbl.t) =
+  Hashtbl.iter (fun k v ->
+    if not (Hashtbl.mem !affine_used k) then Hashtbl.add !affine_used k v) other
+
+(** Record a use of [name : t]; raise if a non-copyable echo is used twice. *)
+let affine_use name t loc =
+  if is_affine_echo t then
+    match Hashtbl.find_opt !affine_used name with
+    | Some _ ->
+      raise (TypeError (
+        Printf.sprintf
+          "echo value '%s' is affine and was already used; a non-copyable echo \
+           (%s) may be projected/used at most once" name (format_type t),
+        loc))
+    | None -> Hashtbl.add !affine_used name loc
+
 (** Infer the type of an expression *)
 let rec infer_expr env expr =
   match expr.expr_desc with
@@ -70,7 +118,7 @@ let rec infer_expr env expr =
 
   | EVar name ->
     (match Env.find_opt name env.vars with
-     | Some t -> t
+     | Some t -> affine_use name t expr.expr_loc; t
      | None ->
        raise (TypeError (Printf.sprintf "undefined variable: %s" name, expr.expr_loc)))
 
@@ -315,12 +363,32 @@ and check_stmt env stmt =
       raise (TypeError (
         Printf.sprintf "if condition must be bool, got %s" (format_type cond_t),
         stmt.stmt_loc));
+    (* The branches are alternatives: each may consume the same echo, so check
+       them from a common entry state and take the union of what was used. *)
+    let entry = affine_snapshot () in
     ignore (check_stmts env then_stmts);
+    let after_then = affine_snapshot () in
+    affine_restore entry;
     ignore (check_stmts env else_stmts);
+    affine_merge after_then;
     env
 
   | SForRange (_, _, _, body_stmts) ->
+    (* A non-copyable echo bound before the loop and used in the body would be
+       consumed on every iteration, which is unsound. *)
+    let before = affine_snapshot () in
     ignore (check_stmts env body_stmts);
+    Hashtbl.iter (fun name loc ->
+      if not (Hashtbl.mem before name) then
+        match Env.find_opt name env.vars with
+        | Some t when is_affine_echo t ->
+          raise (TypeError (
+            Printf.sprintf
+              "non-copyable echo '%s' is used inside a loop body; it would be \
+               consumed on every iteration" name,
+            loc))
+        | _ -> ()
+    ) !affine_used;
     env
 
   | SExpr e ->
@@ -419,6 +487,7 @@ let typecheck_program program =
     List.iter (fun decl ->
       match decl.decl_desc with
       | DFunction { name = _; params; body; _ } ->
+        affine_reset ();
         let fn_env = List.fold_left (fun env (param_name, param_type) ->
           { env with vars = Env.add param_name param_type env.vars }
         ) env params in
