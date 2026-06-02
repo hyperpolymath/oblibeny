@@ -39,6 +39,7 @@ let rec types_equal t1 t2 =
     types_equal ret1 ret2
   | TStruct s1, TStruct s2 -> s1 = s2
   | TTrace, TTrace -> true
+  | TEcho (a1, b1), TEcho (a2, b2) -> types_equal a1 a2 && types_equal b1 b2
   | _, _ -> false
 
 (** Format type for error messages *)
@@ -58,6 +59,7 @@ let rec format_type = function
       (format_type ret)
   | TStruct name -> name
   | TTrace -> "Trace"
+  | TEcho (a, b) -> Printf.sprintf "echo[%s, %s]" (format_type a) (format_type b)
 
 (** Infer the type of an expression *)
 let rec infer_expr env expr =
@@ -235,6 +237,31 @@ let rec infer_expr env expr =
      | None ->
        raise (TypeError (
          Printf.sprintf "undefined struct: %s" name,
+         expr.expr_loc)))
+
+  | EEcho (src, base) ->
+    (* echo(source, base) : echo[A, B] where A = type of source, B = type of base.
+       The residue retains the source witness alongside the surviving base value. *)
+    let a = infer_expr env src in
+    let b = infer_expr env base in
+    TEcho (a, b)
+
+  | EEchoVisible e ->
+    (* The visible projection recovers the surviving base value (lossy direction). *)
+    (match infer_expr env e with
+     | TEcho (_, b) -> b
+     | t ->
+       raise (TypeError (
+         Printf.sprintf "echo_visible requires an echo type, got %s" (format_type t),
+         expr.expr_loc)))
+
+  | EEchoWitness e ->
+    (* The witness projection recovers the retained proof-relevant source constraint. *)
+    (match infer_expr env e with
+     | TEcho (a, _) -> a
+     | t ->
+       raise (TypeError (
+         Printf.sprintf "echo_witness requires an echo type, got %s" (format_type t),
          expr.expr_loc)))
 
 (** Check statements and return updated environment *)

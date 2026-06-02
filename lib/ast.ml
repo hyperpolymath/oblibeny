@@ -29,6 +29,19 @@ type typ =
   | TFun of typ list * typ         (** Function type *)
   | TStruct of string              (** Named struct type *)
   | TTrace                         (** Accountability trace type *)
+  | TEcho of typ * typ             (** Echo residue type: [echo[source, base]].
+
+                                       The proof-relevant residue of a non-injective
+                                       (lossy / irreversible) map from [source] onto [base].
+                                       This is the type-level dual of Oblíbený's reversible
+                                       core: where a computation cannot be reversed, it retains
+                                       an echo of what was lost.
+
+                                       Mirrors the echo-types fibre  [Echo f y := Σ (x : A), f x ≡ y]:
+                                       the surviving observation is the visible [base] value,
+                                       and the retained proof-relevant constraint is a witness
+                                       on the [source].  See https://github.com/hyperpolymath/echo-types
+                                       (Agda) and its finite-domain companion EchoTypes.jl. *)
   [@@deriving show]
 
 (** Literals *)
@@ -73,6 +86,9 @@ and expr_desc =
   | EIf of expr * expr * expr           (** Conditional expression *)
   | EBlock of stmt list * expr option   (** Block with optional final expression *)
   | EStruct of string * (string * expr) list  (** Struct construction *)
+  | EEcho of expr * expr                (** [echo(source, base)] - introduce an echo residue *)
+  | EEchoVisible of expr                (** [echo_visible(e)] - project the surviving base value *)
+  | EEchoWitness of expr                (** [echo_witness(e)] - project the retained source witness *)
   [@@deriving show]
 
 (** ==========================================================================

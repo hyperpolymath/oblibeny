@@ -4,9 +4,11 @@
 (executable
  (name main)
  (public_name oblibeny)
+ (modules main)
  (libraries oblibeny))
 
 (executable
  (name oblibeny_lsp)
  (public_name oblibeny-lsp)
+ (modules oblibeny_lsp)
  (libraries oblibeny yojson))

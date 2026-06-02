@@ -46,6 +46,8 @@ let build_call_graph (program : program) : call_graph =
     | EField (e, _) -> collect_calls_expr e
     | EStruct (_, fields) ->
       List.fold_left (fun acc (_, e) -> StringSet.union acc (collect_calls_expr e)) StringSet.empty fields
+    | EEcho (e1, e2) -> StringSet.union (collect_calls_expr e1) (collect_calls_expr e2)
+    | EEchoVisible e | EEchoWitness e -> collect_calls_expr e
     | ELiteral _ | EVar _ -> StringSet.empty
 
   and collect_calls_stmt stmt =
@@ -130,6 +132,9 @@ let check_direct_recursion (name : string) (body : stmt list) : (string * Locati
       (match check_expr arr with Some r -> Some r | None -> check_expr idx)
     | EField (e, _) -> check_expr e
     | EStruct (_, fields) -> List.find_map (fun (_, e) -> check_expr e) fields
+    | EEcho (e1, e2) ->
+      (match check_expr e1 with Some r -> Some r | None -> check_expr e2)
+    | EEchoVisible e | EEchoWitness e -> check_expr e
     | ELiteral _ | EVar _ -> None
 
   and check_stmt stmt =

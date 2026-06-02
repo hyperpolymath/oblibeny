@@ -23,6 +23,7 @@ type value =
   | VUnit
   | VArray of value array
   | VStruct of (string * value) list
+  | VEcho of value * value   (** Echo residue: (retained source witness, surviving base value) *)
   [@@deriving show]
 
 type env = {
@@ -159,6 +160,21 @@ let rec eval_expr state env expr =
   | EStruct (_, fields) ->
     let field_values = List.map (fun (n, e) -> (n, eval_expr state env e)) fields in
     VStruct field_values
+
+  | EEcho (src, base) ->
+    let src_v = eval_expr state env src in
+    let base_v = eval_expr state env base in
+    VEcho (src_v, base_v)
+
+  | EEchoVisible e ->
+    (match eval_expr state env e with
+     | VEcho (_, base_v) -> base_v
+     | _ -> raise (EvalError "echo_visible requires an echo value"))
+
+  | EEchoWitness e ->
+    (match eval_expr state env e with
+     | VEcho (src_v, _) -> src_v
+     | _ -> raise (EvalError "echo_witness requires an echo value"))
 
 and eval_stmt state env stmt =
   match stmt.stmt_desc with

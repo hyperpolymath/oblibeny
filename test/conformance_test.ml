@@ -219,6 +219,78 @@ let test_eval_xor_self_inverse () =
   Alcotest.(check bool) "xor self-inverse" true true
 
 (* ============================================================================
+   TEST: Echo types (structured, non-total loss)
+   ============================================================================ *)
+
+let parse_ok src =
+  match Parse.parse_string src with
+  | Ok p -> p
+  | Error e -> Alcotest.failf "parse failed: %s" e
+
+(* A non-injective collapse: parity erases the source, but the echo retains a
+   witness on it.  Mirrors echo-types'  Echo f y := Σ (x : A), f x ≡ y. *)
+let echo_program_src = {|
+fn collapse(n: i64) -> echo[i64, i64] {
+  return echo(n, n % 2);
+}
+
+fn main() -> () {
+  let e: echo[i64, i64] = collapse(7);
+  let v: i64 = echo_visible(e);
+  let w: i64 = echo_witness(e);
+  assert_invariant(v == 1, "visible parity retained");
+  assert_invariant(w == 7, "source witness retained");
+}
+|}
+
+let test_echo_typechecks () =
+  let prog = parse_ok echo_program_src in
+  match Typecheck.typecheck_program prog with
+  | Ok () -> Alcotest.(check bool) "echo program typechecks" true true
+  | Error _ -> Alcotest.fail "echo program should typecheck"
+
+let test_echo_no_constraint_violations () =
+  let prog = parse_ok echo_program_src in
+  let violations = Constrained_check.validate_program prog in
+  Alcotest.(check int) "echo program is valid constrained form" 0 (List.length violations)
+
+let test_echo_evaluates () =
+  let prog = parse_ok echo_program_src in
+  (* Asserts inside main must all pass, so this must not raise. *)
+  let _ = Eval.eval_program prog in
+  Alcotest.(check bool) "echo program evaluates" true true
+
+(* The defining property: a non-injective map loses information (equal visible
+   projections) yet the echo retains enough to distinguish the sources. *)
+let test_echo_non_injective () =
+  let src = {|
+fn collapse(n: i64) -> echo[i64, i64] {
+  return echo(n, n % 2);
+}
+
+fn main() -> () {
+  let a: echo[i64, i64] = collapse(7);
+  let b: echo[i64, i64] = collapse(9);
+  assert_invariant(echo_visible(a) == echo_visible(b), "same surviving observation");
+  assert_invariant(echo_witness(a) != echo_witness(b), "distinct retained witnesses");
+}
+|} in
+  let prog = parse_ok src in
+  let _ = Eval.eval_program prog in
+  Alcotest.(check bool) "distinct witnesses under equal visible" true true
+
+let test_echo_visible_requires_echo () =
+  let src = {|
+fn main() -> () {
+  let bad: i64 = echo_visible(5);
+}
+|} in
+  let prog = parse_ok src in
+  match Typecheck.typecheck_program prog with
+  | Error _ -> Alcotest.(check bool) "echo_visible on non-echo is a type error" true true
+  | Ok () -> Alcotest.fail "echo_visible on i64 should not typecheck"
+
+(* ============================================================================
    TEST SUITE
    ============================================================================ *)
 
@@ -241,5 +313,12 @@ let () =
       Alcotest.test_case "incr/decr reversible" `Quick test_eval_incr_decr_reversible;
       Alcotest.test_case "swap reversible" `Quick test_eval_swap_reversible;
       Alcotest.test_case "xor self-inverse" `Quick test_eval_xor_self_inverse;
+    ];
+    "echo-types", [
+      Alcotest.test_case "echo program typechecks" `Quick test_echo_typechecks;
+      Alcotest.test_case "echo program is valid constrained form" `Quick test_echo_no_constraint_violations;
+      Alcotest.test_case "echo program evaluates" `Quick test_echo_evaluates;
+      Alcotest.test_case "non-injective: distinct witnesses, equal visible" `Quick test_echo_non_injective;
+      Alcotest.test_case "echo_visible requires echo type" `Quick test_echo_visible_requires_echo;
     ];
   ]

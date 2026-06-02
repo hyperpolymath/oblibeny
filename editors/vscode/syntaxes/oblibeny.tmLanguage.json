@@ -52,7 +52,12 @@
       "patterns": [
         {
           "name": "storage.type.oblibeny",
-          "match": "\\b(i32|i64|u32|u64|bool)\\b"
+          "match": "\\b(i32|i64|u32|u64|bool|echo)\\b"
+        },
+        {
+          "name": "support.function.echo.oblibeny",
+          "match": "\\b(echo|echo_visible|echo_witness)\\b",
+          "comment": "Echo residues: structured, non-total loss"
         }
       ]
     },
