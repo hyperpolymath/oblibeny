@@ -1,0 +1,511 @@
+// SPDX-License-Identifier: MPL-2.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath)
+= Contractiles: Behavioral Contracts for Oblíbený
+:doctype: article
+:toc: left
+:toc-title: Contents
+:toclevels: 3
+:sectnums:
+:sectlinks:
+:source-highlighter: rouge
+:icons: font
+
+== Purpose and Scope
+
+This document specifies the behavioral contracts — invariants, pre/post-conditions, and
+prohibitions — for Oblíbený's constrained form and the echo type specifically.
+
+These are the load-bearing semantic guarantees of the system.
+If any contract listed here is violated, the language's formal properties do not hold.
+Contracts in this document are the authoritative reference for:
+
+- The constrained form checker (`src/constrained_check.ml`)
+- The static analyzer (`src/static_analysis.ml`)
+- The type checker (`src/typechecker.ml`)
+- Hypatia automated scans
+- Gitbot enforcement hooks
+
+Each contract is identified by a series letter and a number (e.g., C1, E3).
+The series are:
+
+[cols="1,4",options="header"]
+|===
+|Series |Domain
+
+|C-series |Constrained form structural invariants
+|R-series |Reversibility invariants
+|E-series |Echo type invariants
+|A-series |Affinity (linearity) invariants
+|T-series |Trace invariants
+|S-series |Static analysis invariants
+|===
+
+A contract marked *[ENFORCED]* is mechanically checked at compile time.
+A contract marked *[SEMANTIC]* is a stated invariant that is not yet machine-checked
+but must be preserved by any conforming implementation.
+
+---
+
+== C-Series: Constrained Form Contracts
+
+These contracts define what it means for a program to be in the constrained form.
+A program that violates any C-series contract is not a valid constrained-form program
+and must be rejected.
+
+=== C1 — Static Loop Bounds
+
+*All loops have static upper bounds.*
+
+A `for` loop in the constrained form must have its iteration count determinable at
+compile time.
+The bound must be a literal integer constant or a named constant whose value is
+known before code generation.
+
+*[ENFORCED]* +
+Enforced by: `src/parser.ml` (syntactic), `src/constrained_check.ml` (semantic) +
+Rejection message: `constrained violation: loop bound is not a compile-time constant`
+
+=== C2 — Acyclic Call Graph
+
+*The call graph is acyclic: no direct or mutual recursion is permitted.*
+
+A function `f` in the constrained form may not call itself directly.
+Two functions `f` and `g` may not form a mutual recursion (`f` calls `g`, `g` calls `f`).
+No cycle of any length is permitted in the call graph.
+
+*[ENFORCED]* +
+Enforced by: `src/constrained_check.ml` (post-parse call graph analysis) +
+Rejection message: `constrained violation: call graph contains cycle at <function name>`
+
+=== C3 — Constant For-Range Upper Bound
+
+*Every for-range upper bound is a compile-time constant.*
+
+This is the specific syntactic form of C1 for `for` expressions.
+A `for x in 0..n` expression requires `n` to be a compile-time constant.
+Runtime values — including function parameters — are not valid upper bounds,
+even if the value could in principle be bounded by the caller.
+
+*[ENFORCED]* +
+Enforced by: `src/parser.ml` +
+Rejection message: `parse error: for-range upper bound must be a compile-time constant`
+
+=== C4 — No Unbounded Iteration Constructs
+
+*`while`, `loop`, and any unlimited-iteration constructs are absent from the grammar.*
+
+These keywords are not valid in constrained-form source.
+They do not exist at the parser level: there is no `while` production rule
+in the constrained form grammar.
+This is not a type-level rejection — it is a parse-level rejection.
+
+*[ENFORCED]* +
+Enforced by: `src/parser.ml` (grammar) +
+Rejection message: `parse error: unexpected token 'while' (not valid in constrained form)`
+
+=== C5 — Acyclicity After Echo Substitution
+
+*Acyclicity (C2) is checked after echo expression substitution.*
+
+A recursive call that is syntactically hidden inside an echo expression is still
+a recursive call.
+The constrained checker must expand echo bodies and re-check the resulting call graph.
+This prevents circumventing C2 by wrapping a recursive call in `echo(...)`.
+
+*[ENFORCED]* +
+Enforced by: `src/constrained_check.ml` (echo-expanded call graph pass) +
+Rejection message: `constrained violation: recursion detected through echo expression in <function name>`
+
+---
+
+== R-Series: Reversibility Contracts
+
+These contracts define what it means for operations to be reversible in the constrained form.
+Reversibility is the property that permits backward stepping in the debugger and
+supports post-execution trace reconstruction.
+
+=== R1 — Every Reversible Operation Has a Defined Inverse
+
+*Every operation in the constrained form's reversible core has a statically defined inverse.*
+
+The inverse is defined in the language specification, not by the programmer.
+There is no API for defining custom inverses.
+A constrained-form program that uses only the reversible operation set is
+guaranteed to be invertible in full.
+
+*[ENFORCED]* +
+Enforced by: `src/typechecker.ml` (operation typing), `src/evaluator.ml` (inverse dispatch)
+
+=== R2 — Paired Operations Are Mutual Inverses
+
+*`incr` and `decr` are each other's inverse.
+`push` and `pop` are each other's inverse.*
+
+Formally:
+[source]
+----
+inverse(incr x) = decr x
+inverse(decr x) = incr x
+inverse(push x s) = pop s
+inverse(pop s) = push (top s) s
+----
+
+The debugger's backward-step uses exactly these definitions.
+
+*[ENFORCED]* +
+Enforced by: `src/evaluator.ml` (backward_step function) +
+Enforced by: `src/reversible_debugger.ml` (step_backward)
+
+=== R3 — Self-Inverse Operations
+
+*`swap` and `xor` are their own inverses.*
+
+Formally:
+[source]
+----
+inverse(swap x y) = swap x y
+inverse(xor x v) = xor x v
+----
+
+Applying either operation twice to the same binding returns to the original state.
+
+*[ENFORCED]* +
+Enforced by: `src/evaluator.ml`
+
+=== R4 — Reverse Operation Appends to Trace
+
+*Executing the inverse of an operation appends a corresponding inverse entry to the trace.
+Trace entries are never discarded or overwritten.*
+
+When the debugger steps backward, it does not remove the forward-step trace entries.
+It appends new entries marked as inverse operations.
+The trace accumulates both forward and backward steps.
+
+*[SEMANTIC]* +
+Property location: `src/reversible_debugger.ml` +
+See also: T1 (trace append-only contract)
+
+---
+
+== E-Series: Echo Type Contracts
+
+These contracts define the behavioral invariants of `echo[A, B]`.
+They are the load-bearing semantic properties of the echo type.
+Any implementation of the echo type must satisfy all E-series contracts.
+
+=== E1 — Echo Affinity is Derived from Contents
+
+*`echo[A, B]` is affine if and only if `A` or `B` is non-copyable.*
+
+Formally:
+[source]
+----
+is_affine_echo(TEcho(a, b)) ↔ ¬(is_copyable(a) ∧ is_copyable(b))
+----
+
+Equivalently: `echo[A,B]` is copyable iff both `A` and `B` are copyable.
+See also A5.
+
+*[ENFORCED]* +
+Enforced by: `src/typechecker.ml` (`affinity_of` function, `TEcho` case)
+
+=== E2 — Non-Copyable Echo May Be Projected At Most Once
+
+*A non-copyable echo binding may be projected at most once.
+After `echo_visible(e)` or `echo_witness(e)` is called, the binding `e` is consumed
+and may not be used again.*
+
+This is the standard affine (use-at-most-once) discipline.
+The compiler must reject any program that uses a non-copyable echo binding
+after it has been projected.
+
+*[ENFORCED]* +
+Enforced by: `src/typechecker.ml` (linear environment tracking)
+
+=== E3 — Copyable Echo May Be Projected Freely
+
+*A copyable echo (both `A` and `B` are copyable) may be projected any number of times.
+Both `echo_visible` and `echo_witness` may be applied to the same binding without consuming it.*
+
+This is the standard unrestricted type discipline.
+
+*[ENFORCED]* +
+Enforced by: `src/typechecker.ml`
+
+=== E4 — Echo Does Not Add Reversibility
+
+*`echo[A, B]` does not participate in `incr`/`decr`/`swap` balancing.
+An echo value is not a reversible operation in the operation-inverse sense.*
+
+Echo is about structured lossiness and accountability.
+Reversibility is about operation inverses.
+These are distinct mechanisms.
+There is no `inverse(echo(...))` — the concept does not apply.
+
+*[SEMANTIC]* +
+Property location: `src/typechecker.ml` (echo values excluded from reversibility pass), +
+`src/static_analysis.ml` (reversibility balance checker)
+
+=== E5 — Echo Does Not Add Recursion
+
+*A recursive call syntactically located inside an echo expression is still a recursive call.*
+
+This is the echo-specific instance of C5.
+`echo(f(x), g(x))` where `g` is the enclosing function is a recursive call
+and is rejected by the constrained checker.
+
+*[ENFORCED]* +
+Enforced by: `src/constrained_check.ml` (C5 implementation)
+
+=== E6 — Echo Memory is Bounded
+
+*The memory occupied by a value of type `echo[A, B]` is the sum of the sizes of `A` and `B`.*
+
+Formally:
+[source]
+----
+sizeof(echo[A, B]) = sizeof(A) + sizeof(B)
+----
+
+There is no open-ended or dynamically growing storage associated with an echo value.
+The static analyzer's memory bound computation may use this formula directly.
+
+*[SEMANTIC]* +
+Property location: `src/static_analysis.ml` (size_of function, EchoType case)
+
+=== E7 — Echo is Not a Proof
+
+*There is no static check that `f(witness) = visible` for any function `f`.*
+
+`echo[A, B]` is a pair `(witness: A, visible: B)`.
+The constraint that `visible` is the image of `witness` under some function is
+*semantic intent*, not a dependent type.
+The constrained form does not support dependent types.
+A program may construct `echo(x, y)` for any `x: A` and `y: B` without
+establishing any relationship between them.
+
+*[SEMANTIC]* +
+This divergence from the Agda fibre (`Echo f y := Σ(x:A), f x ≡ y`) is intentional
+and documented. See `docs/specs/echo-6a2.adoc` §3 and §4.
+
+---
+
+== A-Series: Affinity Contracts
+
+These contracts define which types are copyable and which are affine (use-at-most-once)
+in the constrained form.
+They are the ground rules from which E1 is derived.
+
+=== A1 — Copyable Primitives
+
+*The primitive types `i32`, `i64`, `u32`, `u64`, and `bool` are copyable.*
+
+A binding of copyable type may be used any number of times without consuming it.
+
+*[ENFORCED]* +
+Enforced by: `src/typechecker.ml` (`is_copyable` function)
+
+=== A2 — Structs Are Non-Copyable
+
+*Struct types are non-copyable by default.*
+
+A struct binding is affine: it may be used at most once.
+Structs may not be implicitly duplicated.
+
+*[ENFORCED]* +
+Enforced by: `src/typechecker.ml`
+
+=== A3 — Arrays Are Non-Copyable
+
+*Array types are non-copyable.*
+
+An array binding is affine.
+Arrays may not be implicitly duplicated.
+
+*[ENFORCED]* +
+Enforced by: `src/typechecker.ml`
+
+=== A4 — Trace, Ref, and Fun Types Are Non-Copyable
+
+*The `Trace`, `Ref`, and `Fun` types are non-copyable.*
+
+`Trace` is non-copyable to preserve the append-only, single-owner property of the audit log.
+`Ref` is non-copyable to enforce single-owner semantics for mutable references.
+`Fun` (function values) are non-copyable in the constrained form.
+
+*[ENFORCED]* +
+Enforced by: `src/typechecker.ml`
+
+=== A5 — Echo Copyability Derives from Contents
+
+*`echo[A, B]` is copyable if and only if both `A` and `B` are copyable.*
+
+This is A1–A4 applied to the echo type constructor via E1.
+It is listed separately for clarity and for mechanical checking:
+
+[source]
+----
+is_copyable(TEcho(a, b)) = is_copyable(a) && is_copyable(b)
+----
+
+*[ENFORCED]* +
+Enforced by: `src/typechecker.ml` (`is_copyable` function, `TEcho` case)
+
+=== A6 — Non-Copyable Echo in a Loop Body is Rejected
+
+*A non-copyable echo binding that is used inside a loop body is rejected.*
+
+A non-copyable value used in a loop would be consumed on the first iteration
+and unavailable on subsequent iterations, violating affinity.
+The compiler must detect this pattern statically and reject it.
+
+*[ENFORCED]* +
+Enforced by: `src/typechecker.ml` (loop body affinity check)
+
+---
+
+== T-Series: Trace Contracts
+
+These contracts define the behavioral invariants of the `Trace` type and
+its role as the system's audit mechanism.
+
+=== T1 — Trace is Append-Only
+
+*Trace entries cannot be removed or modified after they are written.
+The only valid mutation of a trace is appending a new entry.*
+
+The `Trace` type does not expose a delete operation, a modify operation,
+or a truncate operation.
+Any implementation that exposes such operations violates this contract.
+
+*[SEMANTIC]* +
+Property location: `src/types.ml` (Trace type definition), +
+`src/evaluator.ml` (trace update: append only)
+
+=== T2 — Every Checkpoint Produces a Named Trace Entry
+
+*A `checkpoint` expression produces exactly one named entry in the trace.*
+
+The name is a string literal provided by the programmer.
+The trace entry records the checkpoint name and the program state at that point.
+
+*[ENFORCED]* +
+Enforced by: `src/evaluator.ml` (checkpoint evaluation)
+
+=== T3 — Assert Invariant Failure is Recorded Before Halting
+
+*When `assert_invariant` fails, the failure — including the invariant name and
+the violated condition — is recorded as a trace entry before the program halts.*
+
+The program does not halt silently.
+The trace always contains the reason for halting when that reason is
+an invariant violation.
+
+*[ENFORCED]* +
+Enforced by: `src/evaluator.ml` (assert_invariant evaluation)
+
+---
+
+== S-Series: Static Analysis Contracts
+
+These contracts define the properties of the static analyzer's output.
+They are the guarantees that make Oblíbený's resource bounds meaningful.
+
+=== S1 — Memory Bound is an Over-Approximation
+
+*The static analyzer's upper bound on memory use is always an over-approximation.
+It never under-estimates.*
+
+A bound that is too large is safe (the device can refuse to execute the program
+based on a conservative estimate).
+A bound that is too small is unsafe (the device may not have enough memory at runtime).
+The analyzer is required to err on the side of safety.
+
+*[SEMANTIC]* +
+Property location: `src/static_analysis.ml` +
+Verification: property is checked by the test suite against programs with known exact bounds
+
+=== S2 — Maximum Call Depth is Statically Bounded
+
+*The static analyzer can compute an upper bound on the call depth of any
+constrained-form program.*
+
+This is a consequence of C2 (acyclic call graph).
+The bound is the length of the longest path in the call DAG.
+
+*[ENFORCED]* +
+Enforced by: `src/static_analysis.ml` (max_call_depth function, uses C2 property)
+
+=== S3 — Resource Bounds Are Computable Without Execution
+
+*All resource bounds (memory, call depth, loop iteration counts) are computable
+by the static analyzer without executing the program.*
+
+This is the key static analysis guarantee.
+It follows from C1–C4 collectively: no loop is unbounded, no recursion exists,
+all bounds are constants.
+
+*[ENFORCED]* +
+Enforced by: `src/static_analysis.ml` (analyze function)
+
+---
+
+== Gitbot and Hypatia Enforcement Notes
+
+The following table maps each contract to its current enforcement status
+and the source responsible for enforcement.
+
+[cols="1,1,2,3",options="header"]
+|===
+|Contract |Status |File |Notes
+
+|C1 |ENFORCED |`src/constrained_check.ml` |Loop bound analysis pass
+|C2 |ENFORCED |`src/constrained_check.ml` |Call graph cycle detection (DFS)
+|C3 |ENFORCED |`src/parser.ml` |Grammar-level constant check
+|C4 |ENFORCED |`src/parser.ml` |Absent from grammar (parse error)
+|C5 |ENFORCED |`src/constrained_check.ml` |Echo-expanded call graph pass
+|R1 |ENFORCED |`src/typechecker.ml` |Operation typing
+|R2 |ENFORCED |`src/evaluator.ml` |`backward_step` dispatch
+|R3 |ENFORCED |`src/evaluator.ml` |Self-inverse dispatch
+|R4 |SEMANTIC |`src/reversible_debugger.ml` |Trace append on backward step
+|E1 |ENFORCED |`src/typechecker.ml` |`affinity_of TEcho` case
+|E2 |ENFORCED |`src/typechecker.ml` |Linear environment tracking
+|E3 |ENFORCED |`src/typechecker.ml` |Unrestricted type environment
+|E4 |SEMANTIC |`src/static_analysis.ml` |Echo excluded from reversibility pass
+|E5 |ENFORCED |`src/constrained_check.ml` |Via C5 implementation
+|E6 |SEMANTIC |`src/static_analysis.ml` |`size_of TEcho` formula
+|E7 |SEMANTIC |`docs/specs/echo-6a2.adoc` |Design intent; no proof check
+|A1 |ENFORCED |`src/typechecker.ml` |`is_copyable` primitive cases
+|A2 |ENFORCED |`src/typechecker.ml` |`is_copyable StructType = false`
+|A3 |ENFORCED |`src/typechecker.ml` |`is_copyable ArrayType = false`
+|A4 |ENFORCED |`src/typechecker.ml` |`is_copyable {Trace,Ref,Fun} = false`
+|A5 |ENFORCED |`src/typechecker.ml` |`is_copyable TEcho` derived case
+|A6 |ENFORCED |`src/typechecker.ml` |Loop body affinity check
+|T1 |SEMANTIC |`src/types.ml`, `src/evaluator.ml` |No delete/modify on trace
+|T2 |ENFORCED |`src/evaluator.ml` |Checkpoint evaluation
+|T3 |ENFORCED |`src/evaluator.ml` |assert_invariant evaluation
+|S1 |SEMANTIC |`src/static_analysis.ml` |Verified by test suite
+|S2 |ENFORCED |`src/static_analysis.ml` |`max_call_depth` (DAG property)
+|S3 |ENFORCED |`src/static_analysis.ml` |`analyze` function
+|===
+
+=== Adding New Contracts
+
+When adding a new contract to this document:
+
+1. Assign the next available identifier in the appropriate series.
+2. State the invariant precisely — ideally in a form that can be evaluated mechanically.
+3. Mark it *[ENFORCED]* or *[SEMANTIC]* and cite the responsible source file.
+4. Add it to the table in this section.
+5. If it involves the echo type boundary, coordinate with `docs/specs/echo-6a2.adoc`
+   and `SPEC.core.scm §6`.
+
+=== Promoting Semantic Contracts to Enforced
+
+Any *[SEMANTIC]* contract is a candidate for automation.
+The preferred path for promotion:
+
+1. Write a property-based test in `test/` that detects violations.
+2. Add a checker to the appropriate analysis pass.
+3. Update the contract status and file reference in the table above.
+4. Tag the commit with `contractile-enforce: <contract-id>` for audit trail.

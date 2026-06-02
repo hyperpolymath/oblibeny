@@ -134,7 +134,13 @@
          (trace-ops
            . ((trace     . "trace(event) ;; append to accountability log")
               (checkpoint . "checkpoint(label) ;; create named checkpoint")
-              (assert-invariant . "assert_invariant(cond, msg)")))))
+              (assert-invariant . "assert_invariant(cond, msg)")))
+
+         ;; Echo residue operations (structured, non-total loss)
+         (echo-ops
+           . ((echo       . "echo(source, base) : echo[A, B] ;; form a residue")
+              (echo-visible  . "echo_visible(e : echo[A, B]) : B ;; surviving observation")
+              (echo-witness  . "echo_witness(e : echo[A, B]) : A ;; retained source constraint")))))
 
     ;; Syntactic restrictions that enforce Turing-incompleteness
     (syntactic-restrictions
@@ -190,7 +196,12 @@
          (traced-destructive
            . "Operations that destroy information but record it in trace"
            (examples . ("overwrite with trace(old-value)"
-                        "truncate with trace(removed-elements)")))))
+                        "truncate with trace(removed-elements)")))
+
+         (echo-collapse
+           . "Operations that collapse information but retain a structured echo"
+           (examples . ("echo(n, n % 2) ;; witness=n, visible=parity; collapse is non-injective"))
+           (note . "Echo is the type-level dual of the reversible core: where reversal is impossible, echo retains a witness. Echo values are NOT reversible and do NOT participate in incr/decr/swap balancing."))))
 
     ;; Verification approach
     (verification
@@ -266,11 +277,22 @@
     (static-checks
       . ((call-graph-acyclic . "Compiler MUST verify call graph is DAG")
          (bounds-static      . "Compiler MUST verify for-range bounds are constants")
-         (reversibility      . "Compiler MUST verify each op has defined inverse")))
+         (reversibility      . "Compiler MUST verify each op has defined inverse")
+         (echo-recursion-scan . "Compiler MUST recurse into echo expressions when scanning call graph — recursion hidden inside echo is still rejected")))
 
     (runtime-behavior
       . ((trace-always . "Every operation MUST append to trace")
-         (termination  . "Every program MUST terminate in bounded steps")))))
+         (termination  . "Every program MUST terminate in bounded steps")))
+
+    (affinity
+      . ((echo-affine-iff-noncopyable . "echo[A, B] is affine iff A or B is non-copyable")
+         (primitive-copyable . "i32 i64 u32 u64 bool are copyable")
+         (struct-noncopyable . "All struct types are non-copyable (conservative)")
+         (array-noncopyable . "Array types are non-copyable")
+         (echo-inherits-copyability . "is_copyable(echo[A,B]) = is_copyable(A) && is_copyable(B)")
+         (affine-projection-consumes . "echo_visible(e) and echo_witness(e) each consume e when e is non-copyable")
+         (copyable-projection-free . "Projections on copyable echo[A,B] are unrestricted")
+         (loop-affine-violation . "A non-copyable echo used inside a loop body is rejected (would be consumed on every iteration)")))))
 
 ;; ============================================================================
 ;; SECTION 6: EXTERNAL INTERFACES (CONTRACTS ONLY)
@@ -296,7 +318,29 @@
            . ((encrypt-trace . "Encrypt trace for privacy")
               (prove-property . "Generate ZK proof of trace property")
               (verify-proof   . "Verify ZK proof without seeing trace")))
-         (defined-in . "external: absolute-zero/SPEC.scm")))))
+         (defined-in . "external: absolute-zero/SPEC.scm")))
+
+    (echo-types-contract
+      . ((name . "Echo-Types External Interface Contract")
+         (description . "Oblíbený's echo[A, B] is the constrained-form finite-domain realisation of the echo-types fibre Echo f y := Σ (x : A), f x ≡ y (Agda) and its Julia executable companion (EchoTypes.jl). This contract defines the boundary.")
+         (oblibeny-implements
+           . ((echo-type        . "echo[A, B] — parameterised by source domain A and visible codomain B")
+              (echo-intro       . "echo(source: A, base: B) : echo[A, B]")
+              (echo-visible     . "echo_visible(e) : B — surviving observation")
+              (echo-witness     . "echo_witness(e) : A — retained source constraint")
+              (runtime-value    . "VEcho(witness_val, visible_val) — no static f x ≡ y proof")))
+         (oblibeny-does-not-implement
+           . ("dependent sum Σ (x:A), f x ≡ y"
+              "identity type / proof obligation f x ≡ y"
+              "map-over / degrade / degrade-compose"
+              "reversibility participation (no incr/decr/swap for echo)"
+              "graded echo (may arrive later as separate change)"))
+         (semantic-alignment
+           . ((non-injectivity-demonstrable . "Distinct witnesses can have equal visible projections at runtime")
+              (loss-not-total . "echo_witness recovers source even when echo_visible collapses it")
+              (affinity-preserved . "Echo preserves copyability discipline of its contents")))
+         (defined-in . "docs/specs/echo-6a2.adoc")
+         (spec-section . "SPEC §6.a.2")))))
 
 ;; ============================================================================
 ;; SECTION 7: REFERENCE EXAMPLES
@@ -340,7 +384,25 @@
            trace(swapped(x, y));
          }
          ;; Inverse is identical: swap(x, y) again
-         ")))
+         ")
+
+    (echo-residue
+      . ";; Echo type: structured, non-total loss
+         ;; collapse erases which source produced a given parity
+         fn collapse(n: i64) -> echo[i64, i64] {
+           return echo(n, n % 2);
+         }
+
+         fn main() -> () {
+           let a: echo[i64, i64] = collapse(7);
+           let b: echo[i64, i64] = collapse(9);
+           ;; Both have visible = 1 (odd parity) — collapse is non-injective
+           ;; But witnesses distinguish the sources
+           assert_invariant(echo_visible(a) == echo_visible(b), \"non-total loss\");
+           assert_invariant(echo_witness(a) != echo_witness(b), \"retained witnesses differ\");
+         }
+         ;; is_copyable(echo[i64, i64]) = true => projections are unrestricted
+         ;; is_copyable(echo[Cargo, i64]) = false => each projection consumes the echo")))
 
 ;; ============================================================================
 ;; END OF SPEC.core.scm

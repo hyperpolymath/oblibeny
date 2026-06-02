@@ -20,6 +20,16 @@ this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- feat(types): add first-class `echo[A, B]` residue type to constrained form — structured, proof-relevant residue of irreversible collapse; content-sensitive affinity (affine iff A or B is non-copyable); `echo_visible` / `echo_witness` projections; `VEcho` runtime value; full pipeline (AST → lexer → parser → typecheck → eval → constrained_check → static_analyzer)
+- test: 11 new conformance tests for echo type (23 total): typecheck, constrained-check, eval, non-injectivity, type-error rejection, copyable-unrestricted, non-copyable single/double use, visible-side affinity, recursion-bypass-rejection, memory-bounded
+- docs: add `EXPLAINME.adoc` — newcomer companion explaining Oblíbený, dual-form architecture, echo type, no-rhino philosophy
+- docs: add `docs/CONTRACTILES.adoc` — formal behavioral contracts (C/R/E/A/T/S-series) for constrained form and echo type
+- docs: add `docs/specs/echo-6a2.adoc` — echo-types external interface contract (SPEC §6.a.2)
+- docs: add `docs/echo-alignment.md` — decisions ledger for echo-types ecosystem alignment (Agda + Julia)
+- docs: add `examples/echo-types.obl` — runnable echo conformance example
+- ci: fix CodeQL workflow — scan GitHub Actions workflows (`actions`) instead of absent JS/TS
+- docs(governance): seed `docs/proof-debt.md` — trusted-base reduction policy compliance for pre-existing Idris2 `believe_me` coercions
+
 - feat: integrate Oblibeny with Svalinn/Vordr verified container stack
 - feat: drive Oblibeny to 100% production-ready completion
 - feat: add comprehensive static analyzer with resource bounds

@@ -1,0 +1,327 @@
+// SPDX-License-Identifier: MPL-2.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath)
+= Echo-Types External Interface Contract (SPEC §6.a.2)
+:doctype: article
+:toc: left
+:toc-title: Contents
+:toclevels: 3
+:sectnums:
+:sectlinks:
+:source-highlighter: rouge
+:icons: font
+
+== Document Identity
+
+*Specification reference*: SPEC.core.scm §6, article a, item 2 +
+*Short identifier*: SPEC §6.a.2 +
+*Status*: Normative +
+*Relates to*: `docs/CONTRACTILES.adoc` (E-series and A-series contracts)
+
+This document specifies the contract between Oblíbený's `echo[A,B]` type and the
+echo-types ecosystem, which comprises:
+
+- `hyperpolymath/echo-types` — the Agda formalisation (type-theoretic source of truth)
+- `hyperpolymath/EchoTypes.jl` — the Julia executable model (finite-domain reference)
+
+This is an *interface contract*, not an implementation specification.
+It defines the boundary between the two systems — what each side is required to provide,
+what each side is permitted to omit, and what the obligations are when either side changes.
+It does not specify how either side is implemented internally.
+
+Oblíbený's constrained form is a non-dependent language.
+This has direct consequences for how the Agda fibre is realised.
+Those consequences are made explicit in sections 3 and 4 below.
+
+---
+
+== Canonical Definitions
+
+The canonical definitions originate in the `hyperpolymath/echo-types` Agda source.
+They are reproduced here as the authoritative reference for this contract.
+
+=== The General Fibre
+
+[source,agda]
+----
+Echo : {A B : Set} → (A → B) → B → Set
+Echo f y = Σ A (λ x → f x ≡ y)
+----
+
+In English: given a function `f : A → B` and a specific output value `y : B`,
+an echo value of type `Echo f y` is a dependent pair consisting of a source
+value `x : A` and a proof that `f x ≡ y` (the image of `x` under `f` is
+definitionally equal to `y`).
+
+=== The Non-Injectivity Property
+
+[source,agda]
+----
+NonInjective : {A B : Set} → (A → B) → Set
+NonInjective f = ∃ λ x₁ → ∃ λ x₂ → f x₁ ≡ f x₂ × x₁ ≢ x₂
+----
+
+This states that there exist two distinct source values `x₁` and `x₂` that map
+to the same visible output under `f`.
+Non-injectivity is the structural precondition for the echo type to be meaningful:
+if `f` were injective, the visible value would uniquely determine the witness
+and no residue would be necessary.
+
+=== The Retained-Witness Property
+
+Stated informally: even when visible observations collapse (many inputs produce
+the same output), the echo value retains a specific witness that distinguishes
+a particular source.
+The witness does not prove that no other source could have produced the same visible;
+it proves only that *this* source did.
+
+---
+
+== Oblíbený Realisation
+
+This section specifies what Oblíbený *does* implement of the echo-types fibre.
+This is the finite-domain executable reading.
+
+=== Type
+
+`echo[A, B]` — parameterised by source domain type `A` and visible codomain type `B`.
+
+The parameterisation is by types, not by a specific function `f` and output `y`.
+The constrained form does not support dependent types; it cannot carry `f` and `y`
+as static type parameters.
+
+=== Introduction
+
+[source]
+----
+echo(source: A, base: B) : echo[A, B]
+----
+
+Constructs an echo value from a source witness and a visible base.
+There is no static check that `base` is the image of `source` under any function.
+See E7 in `docs/CONTRACTILES.adoc`.
+
+=== Elimination: Visible Projection
+
+[source]
+----
+echo_visible(e: echo[A, B]) : B
+----
+
+Returns the surviving observation — the visible codomain value.
+This is what the outside world sees after the lossy collapse.
+
+=== Elimination: Witness Projection
+
+[source]
+----
+echo_witness(e: echo[A, B]) : A
+----
+
+Returns the retained source constraint — the source domain value that was
+present before the collapse.
+This is what the audit trail retains.
+
+=== Runtime Representation
+
+[source]
+----
+VEcho(witness_val: value, visible_val: value)
+----
+
+At runtime, an echo value is represented as a pair carrying both the witness value
+and the visible value.
+There is no proof term.
+The pair is allocated at construction time and its fields are read at projection time.
+
+=== Affinity
+
+The affinity of `echo[A, B]` is derived from its contents.
+See E1 and A5 in `docs/CONTRACTILES.adoc`.
+
+---
+
+== What Oblíbený Does NOT Implement
+
+This section is normative.
+These omissions define the boundary of this contract.
+Any implementation claiming conformance with SPEC §6.a.2 must agree with
+every item in this section.
+
+[cols="2,3",options="header"]
+|===
+|Agda / Full Echo-Types Feature |Reason Omitted
+
+|Dependent sum `Σ (x : A), f x ≡ y`
+|The constrained form has no dependent types.
+The `f` and `y` parameters cannot be part of the type.
+
+|Identity type `f x ≡ y`
+|No proof that the visible value is the actual image of the witness.
+This is E7: echo is not a proof.
+
+|`map-over` (functorial echo)
+|Functorial machinery is out of scope for the constrained form.
+The constrained form does not support higher-order functions over echo values.
+
+|`degrade` (collapsing an echo to a simpler visible)
+|Out of scope. No degradation chain in the constrained form.
+
+|`degrade-compose` (composing degradation steps)
+|Out of scope. No composition of degradation in the constrained form.
+
+|`incr`/`decr`/`swap` participation (reversibility)
+|Echo is not reversible. See E4 in `docs/CONTRACTILES.adoc`.
+
+|Generic Σ-type encoding
+|`echo[A,B]` is specific to the accountability use case.
+It is not a general dependent pair.
+
+|Lineage-chain benchmarking
+|EchoTypes.jl benchmarks (single Echo → map-over → degrade → degrade-compose chains)
+are tracked in `docs/echo-alignment.md`, not implemented in the constrained form.
+|===
+
+---
+
+== Semantic Alignment Properties
+
+These are the properties that *do* hold across the boundary between Oblíbený and
+the echo-types ecosystem, despite Oblíbený's omissions.
+
+=== Non-Injectivity is Demonstrable at Runtime
+
+Two distinct values of type `A` can produce echo values with the same `echo_visible`
+projection and different `echo_witness` projections.
+This is the runtime analogue of the Agda `NonInjective` property.
+
+[source]
+----
+let e1 = echo(x1, hash(x1)) : echo[A, B]
+let e2 = echo(x2, hash(x2)) : echo[A, B]
+-- where hash(x1) = hash(x2) but x1 ≠ x2
+echo_visible(e1) = echo_visible(e2)    -- equal hashes
+echo_witness(e1) ≠ echo_witness(e2)    -- distinct preimages
+----
+
+No static type machinery enforces this at the Oblíbený level.
+It is a runtime property, not a type-level guarantee.
+
+=== Loss Is Not Total
+
+`echo_witness` recovers the source value even when `echo_visible` collapses it.
+If the visible projection discards information present in the source,
+that information remains accessible through the witness projection.
+
+This is the practical accountability guarantee: the audit trail can recover
+what was visible to the outside world *and* what the source value was.
+
+=== Affinity Discipline is Preserved
+
+Echo preserves the copyability discipline of its contents.
+A copyable echo can be freely projected.
+A non-copyable echo is consumed on first projection.
+
+This property is not derived from the Agda fibre (which does not address linearity).
+It is consistent with the Julia reading and with the constrained form's general
+affinity rules.
+See `docs/CONTRACTILES.adoc` §E-series and §A-series.
+
+---
+
+== EchoTypes.jl Alignment
+
+Oblíbený follows the finite-domain executable reading of the echo type
+established by `hyperpolymath/EchoTypes.jl`.
+
+The Julia companion treats echo as a finite-domain residue: a runnable model
+that captures the relationship between source and visible without carrying a proof.
+Oblíbený's `VEcho(witness, visible)` pair matches this reading exactly.
+
+[cols="2,2",options="header"]
+|===
+|EchoTypes.jl Concept |Oblíbený Realisation
+
+|`Echo{A,B}` struct with `witness::A` and `visible::B` fields
+|`VEcho(witness_val, visible_val)` runtime pair
+
+|`echo_visible(e)` accessor
+|`echo_visible(e: echo[A,B]) : B` elimination form
+
+|`echo_witness(e)` accessor
+|`echo_witness(e: echo[A,B]) : A` elimination form
+
+|Finite-domain construction (no proof required)
+|`echo(source: A, base: B) : echo[A,B]` (no proof, see E7)
+
+|Copyability follows contents
+|A5: `is_copyable(echo[A,B]) = is_copyable(A) && is_copyable(B)`
+|===
+
+The lineage-chain benchmarking for EchoTypes.jl — which covers single-echo construction,
+`map-over`, `degrade`, and `degrade-compose` chains — is *out of scope* for the
+constrained form.
+Tracking of alignment between those benchmarks and any future Oblíbený extension
+is maintained in `docs/echo-alignment.md`.
+
+---
+
+== Contract Obligations
+
+=== Oblíbený's Obligations
+
+1. Implement the finite-domain reading of `Echo f y` as described in section 3.
+2. Not introduce dependent-type machinery into the constrained form without
+   updating this contract.
+3. Document any divergence from the Agda fibre in this document (section 4).
+4. Ensure `VEcho(witness, visible)` matches the EchoTypes.jl pair semantics.
+5. Maintain conformance with E1–E7 and A5 as defined in `docs/CONTRACTILES.adoc`.
+
+=== Echo-Types' Obligations
+
+1. Remain the type-theoretic source of truth for the `Echo f y` fibre definition.
+2. Coordinate with Oblíbený maintainers before any change to the canonical definitions
+   in section 2 that would invalidate E4–E7 (see `docs/CONTRACTILES.adoc`).
+3. Maintain the Agda source in a state where the non-injectivity and retained-witness
+   properties can be cited normatively.
+
+=== EchoTypes.jl's Obligations
+
+1. Remain the executable reference for the finite-domain reading.
+2. Oblíbený's `VEcho` implementation may be compared against EchoTypes.jl's behaviour
+   for finite domains as a conformance check.
+3. Any change to `echo_visible` or `echo_witness` semantics in EchoTypes.jl
+   must be coordinated with Oblíbený maintainers.
+
+---
+
+== Change Protocol
+
+Any change to this contract — including adding new projections, introducing
+dependent extensions, or adding functorial operations — must follow this protocol:
+
+[cols="1,4",options="header"]
+|===
+|Step |Action
+
+|(a) |Update this document (`docs/specs/echo-6a2.adoc`) to reflect the change,
+     including updating the omissions table in section 4 if an omission is being promoted.
+
+|(b) |Update `docs/CONTRACTILES.adoc` to add, modify, or retire the relevant
+     E-series and A-series contracts.
+
+|(c) |Update `SPEC.core.scm §6` to reflect the change in the machine-readable
+     core specification.
+
+|(d) |Verify the change against the `hyperpolymath/echo-types` Agda source.
+     If the Agda source needs updating, coordinate with the echo-types maintainers
+     before merging.
+
+|(e) |Add conformance tests in `test/` that cover the new or changed behaviour.
+     Tests must verify both the positive case (the new feature works) and the
+     negative case (the boundary conditions are correctly enforced).
+|===
+
+Changes that affect only Oblíbený's internal implementation (without changing
+the interface defined here) do not require this protocol.
+Changes that affect the observable behaviour of `echo[A,B]`, `echo_visible`,
+or `echo_witness` always require this protocol, even if the change appears minor.

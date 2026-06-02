@@ -163,7 +163,53 @@
         (effort "12-18 hours"))))
 
   (session-history
-    ((2026-02-07
+    ((2026-06-02
+      (focus "Add first-class echo residue type and complete Echo ecosystem alignment")
+      (initial-state "100% complete toolchain; no echo type; SPEC.core.scm lacked echo documentation")
+      (final-state "echo[A,B] implemented end-to-end; 23/23 conformance tests green; full ecosystem alignment documented")
+      (achievements
+        "Added echo[A,B] as first-class type in constrained form (AST, lexer, parser, typecheck, eval, constrained_check, static_analyzer)"
+        "Implemented content-sensitive affinity: is_affine_echo iff A or B is non-copyable"
+        "Added 11 new conformance tests covering: typecheck, constrained-check, eval, non-injectivity, type-error rejection, copyable-unrestricted, non-copyable-single-use, non-copyable-double-use-rejected, non-copyable-visible-is-affine, recursion-bypass-rejection, memory-bounded"
+        "Created examples/echo-types.obl runnable conformance example"
+        "Merged governance fixes: CodeQL workflow now scans Actions instead of absent JS/TS; docs/proof-debt.md seeded for trusted-base policy"
+        "Documented echo-types ecosystem alignment in docs/echo-alignment.md"
+        "Wrote EXPLAINME.adoc (newcomer companion), docs/CONTRACTILES.adoc (behavioral contracts), docs/specs/echo-6a2.adoc (external interface spec)"
+        "Updated SPEC.core.scm with echo ops, echo-collapse class, affinity conformance, external interface contract §6.a.2, echo reference example"
+        "Updated README.adoc, CHANGELOG.md, LANGUAGE-SPEC.md, TUTORIAL.md with echo type documentation"
+        "Populated .machine_readable/META.scm, ECOSYSTEM.scm, AGENTIC.scm, PLAYBOOK.scm to current standard"
+        "CI permanently green: all 23 local tests pass; trusted-base + CodeQL both fixed in the merge")
+      (metrics
+        (loc-before 5200)
+        (loc-after 5800)
+        (tests-before 12)
+        (tests-after 23)
+        (completion-delta "100% (toolchain) -> 100% (toolchain + echo type)")
+        (new-files
+          "examples/echo-types.obl"
+          "docs/echo-alignment.md"
+          "docs/proof-debt.md"
+          "docs/CONTRACTILES.adoc"
+          "docs/specs/echo-6a2.adoc"
+          "EXPLAINME.adoc")
+        (commits 10))
+      (components-added
+        "echo[A,B] type: lib/ast.ml TEcho; lib/lexer.ml keywords; lib/parser.mly grammar; lib/typecheck.ml rules+affinity; lib/eval.ml VEcho; lib/constrained_check.ml traversal; lib/static_analyzer.ml sizing"
+        "test/conformance_test.ml: 11 new echo-types test cases"
+        "examples/echo-types.obl: runnable echo conformance example"
+        "docs/echo-alignment.md: decisions ledger (echo-types ecosystem alignment)"
+        "docs/proof-debt.md: governance trusted-base policy compliance"
+        "docs/CONTRACTILES.adoc: formal behavioral contracts"
+        "docs/specs/echo-6a2.adoc: echo external interface spec"
+        "EXPLAINME.adoc: newcomer companion document")
+      (verification-properties
+        "echo[A,B] is affine iff A or B is non-copyable (pinned by visible-side test)"
+        "Non-copyable echo cannot be projected twice (affine consumption enforced)"
+        "Recursion hidden in echo expression still rejected by constrained_check"
+        "Echo memory bounded as witness + visible (static_analyzer verified)"
+        "All 23 conformance tests green"))
+
+     (2026-02-07
       (focus "Drive Oblibeny to 100% production-ready completion")
       (initial-state "60% complete - compiler only, missing tooling")
       (final-state "100% complete - production-ready with formal verification")
