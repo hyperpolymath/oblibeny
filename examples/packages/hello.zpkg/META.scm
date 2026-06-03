@@ -25,7 +25,7 @@
        (permissions . #o755)))
 
     (verification
-      ((abi-proof . "src/abi/packages/hello/Interface.idr")
+      ((abi-proof . "src/abi/Packages/Hello/Interface.idr")
        (reversibility-proven . #t)
        (termination-proven . #t)))
 

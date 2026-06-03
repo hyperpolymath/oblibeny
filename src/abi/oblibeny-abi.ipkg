@@ -1,0 +1,17 @@
+-- SPDX-License-Identifier: MPL-2.0
+-- SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell
+--
+-- Idris2 package for the Oblíbený ABI proof layer.
+-- Build / typecheck all proofs with:   idris2 --build oblibeny-abi.ipkg
+-- (run from this directory, src/abi/).
+
+package oblibeny-abi
+
+version = 0.1.0
+authors = "Jonathan D.A. Jewell"
+license = "MPL-2.0"
+sourcedir = "."
+
+modules = Crypto
+        , Packages.Hello.Interface
+        , Packages.Hello.Echo

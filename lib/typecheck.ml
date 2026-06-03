@@ -100,6 +100,22 @@ let is_affine_echo t = match t with
   | TEcho _ -> not (is_copyable t)
   | _ -> false
 
+(** A type whose values the evaluator can decide equality on.  Equality is
+    restricted to scalar primitives (integers and booleans): these are exactly
+    the cases [Eval.eval_binop] handles for [Eq]/[Neq].  Compound types --
+    echoes, arrays, structs, refs, traces, functions, and unit -- are NOT
+    comparable.  Excluding echo also keeps it inside the constrained-form
+    "no rhino" boundary: a residue may only be observed through
+    [echo_visible]/[echo_witness], never structurally compared.  Without this
+    restriction a program like [echo(1,2) == echo(3,4)] would type-check yet
+    get stuck at runtime -- a type-safety (progress) hole. *)
+let is_comparable = function
+  | TPrim TBool -> true
+  | TPrim (TI32 | TI64 | TU32 | TU64) -> true
+  | TPrim TUnit -> false
+  | TArray _ | TRef _ | TFun _ | TStruct _ | TTrace | TEcho _ -> false
+
+
 (* Names of non-copyable echo bindings that have already been used, mapped to
    the location of that use.  Reset per function body. *)
 let affine_used : (string, Location.t) Hashtbl.t ref = ref (Hashtbl.create 16)
@@ -151,6 +167,13 @@ let rec infer_expr env expr =
          raise (TypeError (
            Printf.sprintf "comparison requires same types, got %s and %s"
              (format_type t1) (format_type t2),
+           expr.expr_loc));
+       if not (is_comparable t1) then
+         raise (TypeError (
+           Printf.sprintf
+             "equality is only defined on integer and boolean values, not %s; \
+              project an echo with echo_visible/echo_witness before comparing"
+             (format_type t1),
            expr.expr_loc));
        TPrim TBool
      | Lt | Le | Gt | Ge ->

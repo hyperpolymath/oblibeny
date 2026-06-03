@@ -111,7 +111,7 @@ package-name.zpkg/
 === Step 1: Define ABI in Idris2
 
 ```idris
--- src/abi/packages/hello/Interface.idr
+-- src/abi/Packages/Hello/Interface.idr
 module Packages.Hello.Interface
 
 import System.ABI
