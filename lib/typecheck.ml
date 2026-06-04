@@ -126,7 +126,38 @@ let affine_merge (other : (string, Location.t) Hashtbl.t) =
   Hashtbl.iter (fun k v ->
     if not (Hashtbl.mem !affine_used k) then Hashtbl.add !affine_used k v) other
 
-(** Record a use of [name : t]; raise if a non-copyable echo is used twice. *)
+(* ==========================================================================
+   OVERWRITE / DROP DISCIPLINE (non-copyable echoes are linear: exactly once)
+
+   The affine rule above forbids using a non-copyable echo *twice*.  This
+   complements it with the other half: a non-copyable echo must be consumed
+   *at least* once before it is discarded -- whether by reassignment
+   (overwrite) or by going out of scope (drop).  Together they make a
+   non-copyable echo linear: its retained residue cannot be silently thrown
+   away, which is the type-level form of "an irreversible step must yield an
+   echo of what it loses".  Copyable echoes (e.g. echo[i64,i64]) are exempt,
+   as are reversible primitives (incr/decr/swap/^=), which lose nothing.
+
+   [live_echoes] holds non-copyable echo bindings that are bound but not yet
+   consumed.  Binding adds; consuming (use/projection) removes; reassigning or
+   dropping one while still present is the forbidden loss.  Snapshotted across
+   branches like [affine_used].
+   ========================================================================== *)
+let live_echoes : (string, Location.t) Hashtbl.t ref = ref (Hashtbl.create 16)
+let live_reset () = live_echoes := Hashtbl.create 16
+let live_snapshot () = Hashtbl.copy !live_echoes
+let live_restore s = live_echoes := s
+let live_merge (other : (string, Location.t) Hashtbl.t) =
+  (* live after a branch join if live on either path (so a residue dropped on
+     one path is still flagged) *)
+  Hashtbl.iter (fun k v ->
+    if not (Hashtbl.mem !live_echoes k) then Hashtbl.add !live_echoes k v) other
+let live_bind name t loc =
+  if is_affine_echo t then Hashtbl.replace !live_echoes name loc
+let live_consume name = Hashtbl.remove !live_echoes name
+
+(** Record a use of [name : t]; raise if a non-copyable echo is used twice.
+    A first use also consumes the live residue. *)
 let affine_use name t loc =
   if is_affine_echo t then
     match Hashtbl.find_opt !affine_used name with
@@ -136,7 +167,7 @@ let affine_use name t loc =
           "echo value '%s' is affine and was already used; a non-copyable echo \
            (%s) may be projected/used at most once" name (format_type t),
         loc))
-    | None -> Hashtbl.add !affine_used name loc
+    | None -> Hashtbl.add !affine_used name loc; live_consume name
 
 (** Infer the type of an expression *)
 let rec infer_expr env expr =
@@ -365,6 +396,7 @@ and check_stmt env stmt =
         Printf.sprintf "let binding: expected %s, got %s"
           (format_type declared_t) (format_type init_t),
         stmt.stmt_loc));
+    live_bind name declared_t stmt.stmt_loc;
     { env with vars = Env.add name declared_t env.vars }
 
   | SLetMut (name, type_ann, init_expr) ->
@@ -378,6 +410,7 @@ and check_stmt env stmt =
         Printf.sprintf "let mut binding: expected %s, got %s"
           (format_type declared_t) (format_type init_t),
         stmt.stmt_loc));
+    live_bind name declared_t stmt.stmt_loc;
     { env with vars = Env.add name declared_t env.vars }
 
   | SAssign (name, expr) ->
@@ -389,6 +422,20 @@ and check_stmt env stmt =
            Printf.sprintf "assignment: expected %s, got %s"
              (format_type var_t) (format_type expr_t),
            stmt.stmt_loc));
+       (* Overwrite discipline: reassigning a still-live non-copyable echo would
+          silently discard its residue.  It must be consumed first. *)
+       if is_affine_echo var_t && Hashtbl.mem !live_echoes name then
+         raise (TypeError (
+           Printf.sprintf
+             "reassigning '%s' would discard a non-copyable echo whose residue \
+              was never consumed; project it (echo_visible/echo_witness) before \
+              overwriting" name,
+           stmt.stmt_loc));
+       (* The assignment installs a fresh residue, consumable once more. *)
+       if is_affine_echo var_t then begin
+         Hashtbl.remove !affine_used name;
+         live_bind name var_t stmt.stmt_loc
+       end;
        env
      | None ->
        raise (TypeError (Printf.sprintf "undefined variable: %s" name, stmt.stmt_loc)))
@@ -400,20 +447,28 @@ and check_stmt env stmt =
         Printf.sprintf "if condition must be bool, got %s" (format_type cond_t),
         stmt.stmt_loc));
     (* The branches are alternatives: each may consume the same echo, so check
-       them from a common entry state and take the union of what was used. *)
+       them from a common entry state and take the union of what was used /
+       what stays live. *)
     let entry = affine_snapshot () in
+    let entry_l = live_snapshot () in
     ignore (check_stmts env then_stmts);
     let after_then = affine_snapshot () in
+    let after_then_l = live_snapshot () in
     affine_restore entry;
+    live_restore entry_l;
     ignore (check_stmts env else_stmts);
     affine_merge after_then;
+    live_merge after_then_l;
     env
 
   | SForRange (_, _, _, body_stmts) ->
     (* A non-copyable echo bound before the loop and used in the body would be
-       consumed on every iteration, which is unsound. *)
+       consumed on every iteration, which is unsound. Loop-body-local echo
+       bindings stay scoped to the loop (don't leak to the drop check). *)
     let before = affine_snapshot () in
+    let live_before = live_snapshot () in
     ignore (check_stmts env body_stmts);
+    live_restore live_before;
     Hashtbl.iter (fun name loc ->
       if not (Hashtbl.mem before name) then
         match Env.find_opt name env.vars with
@@ -524,10 +579,21 @@ let typecheck_program program =
       match decl.decl_desc with
       | DFunction { name = _; params; body; _ } ->
         affine_reset ();
+        live_reset ();
         let fn_env = List.fold_left (fun env (param_name, param_type) ->
           { env with vars = Env.add param_name param_type env.vars }
         ) env params in
-        ignore (check_stmts fn_env body)
+        ignore (check_stmts fn_env body);
+        (* Drop discipline: any non-copyable echo still live at function exit
+           is dropped with its residue never consumed. *)
+        Hashtbl.iter (fun name loc ->
+          raise (TypeError (
+            Printf.sprintf
+              "non-copyable echo '%s' goes out of scope with its residue never \
+               consumed; project it (echo_visible/echo_witness) before it is \
+               dropped" name,
+            loc))
+        ) !live_echoes
       | _ -> ()
     ) program.declarations;
 
