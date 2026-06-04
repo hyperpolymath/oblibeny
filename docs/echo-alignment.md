@@ -155,11 +155,35 @@ computation cannot be reversed, it retains an echo of what was lost."*
 
 The bridge makes precise a latent symmetry in the language: the reversibility
 primitives (`incr`/`decr`/`swap`/`^=`) are exactly the *echo-free* operations,
-while information-losing steps are exactly those with a non-trivial echo. The
-two notions are currently kept separate by design (an `echo` "does not
-participate in `incr`/`decr`/`swap` balancing"). Whether to *connect* them —
-e.g. requiring an irreversible step in the constrained form to yield an `echo`
-of what it discarded, making loss type-enforced and accountable — is a possible
-future language feature, recorded here as an opportunity, not a decision. It
-would touch constrained-form semantics and must clear the "no rhino" bar before
-any implementation.
+while information-losing steps are exactly those with a non-trivial echo.
+
+## Update 2026-06-04 — overwrite/drop discipline (non-copyable echoes are linear)
+
+That symmetry is now **type-enforced**. A non-copyable `echo` is *linear*
+(exactly once): the existing affine rule already forbade using it twice; the
+type checker now also requires it be consumed *at least* once — its residue
+projected via `echo_visible`/`echo_witness` — before it is either
+
+- **reassigned** (overwrite), or
+- allowed to **go out of scope** (drop).
+
+Discarding a non-copyable echo's retained residue without consuming it is a
+type error. This is the type-level reading of *"an irreversible step must yield
+(and account for) an echo of what it loses"*: loss of a residue is no longer
+silent.
+
+Scope and boundary (deliberately narrow, still "no rhino"):
+
+- **Copyable echoes** (e.g. `echo[i64, i64]`) are exempt — duplicating or
+  dropping a bounded pair of copyable observations smuggles in nothing.
+- **Reversible primitives** (`incr`/`decr`/`swap`/`^=`) are exempt — they lose
+  nothing, so they need no echo. Echo still does **not** participate in their
+  balancing; the connection is one-directional (loss ⇒ must-capture), not a new
+  reversibility mechanism.
+- First implementation covers **non-copyable echo bindings** only. Extending
+  the same must-consume-before-overwrite/drop rule to other non-copyable
+  carriers (structs, arrays) is a possible later generalisation.
+
+Enforced in `lib/typecheck.ml` (the `live_echoes` tracker beside `affine_used`);
+pinned by conformance tests *non-copyable echo: drop without consume rejected*,
+*overwrite live value rejected*, and *overwrite after consume ok*.

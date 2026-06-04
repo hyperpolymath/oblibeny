@@ -388,6 +388,48 @@ fn main() -> () {
   | Error _ -> Alcotest.(check bool) "echo with non-copyable visible side is affine" true true
   | Ok () -> Alcotest.fail "echo[i64, Cargo] used twice should not typecheck"
 
+(* Overwrite/drop discipline: a non-copyable echo is linear (exactly once).
+   Dropping one without consuming its residue is a type error. *)
+let test_echo_noncopyable_drop_rejected () =
+  let src = noncopyable_echo_prelude ^ {|
+fn main() -> () {
+  let e: echo[Cargo, i64] = ship(7);
+}
+|} in
+  let prog = parse_ok src in
+  match Typecheck.typecheck_program prog with
+  | Error _ -> Alcotest.(check bool) "dropping an unconsumed non-copyable echo is rejected" true true
+  | Ok () -> Alcotest.fail "a non-copyable echo dropped without consuming its residue should not typecheck"
+
+(* Overwriting a still-live non-copyable echo discards its residue: rejected. *)
+let test_echo_noncopyable_overwrite_rejected () =
+  let src = noncopyable_echo_prelude ^ {|
+fn main() -> () {
+  let mut e: echo[Cargo, i64] = ship(7);
+  e = ship(9);
+  let v: i64 = echo_visible(e);
+}
+|} in
+  let prog = parse_ok src in
+  match Typecheck.typecheck_program prog with
+  | Error _ -> Alcotest.(check bool) "overwriting a live non-copyable echo is rejected" true true
+  | Ok () -> Alcotest.fail "overwriting an unconsumed non-copyable echo should not typecheck"
+
+(* ...but reassigning after the residue has been consumed is fine. *)
+let test_echo_noncopyable_overwrite_after_consume_ok () =
+  let src = noncopyable_echo_prelude ^ {|
+fn main() -> () {
+  let mut e: echo[Cargo, i64] = ship(7);
+  let v: i64 = echo_visible(e);
+  e = ship(9);
+  let w: i64 = echo_visible(e);
+}
+|} in
+  let prog = parse_ok src in
+  match Typecheck.typecheck_program prog with
+  | Ok () -> Alcotest.(check bool) "overwrite after consuming the residue is allowed" true true
+  | Error _ -> Alcotest.fail "reassigning a consumed non-copyable echo should typecheck"
+
 (* Safety ("no rhino"): an echo expression must not let a recursive call slip
    past the constrained-form checker. *)
 let test_echo_does_not_bypass_recursion () =
@@ -452,6 +494,9 @@ let () =
       Alcotest.test_case "non-copyable echo: single use ok" `Quick test_echo_noncopyable_single_use_ok;
       Alcotest.test_case "non-copyable echo: double use rejected" `Quick test_echo_noncopyable_double_use_rejected;
       Alcotest.test_case "non-copyable visible side is affine (A or B)" `Quick test_echo_noncopyable_visible_is_affine;
+      Alcotest.test_case "non-copyable echo: drop without consume rejected" `Quick test_echo_noncopyable_drop_rejected;
+      Alcotest.test_case "non-copyable echo: overwrite live value rejected" `Quick test_echo_noncopyable_overwrite_rejected;
+      Alcotest.test_case "non-copyable echo: overwrite after consume ok" `Quick test_echo_noncopyable_overwrite_after_consume_ok;
       Alcotest.test_case "echo does not bypass recursion checks" `Quick test_echo_does_not_bypass_recursion;
       Alcotest.test_case "echo memory bounded (witness + visible)" `Quick test_echo_memory_bounded;
     ];
