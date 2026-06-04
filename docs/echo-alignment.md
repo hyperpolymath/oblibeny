@@ -113,3 +113,53 @@ The Agda benchmark infrastructure and the EchoTypes.jl harness wiring are **not*
 Oblíbený work and must not be written from this repo. They require
 `hyperpolymath/echo-types` and `hyperpolymath/EchoTypes.jl` to be in session
 scope; this ledger exists so the plan is ready to execute there.
+
+## Update 2026-06-03 — type-safety hardening + proof-layer bridge
+
+Two changes landed while bringing the ABI proof layer to a true, machine-checked
+state. Both reinforce the boundaries above rather than widening them.
+
+### Echo is not structurally comparable (`==`/`!=`)
+
+A type-safety hole was found and closed in the constrained-form type checker:
+`Eq`/`Neq` previously accepted *any* two same-typed operands and claimed `bool`,
+so `echo(1,2) == echo(3,4)` type-checked yet got stuck at runtime (the evaluator
+only decides equality on scalars). Equality is now restricted to integer and
+boolean values (`Typecheck.is_comparable`); compound values — echoes, arrays,
+structs, refs, traces, unit — are rejected with a clear message.
+
+This restores the progress half of type safety (well-typed ⇒ does not get stuck)
+*and* tightens the "no rhino" boundary: a residue may be observed only through
+`echo_visible` / `echo_witness`, never structurally compared. Pinned by the
+conformance test `echo is not structurally comparable (==)`.
+
+### Proof-layer echo bridge (Idris2)
+
+The install/uninstall ABI is, formally, an echo-types story. `install` is a
+non-injective (irreversible) state transformer; its echo/fibre is the residue of
+that loss. `src/abi/Packages/Hello/Echo.idr` mirrors the echo-types fibre
+`Echo f y := Σ (x : A), f x ≡ y` and proves the duality:
+
+- **No residue under freshness** — `installInjectiveFresh`: reversibility *is*
+  injectivity, so the fibre over a fresh install is a singleton.
+- **A real residue otherwise** — `echoResidueNonTrivial`: a concrete two-element
+  fibre exists when the package/file already exists.
+
+This is the proof-layer (Idris2) counterpart of the in-language `echo[A,B]`
+type, and it deliberately stays in the proof layer: per the boundary above, the
+constrained form still does **not** import the echo-types proof theory. It
+cashes out the comment carried by `TEcho` in `lib/ast.ml` — *"where a
+computation cannot be reversed, it retains an echo of what was lost."*
+
+### Observation (not yet a change): reversibility ⟺ trivial echo
+
+The bridge makes precise a latent symmetry in the language: the reversibility
+primitives (`incr`/`decr`/`swap`/`^=`) are exactly the *echo-free* operations,
+while information-losing steps are exactly those with a non-trivial echo. The
+two notions are currently kept separate by design (an `echo` "does not
+participate in `incr`/`decr`/`swap` balancing"). Whether to *connect* them —
+e.g. requiring an irreversible step in the constrained form to yield an `echo`
+of what it discarded, making loss type-enforced and accountable — is a possible
+future language feature, recorded here as an opportunity, not a decision. It
+would touch constrained-form semantics and must clear the "no rhino" bar before
+any implementation.

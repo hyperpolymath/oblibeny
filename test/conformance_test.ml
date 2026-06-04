@@ -290,6 +290,24 @@ fn main() -> () {
   | Error _ -> Alcotest.(check bool) "echo_visible on non-echo is a type error" true true
   | Ok () -> Alcotest.fail "echo_visible on i64 should not typecheck"
 
+(* Type safety ("no rhino" + progress): an echo must not be structurally
+   compared with ==/!=.  The evaluator only decides equality on scalars, so
+   allowing echo == echo would type-check yet get stuck at runtime.  Equality
+   is therefore restricted to integers and booleans; a residue is observed only
+   via echo_visible/echo_witness. *)
+let test_echo_not_comparable () =
+  let src = {|
+fn main() -> () {
+  let a: echo[i64, i64] = echo(1, 2);
+  let b: echo[i64, i64] = echo(3, 4);
+  assert_invariant(a == b, "echoes are not structurally comparable");
+}
+|} in
+  let prog = parse_ok src in
+  match Typecheck.typecheck_program prog with
+  | Error _ -> Alcotest.(check bool) "echo == echo is a type error" true true
+  | Ok () -> Alcotest.fail "echo == echo should not typecheck (no structural equality on residue)"
+
 (* A non-copyable echo: its witness is a struct (conservatively non-copyable),
    so the echo is affine -- usable at most once. *)
 let noncopyable_echo_prelude = {|
@@ -429,6 +447,7 @@ let () =
       Alcotest.test_case "echo program evaluates" `Quick test_echo_evaluates;
       Alcotest.test_case "non-injective: distinct witnesses, equal visible" `Quick test_echo_non_injective;
       Alcotest.test_case "echo_visible requires echo type" `Quick test_echo_visible_requires_echo;
+      Alcotest.test_case "echo is not structurally comparable (==)" `Quick test_echo_not_comparable;
       Alcotest.test_case "copyable echo is unrestricted" `Quick test_echo_copyable_unrestricted;
       Alcotest.test_case "non-copyable echo: single use ok" `Quick test_echo_noncopyable_single_use_ok;
       Alcotest.test_case "non-copyable echo: double use rejected" `Quick test_echo_noncopyable_double_use_rejected;

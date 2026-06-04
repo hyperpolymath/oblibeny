@@ -16,7 +16,7 @@ This is a **proof-of-concept package** demonstrating the three-layer architectur
 
 ```
 ┌──────────────────────────────────────────────┐
-│  src/abi/packages/hello/Interface.idr        │
+│  src/abi/Packages/Hello/Interface.idr        │
 │  ───────────────────────────────────────     │
 │  • Proves installation is reversible         │
 │  • Defines C ABI for FFI                     │
@@ -64,19 +64,21 @@ hello.zpkg/
 
 ```bash
 cd ~/Documents/hyperpolymath-repos/oblibeny
-idris2 --check src/abi/packages/hello/Interface.idr
+idris2 --build src/abi/oblibeny-abi.ipkg
 ```
 
-This verifies:
-- Installation reversibility proof
-- Idempotence proof
+A successful build *is* the proof check (type-checking a total, escape-hatch-free
+definition is the proof). This verifies:
+- Installation reversibility proof (`installReversible`)
+- Idempotence proof (`doubleInstallIdempotent`)
+- Echo-residue bridge (`Packages.Hello.Echo`)
 - FFI type safety
 
 === Step 2: Generate C Headers from Idris2
 
 ```bash
-idris2 --codegen c src/abi/packages/hello/Interface.idr
-# Generates: build/exec/ABI.h
+idris2 --codegen c --build src/abi/oblibeny-abi.ipkg
+# Generates the C ABI headers Zig links against
 ```
 
 === Step 3: Build Zig FFI
@@ -145,7 +147,7 @@ This proof-of-concept shows:
 
 == Related Files
 
-* link:../../../src/abi/packages/hello/Interface.idr[Idris2 ABI]
+* link:../../../src/abi/Packages/Hello/Interface.idr[Idris2 ABI]
 * link:../../../ffi/zig/src/packages/hello.zig[Zig FFI]
 * link:install.obl[Oblibeny Script]
 * link:META.scm[Package Metadata]
