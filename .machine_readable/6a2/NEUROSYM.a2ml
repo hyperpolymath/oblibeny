@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <jonathan.jewell@gmail.com>
+#
+# NEUROSYM.a2ml — Neurosymbolic integration metadata
+# Converted from NEUROSYM.scm.
+
+[metadata]
+version = "1.0.0"
+
+# ---------------------------------------------------------------------------
+# Symbolic layer — deductive, formally verified, Scheme-typed.
+# ---------------------------------------------------------------------------
+
+[symbolic-layer]
+type = "scheme"
+reasoning = "deductive"
+verification = "formal"
+
+# ---------------------------------------------------------------------------
+# Neural layer — no embeddings, no fine-tuning.
+# ---------------------------------------------------------------------------
+
+[neural-layer]
+embeddings = false
+fine-tuning = false
+
+# ---------------------------------------------------------------------------
+# Integration — empty in NEUROSYM.scm (no neuro-symbolic integration config
+# recorded). Retained as empty per faithful translation.
+# ---------------------------------------------------------------------------
+
+[integration]

@@ -42,3 +42,7 @@ deps/
 .cache/
 build/
 dist/
+
+# Zig (FFI) build artifacts
+.zig-cache/
+zig-out/

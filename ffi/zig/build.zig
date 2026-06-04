@@ -21,8 +21,8 @@ pub fn build(b: *std.Build) void {
     crypto_lib.linkSystemLibrary("sodium");    // libsodium
 
     // Add library search paths (adjust for your system)
-    crypto_lib.addLibraryPath(b.path("/usr/local/lib"));
-    crypto_lib.addIncludePath(b.path("/usr/local/include"));
+    crypto_lib.addLibraryPath(.{ .cwd_relative = "/usr/local/lib" });
+    crypto_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include" });
 
     b.installArtifact(crypto_lib);
 
@@ -65,8 +65,8 @@ pub fn build(b: *std.Build) void {
     crypto_tests.linkLibC();
     crypto_tests.linkSystemLibrary("oqs");
     crypto_tests.linkSystemLibrary("sodium");
-    crypto_tests.addLibraryPath(b.path("/usr/local/lib"));
-    crypto_tests.addIncludePath(b.path("/usr/local/include"));
+    crypto_tests.addLibraryPath(.{ .cwd_relative = "/usr/local/lib" });
+    crypto_tests.addIncludePath(.{ .cwd_relative = "/usr/local/include" });
 
     const test_step = b.step("test", "Run crypto tests");
     test_step.dependOn(&b.addRunArtifact(crypto_tests).step);
