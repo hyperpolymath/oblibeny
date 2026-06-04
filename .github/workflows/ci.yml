@@ -1,0 +1,84 @@
+# SPDX-License-Identifier: MPL-2.0
+# CI — the build/test/proof gate that was missing from this repo.
+#
+# Root-cause note: oblibeny's Idris2 ABI "proofs" and OCaml type checker had
+# never been compiled or tested in CI, so non-compiling stubs, a *false*
+# theorem behind `believe_me`, and a type-safety hole all merged unnoticed.
+# This workflow closes that gap: it actually builds the OCaml language, runs
+# the conformance suite, type-checks (= proves) the Idris2 ABI layer, and
+# guards against soundness escape hatches.
+
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+# Estate guardrail: cancel superseded runs (read-only checks, safe to cancel).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ocaml:
+    name: OCaml build + conformance suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install OCaml toolchain (apt)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ocaml ocaml-dune menhir libmenhir-ocaml-dev libyojson-ocaml-dev \
+            libsedlex-ocaml-dev libppx-deriving-ocaml-dev \
+            libppx-deriving-yojson-ocaml-dev libalcotest-ocaml-dev ocaml-findlib
+
+      - name: Build
+        run: dune build
+
+      - name: Conformance suite
+        run: dune runtest
+
+  idris-proofs:
+    name: Idris2 ABI proofs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Chez Scheme + GMP (apt)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends chezscheme libgmp-dev
+
+      - name: Build Idris2 0.7.0 from source (Chez bootstrap)
+        run: |
+          git clone --depth 1 --branch v0.7.0 https://github.com/idris-lang/Idris2 /tmp/Idris2
+          make -C /tmp/Idris2 bootstrap SCHEME=chezscheme
+          make -C /tmp/Idris2 install PREFIX="$HOME/.idris2"
+          echo "$HOME/.idris2/bin" >> "$GITHUB_PATH"
+
+      - name: Type-check (prove) the ABI proof layer
+        run: idris2 --build src/abi/oblibeny-abi.ipkg
+
+      - name: Escape-hatch guard (no believe_me / postulate / assert_total / partial / holes)
+        run: |
+          if grep -rnE 'believe_me|assert_total|\bpostulate\b|\bpartial\b|idris_crash|\?[A-Za-z_][A-Za-z0-9_]*' \
+               src/abi/Crypto.idr src/abi/Packages; then
+            echo "::error::soundness escape hatch found in ABI proofs"
+            exit 1
+          fi
+          echo "no escape hatches"
