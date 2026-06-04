@@ -1,22 +1,110 @@
-# AI Assistant Instructions
+# ⚠️ STOP - CRITICAL READING REQUIRED
 
-# Machine-Readable Metadata
+**THIS FILE MUST BE READ FIRST BY ALL AI AGENTS**
 
-Project metadata and AI agent configuration files are located in `.machine_readable/`:
+## WHAT IS THIS?
 
-- **STATE.scm** - Current project state, progress, blockers, next actions
-- **ECOSYSTEM.scm** - Position in ecosystem, relationships to other projects
-- **META.scm** - Architecture decisions, governance, development practices
-- **PLAYBOOK.scm** - Operational runbook, procedures, alerts
-- **AGENTIC.scm** - AI agent interaction patterns and constraints
-- **NEUROSYM.scm** - Neurosymbolic integration configuration
+This is the AI manifest for **oblibeny** — a secure edge language for
+reversibility and accountability (a Turing-complete factory form that produces
+a Turing-incomplete reversible/constrained form). It declares:
 
-**These files are the canonical source of truth for project metadata.**
+- Canonical file locations (where things MUST be, and nowhere else)
+- Critical invariants (rules that must NEVER be violated)
+- Repository structure and organization
 
-## Workflow
+## CANONICAL LOCATIONS (UNIVERSAL RULE)
 
-1. Read `.machine_readable/*.scm` files at session start
-2. Check STATE.scm for current phase, blockers, next actions
-3. Follow patterns and constraints from AGENTIC.scm
-4. Update STATE.scm after completing work
-5. Sync to database: `~/sync-language-tracker.sh`
+### Machine-Readable Metadata: `.machine_readable/6a2/` ONLY
+
+These 6 A2ML files are the canonical, machine-readable source of truth and
+MUST exist under `.machine_readable/6a2/` ONLY:
+
+1. **.machine_readable/6a2/STATE.a2ml** - Project state, progress, blockers, next actions
+2. **.machine_readable/6a2/META.a2ml** - Architecture decisions, governance, development practices
+3. **.machine_readable/6a2/ECOSYSTEM.a2ml** - Position in ecosystem, relationships to other projects
+4. **.machine_readable/6a2/AGENTIC.a2ml** - AI agent interaction patterns and constraints
+5. **.machine_readable/6a2/NEUROSYM.a2ml** - Neurosymbolic integration configuration
+6. **.machine_readable/6a2/PLAYBOOK.a2ml** - Operational runbook, procedures, alerts
+
+**CRITICAL:** If any of these exist in the repository root (or as legacy
+`.machine_readable/*.scm` files), that is an ERROR — they were migrated to
+A2ML under `6a2/` on 2026-06-04.
+
+### Agent Instructions
+
+- `.claude/CLAUDE.md` - Claude-specific patterns and the language policy
+- `0-AI-MANIFEST.a2ml` - THIS FILE (universal entry point)
+
+## CORE INVARIANTS
+
+1. **Single source of truth** - `.machine_readable/6a2/` is authoritative for project metadata.
+2. **No metadata duplication** - the root must NOT contain `STATE.*`/`META.*`/etc.; no legacy `.machine_readable/*.scm`.
+3. **Licence consistency** - all code is MPL-2.0; SPDX headers on all files.
+4. **Author attribution** - "Jonathan D.A. Jewell" (contact in `.machine_readable/6a2/META.a2ml` / `dune-project`).
+5. **Language policy** - per `.claude/CLAUDE.md` (OCaml compiler, Zig FFI, Idris2 ABI proofs; banned: TypeScript/Node/Go/Python/etc.).
+6. **Proofs stay green** - the Idris2 ABI proofs (`src/abi/oblibeny-abi.ipkg`) carry no escape hatches; the conformance suite (`dune runtest`) must pass.
+
+## REPOSITORY STRUCTURE
+
+```
+oblibeny/
+├── 0-AI-MANIFEST.a2ml          # THIS FILE (start here)
+├── README.adoc                  # Project overview
+├── dune-project                 # OCaml build (lib/ bin/ test/)
+├── lib/                         # OCaml compiler: lexer, parser, typecheck, eval, ...
+├── bin/                         # CLI + LSP executables
+├── src/abi/                     # Idris2 ABI proofs (oblibeny-abi.ipkg) + Crypto
+├── ffi/                         # Zig FFI
+├── test/                        # Conformance suite (Alcotest)
+├── examples/                    # .obl programs + package examples
+├── docs/                        # Architecture, specs, proof-debt, echo-alignment
+├── scripts/                     # check-proofs.sh, etc.
+├── config/ deploy/ editors/ hooks/ wiki/
+└── .machine_readable/6a2/       # The 6 canonical A2ML metadata files
+    ├── STATE.a2ml
+    ├── META.a2ml
+    ├── ECOSYSTEM.a2ml
+    ├── AGENTIC.a2ml
+    ├── NEUROSYM.a2ml
+    └── PLAYBOOK.a2ml
+```
+
+## SESSION STARTUP CHECKLIST
+
+✅ Read THIS file (0-AI-MANIFEST.a2ml) first
+✅ Understand the canonical location (`.machine_readable/6a2/`)
+✅ Know the invariants (single source of truth, MPL-2.0, language policy, proofs green)
+✅ Read `.machine_readable/6a2/STATE.a2ml` for current status, phase, blockers
+✅ Read `.machine_readable/6a2/AGENTIC.a2ml` for interaction patterns
+✅ Read `.claude/CLAUDE.md` for the language policy
+
+## LIFECYCLE HOOKS
+
+### on-enter (Session Start)
+
+1. Read and acknowledge this manifest.
+2. Read `.machine_readable/6a2/STATE.a2ml`; check for blockers and next actions.
+3. State understanding of the canonical location.
+
+### on-exit (Session End)
+
+1. Update `.machine_readable/6a2/STATE.a2ml` if changes were made.
+2. Document any new blockers and summarize outcomes.
+3. Sync to the language tracker if available: `~/sync-language-tracker.sh`.
+
+## ATTESTATION PROOF
+
+After reading this file, demonstrate understanding by stating:
+
+**"I have read the AI manifest. The canonical machine-readable metadata lives in
+`.machine_readable/6a2/*.a2ml` ONLY; I will not create duplicate or legacy
+`.scm` metadata in the root or in `.machine_readable/`."**
+
+## META
+
+- **Format Version:** 1.0.0
+- **Created:** 2026-01-03
+- **Migrated to A2ML/6a2:** 2026-06-04
+- **Maintained By:** Jonathan D.A. Jewell (hyperpolymath)
+- **License:** MPL-2.0
+- **Protocol:** https://github.com/hyperpolymath/0-ai-gatekeeper-protocol

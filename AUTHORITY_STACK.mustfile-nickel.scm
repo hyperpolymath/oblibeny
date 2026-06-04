@@ -27,7 +27,7 @@
     (workflow
       . ((first-run
            . ("Read ANCHOR*.scm"
-              "Read STATE.scm"
+              "Read .machine_readable/6a2/STATE.a2ml"
               "Run: just --list"
               "Run: just test"
               "Run: just demo (if defined)"))
