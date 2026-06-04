@@ -154,9 +154,9 @@ fn installPackage(allocator: std.mem.Allocator, pkg_path: []const u8) !void {
     const manifest_path = try std.fmt.bufPrint(&manifest_path_buf, "{s}/manifest.json", .{extract_dir});
 
     const manifest_file = std.fs.cwd().openFile(manifest_path, .{}) catch |err| {
-        var buf: [256]u8 = undefined;
-        const msg = try std.fmt.bufPrint(&buf, "  ⚠ No manifest found ({}), assuming no dependencies\n", .{err});
-        _ = try posix.write(posix.STDOUT_FILENO, msg);
+        var errbuf: [256]u8 = undefined;
+        const errmsg = try std.fmt.bufPrint(&errbuf, "  ⚠ No manifest found ({}), assuming no dependencies\n", .{err});
+        _ = try posix.write(posix.STDOUT_FILENO, errmsg);
         return;
     };
     defer manifest_file.close();
@@ -203,10 +203,10 @@ fn installPackage(allocator: std.mem.Allocator, pkg_path: []const u8) !void {
     var db_path_buf: [256]u8 = undefined;
     const db_path = try std.fmt.bufPrint(&db_path_buf, "{s}/installed.db", .{db_dir});
 
-    const db_file = std.fs.cwd().openFile(db_path, .{ .mode = .read_write }) catch {
+    const db_file = std.fs.cwd().openFile(db_path, .{ .mode = .read_write }) catch blk: {
         // Create if doesn't exist
         try std.fs.cwd().writeFile(.{ .sub_path = db_path, .data = "" });
-        try std.fs.cwd().openFile(db_path, .{ .mode = .read_write })
+        break :blk try std.fs.cwd().openFile(db_path, .{ .mode = .read_write });
     };
     defer db_file.close();
 
@@ -370,6 +370,13 @@ fn verifyPackageInternal(allocator: std.mem.Allocator, pkg_path: []const u8) !bo
         @memset(&ed_sig, 0);
     };
 
+    // NOTE(security, MVP): the canonical signed payload still needs to be
+    // derived — a real scheme signs the package bytes *excluding* the embedded
+    // signature blocks. This verify path is a stub (see the zeroed
+    // test-signature fallbacks above), so this is a compile-level placeholder,
+    // not a production payload. TODO(security): derive the real signed payload.
+    const mock_message: []const u8 = pkg_content;
+
     // Verify Dilithium5
     _ = try posix.write(posix.STDOUT_FILENO, "  → Verifying Dilithium5 signature...\n");
     const d5_valid = try crypto.verifySignature(
@@ -414,9 +421,6 @@ fn verifyPackageInternal(allocator: std.mem.Allocator, pkg_path: []const u8) !bo
         return false;
     }
     _ = try posix.write(posix.STDOUT_FILENO, "  ✓ Ed25519 valid\n");
-
-    _ = allocator;
-    _ = pkg_path;
 
     // All three signatures must pass
     return d5_valid and sp_valid and ed_valid;
