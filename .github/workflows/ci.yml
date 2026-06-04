@@ -28,6 +28,7 @@ jobs:
   ocaml:
     name: OCaml build + conformance suite
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       DEBIAN_FRONTEND: noninteractive
     steps:
@@ -51,6 +52,7 @@ jobs:
   idris-proofs:
     name: Idris2 ABI proofs
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       DEBIAN_FRONTEND: noninteractive
     steps:
