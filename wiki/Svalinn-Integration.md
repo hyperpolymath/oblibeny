@@ -6,8 +6,8 @@
 
 Svalinn integrates with Lago Grey to leverage:
 - Pre-built post-quantum crypto libraries (no need to maintain your own)
-- Triple signature verification (Dilithium5 + Ed448 + SPHINCS+)
-- Formally verified crypto primitives (Coq proofs)
+- Triple signature verification (Dilithium5 + SPHINCS+ + Ed25519; Ed448 was the original design, the implementation uses Ed25519 — see `ffi/zig/src/crypto.zig`)
+- Crypto FFI with Idris2 ABI proofs, machine-checked in CI (crypto primitives come from upstream liboqs/libsodium)
 - Zero-dependency static libraries
 
 ---

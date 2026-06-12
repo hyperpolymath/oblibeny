@@ -5,8 +5,8 @@
 # Converted from AGENTIC.scm. Defines how AI agents operate in this repository.
 
 [metadata]
-version = "2.0.0"
-last-updated = "2026-06-02"
+version = "2.0.1"
+last-updated = "2026-06-12"
 
 # ---------------------------------------------------------------------------
 # Claude Code configuration.
@@ -18,11 +18,13 @@ tools = "read, edit, write, bash, grep, glob, agent"
 permissions = "read-all"
 
 [claude-code.first-run-protocol]
-step-1 = "Read .machine_readable/STATE.scm for current project state"
-step-2 = "Read .machine_readable/META.scm for architecture decisions"
+# Paths updated 2026-06-12: the .scm metadata files were migrated to
+# .machine_readable/6a2/*.a2ml in PR #56.
+step-1 = "Read .machine_readable/6a2/STATE.a2ml for current project state"
+step-2 = "Read .machine_readable/6a2/META.a2ml for architecture decisions"
 step-3 = "Read ANCHOR.scope-arrest.2026-01-01.Jewell.scm for identity/scope rules"
 step-4 = "Run: dune build && dune test (golden path)"
-step-5 = "Check .machine_readable/PLAYBOOK.scm for operational procedures"
+step-5 = "Check .machine_readable/6a2/PLAYBOOK.a2ml for operational procedures"
 
 # ---------------------------------------------------------------------------
 # Working patterns.
@@ -32,7 +34,7 @@ step-5 = "Check .machine_readable/PLAYBOOK.scm for operational procedures"
 code-review = "thorough"
 refactoring = "conservative — do not refactor beyond the task"
 testing = "comprehensive — new types require typecheck/eval/constrained/rejection/safety tests"
-documentation = "always update STATE.scm, CHANGELOG.md, and relevant docs when adding features"
+documentation = "always update .machine_readable/6a2/STATE.a2ml, CHANGELOG.md, and relevant docs when adding features"
 commits = "one logical change per commit; conventional commits format"
 
 # ---------------------------------------------------------------------------
@@ -81,15 +83,15 @@ pr-naming-convention = "claude/<short-description>-<random-id> for AI-driven fea
 pr-creation = "Always create as draft PR; include Summary, Test plan, and session link in body"
 ci-circular-dependency-resolution = "When two governance-fix PRs have circular CI dependencies (each fixes the other's one failure), merge both branches into the feature branch before merging to main. See 2026-06-02 echo-type merge as reference."
 stale-branch-cleanup = "After merging to main, delete all claude/* branches that were subsumed. Use: git push origin --delete <branch>"
-state-scm-update = "After any significant feature merge, add a session-history entry to .machine_readable/STATE.scm with date, focus, achievements, and metrics."
+state-update = "After any significant feature merge, add a session-history entry to .machine_readable/6a2/STATE.a2ml with date, focus, achievements, and metrics."
 
 [gitbot-automation.documentation-checklist]
 d01 = "README.adoc — add new type/feature to Unique Features section"
 d02 = "CHANGELOG.md — add entry under [Unreleased]"
 d03 = "SPEC.core.scm — add to relevant sections (types, ops, conformance, external-interfaces, examples)"
-d04 = ".machine_readable/STATE.scm — add session-history entry"
-d05 = ".machine_readable/META.scm — add architecture decision if significant"
-d06 = ".machine_readable/ECOSYSTEM.scm — update if ecosystem relationships change"
+d04 = ".machine_readable/6a2/STATE.a2ml — add session-history entry"
+d05 = ".machine_readable/6a2/META.a2ml — add architecture decision if significant"
+d06 = ".machine_readable/6a2/ECOSYSTEM.a2ml — update if ecosystem relationships change"
 d07 = "docs/LANGUAGE-SPEC.md — add type/feature section"
 d08 = "docs/TUTORIAL.md — add tutorial section"
 d09 = "docs/CONTRACTILES.adoc — add contracts for new type (E-series, A-series, etc.)"

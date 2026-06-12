@@ -1,0 +1,89 @@
+# SPDX-License-Identifier: MPL-2.0
+# Dustfile — Cleanup, hygiene and deprecation contract for oblibeny
+# Author: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+#
+# DUST tracks what is being swept away: cleanup policy, hygiene rules,
+# and the deprecation register (real, dated, from git history).
+# Created 2026-06-12 (governance checkpoint); fully written, no stubs.
+
+[metadata]
+repo = "hyperpolymath/oblibeny"
+version = "1.0.0"
+format = "a2ml"
+last-updated = "2026-06-12"
+
+[cleanup]
+stale-branch-policy = "delete-after-merge (AGENTIC gitbot-automation); 4 stale remote branches currently pending maintainer deletion — see hypatia.a2ml GS007"
+artifact-retention = "_build/, .zig-cache/, zig-out/ are gitignored (the latter two since PR #56); generated/ from abi-gen recipes is disposable"
+cache-policy = "dune clean / just clean clears local build state"
+
+[hygiene]
+linting = "just lint (constrained-form validation via dune build @check)"
+formatting = "just fmt (dune fmt / ocamlformat)"
+dead-code-removal = "practised — obli-pkg.zig.old removed in PR #56; 6 orphaned submodule gitlinks removed in PR #54"
+todo-tracking = "119 TODO/FIXME/XXX markers in-tree as of 2026-06-12; consolidated academic list in docs/academic/TODO.adoc; top items proposed as GitHub issues at the 2026-06-12 checkpoint"
+
+[reversibility]
+backup-before-destructive = true
+rollback-mechanism = "git-revert (never force-push main — 6a2/PLAYBOOK.a2ml procedures.rollback)"
+data-retention-policy = "git history on origin/main is the durable record"
+
+# ── Deprecation register (real, dated, from git history) ──────────────
+
+[[deprecations]]
+name = "legacy-scm-metadata"
+status = "removed"
+date = "2026-06-04"
+evidence = "PR #56 (commit ae1d91f): .machine_readable/*.scm migrated to 6a2/*.a2ml, faithful translation, legacy .scm removed"
+replacement = ".machine_readable/6a2/{STATE,META,ECOSYSTEM,AGENTIC,NEUROSYM,PLAYBOOK}.a2ml"
+residue = ".claude/CLAUDE.md still references the .scm names (guardrail-blocked; maintainer edit pending). Root SPEC.core.scm and ANCHOR.scope-arrest.2026-01-01.Jewell.scm are NOT deprecated — they are the live formal spec and identity anchor."
+
+[[deprecations]]
+name = "orphaned-submodule-gitlinks"
+status = "removed"
+date = "2026-06-04"
+evidence = "PR #54 (commit 526610a): 6 gitlinks with no .gitmodules and no upstream repos removed"
+replacement = "none (they pointed nowhere)"
+
+[[deprecations]]
+name = "obli-pkg.zig.old"
+status = "removed"
+date = "2026-06-04"
+evidence = "PR #56 (commit af855f8): dead file deleted during the Zig 0.13 compile-fix pass"
+replacement = "ffi/zig/src/obli-pkg.zig"
+
+[[deprecations]]
+name = "pmpl-license"
+status = "removed"
+date = "2026-05"
+evidence = "commit 7b515fc: migrate license from PMPL-1.0-or-later to MPL-2.0"
+replacement = "MPL-2.0"
+residue = "Stale PMPL badge URL in README.adoc fixed at the 2026-06-12 checkpoint; ROADMAP.adoc footer likewise"
+
+[[deprecations]]
+name = "per-repo-ci-workflow-copies"
+status = "removed"
+date = "2026-05"
+evidence = "PRs #40 (hypatia-scan), #42 (mirror), #43 (secret-scanner), #44 (scorecard), plus the shared governance bundle wrapper (commit 703542b-era series)"
+replacement = "thin wrappers around hyperpolymath/standards reusable workflows, SHA-pinned"
+
+[[deprecations]]
+name = "codeql-weekly-cron"
+status = "removed"
+date = "2026-06-04"
+evidence = "PR #56 (commit af855f8 series): CodeQL cron weekly -> monthly"
+replacement = "monthly schedule in .github/workflows/codeql.yml"
+
+[[deprecations]]
+name = "believe_me-proof-stubs"
+status = "removed"
+date = "2026-06-04"
+evidence = "PR #51 (commit d1deb29): non-compiling Idris2 stubs (incl. one believe_me-masked FALSE theorem) replaced by genuine total proofs; PR #52 adds the CI escape-hatch guard so they cannot return"
+replacement = "src/abi/ total proofs, gated by ci.yml"
+
+# ── Known cleanup candidates (not yet swept) ──────────────────────────
+
+[cleanup-candidates]
+dockerfile-sprawl = "8 container build files at root (Containerfile, Containerfile.crypto, Dockerfile.argon2, Dockerfile.crypto-builder, Dockerfile.lago-grey-minimal, Dockerfile.liboqs, Dockerfile.libsodium, Dockerfile.oblibeny-bootstrap, Dockerfile.oblibeny-minimal); consolidation was a route-to-mvp item and remains open"
+stale-remote-branches = "claude/codeql-actions-scan, claude/proof-debt-ledger, cicd/codeql-cron-monthly, estate-standardization-20260607 — deletion pending maintainer (GS007)"
+duplicate-contributing = "CONTRIBUTING.adoc (397 B) and CONTRIBUTING.md (3.5 KB) coexist; the .md is the richer one"

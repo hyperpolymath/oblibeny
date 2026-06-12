@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+= Bot Directives
+:toc: preamble
+
+Per-repo directives for automated agents operating on
+https://github.com/hyperpolymath/oblibeny[hyperpolymath/oblibeny].
+
+== Purpose
+
+These files tell automated agents (security scanners, the gitbot fleet,
+and forge-propagation automation) what this repository expects of them:
+which findings are already triaged, which actions are prohibited, and
+how propagation is configured.
+
+== Precedence
+
+. Maintainer instruction (issue/PR comment or direct commit)
+. These directives
+. Bot defaults
+
+== Scope
+
+[cols="1,3"]
+|===
+| File | Governs
+
+| `hypatia.a2ml`
+| The Hypatia security scanner (`.github/workflows/hypatia-scan.yml`):
+accepted findings / known false-positives, prohibited actions.
+
+| `gitbot-fleet.a2ml`
+| The gitbot fleet (rhodibot, echidnabot, sustainabot, glambot,
+seambot, finishbot): branch policy, never-touch paths, per-bot rules.
+
+| `git-private-farm.a2ml`
+| Propagation to `hyperpolymath/.git-private-farm` via
+`.github/workflows/instant-sync.yml`: token name, gating, what must
+never propagate.
+|===
+
+== Hard limits (all bots)
+
+* Never modify `.claude/CLAUDE.md` (guardrail-blocked; pending edits go
+  through the maintainer).
+* Never modify the language core (`lib/`), the proof layer (`src/abi/`),
+  the FFI (`ffi/`), or the conformance gate (`test/`) without an
+  explicit maintainer-approved task.
+* Draft PRs only; CI must be green before merge.

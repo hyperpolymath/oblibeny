@@ -126,4 +126,4 @@ Contribution guidelines will be established once specifications are finalized.
 
 == License
 
-MIT OR Palimpsest-0.8
+MPL-2.0 (migrated from PMPL-1.0-or-later; see LICENSE)

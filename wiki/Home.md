@@ -46,7 +46,7 @@ Lago Grey is a 14.6 MB minimal Linux distribution with post-quantum cryptography
 ### Key Features
 - **14.6 MB** - Small Iceberg classification 🏔️
 - **Post-quantum ready** - Dilithium5, Kyber-1024, SPHINCS+ by default
-- **Formally verified** - Idris2 ABI proofs + Coq crypto proofs
+- **Formally verified** - Idris2 ABI proofs, machine-checked in CI (PRs #51/#52)
 - **Reversible operations** - All package changes are traceable and reversible
 - **Community governed** - MPL-2.0 license
 - **Zero corporate control** - True community project
@@ -55,7 +55,7 @@ Lago Grey is a 14.6 MB minimal Linux distribution with post-quantum cryptography
 
 | Distribution | Size | PQ Crypto | Formal Verification | Governance |
 |--------------|------|-----------|---------------------|------------|
-| **Lago Grey** | **14.6 MB** | ✅ Default | ✅ Idris2 + Coq | Community |
+| **Lago Grey** | **14.6 MB** | ✅ Default | ✅ Idris2 | Community |
 | Chainguard | 20-40 MB | ❌ | ❌ | Corporate |
 | Alpine | 60 MB | ❌ | ❌ | Community |
 | Debian | 124 MB | ❌ | ❌ | Community |
@@ -69,6 +69,17 @@ Lago Grey is a 14.6 MB minimal Linux distribution with post-quantum cryptography
 - **Completion:** 50%
 - **License:** MPL-2.0
 - **Repository:** [github.com/hyperpolymath/oblibeny](https://github.com/hyperpolymath/oblibeny)
+
+### Status update — 2026-06-12 (language toolchain)
+
+The oblibeny language toolchain that underpins Lago Grey moved substantially in June 2026 (PRs #51–#56):
+
+- **Real Idris2 ABI proofs** (#51): the proof layer's placeholder stubs were replaced with genuine, total, machine-checked proofs (`installReversible`, `doubleInstallIdempotent`); one `believe_me`-masked theorem was found to be *false as written* and corrected. A type-safety hole in the constrained-form checker (`==`/`!=` accepting non-scalar operands) was closed.
+- **CI gate** (#52, #53): every PR now runs the OCaml build, the 27-test conformance suite, and the Idris2 proof type-check, with an escape-hatch guard (no `believe_me`/`postulate`/`assert_total`). Hypatia and Scorecard wrappers were root-caused and fixed; instant-sync is presence-gated on its token.
+- **Echo linearity** (#55): non-copyable `echo[A,B]` residues are now *linear* — consumed exactly once; discarding a residue unconsumed is a type error.
+- **Hygiene** (#54, #56): orphaned submodule gitlinks removed; metadata migrated to `.machine_readable/6a2/*.a2ml`; the Zig FFI compiles under Zig 0.13 (the link step needs a system liboqs — exactly the library Lago Grey ships).
+
+The Lago Grey distribution status above (0.1.0-alpha, PoC → MVP) is unchanged by this; the language layer is in active development with the honest blocker list in `.machine_readable/6a2/STATE.a2ml`.
 
 ---
 

@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: MPL-2.0
+# Trustfile — Trust boundaries and integrity invariants for oblibeny
+# Author: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+#
+# Defines what automated agents may do without asking, and the integrity
+# invariants that verify the repo has not been tampered with.
+# Created 2026-06-12 (governance checkpoint); semantics derived from the
+# estate Trustfile shape, populated with oblibeny-true obligations.
+
+[metadata]
+repo = "hyperpolymath/oblibeny"
+version = "1.0.0"
+format = "a2ml"
+last-updated = "2026-06-12"
+
+[trust-levels]
+# standard: agents may read and build/test freely; modifications to the
+# guarded areas below require explicit maintainer approval.
+current = "standard"
+read = "unrestricted"
+build-test = "unrestricted (dune build / dune runtest / idris2 --build src/abi/oblibeny-abi.ipkg)"
+modify-requires-approval = [
+  "lib/ (language core — no-rhino review per 6a2/META.a2ml)",
+  "src/abi/ (proof layer — escape-hatch guard territory)",
+  "ffi/ (Zig FFI, security-critical crypto surface)",
+  "test/ (the conformance gate itself)",
+  ".github/workflows/ (CI gates)",
+  ".claude/CLAUDE.md (guardrail-blocked)",
+  "SPEC.core.scm (authoritative formal specification)",
+]
+
+# ── Integrity invariants ──
+
+[integrity.no-secrets-committed]
+description = "No credential files in repo"
+run = "test ! -f .env && test ! -f credentials.json && test ! -f .env.local && test ! -f .env.production"
+severity = "critical"
+
+[integrity.no-private-keys]
+description = "No private key files committed"
+run = "! find . -path ./.git -prune -o \\( -name '*.pem' -o -name '*.key' -o -name 'id_rsa' -o -name 'id_ed25519' \\) -print | grep -q ."
+severity = "critical"
+
+[integrity.secret-names-only]
+description = "Workflow secrets referenced by NAME only (FARM_DISPATCH_TOKEN); values never committed"
+run = "! grep -rE 'FARM_DISPATCH_TOKEN\\s*[:=]\\s*[A-Za-z0-9_-]{16,}' --include='*.yml' --include='*.a2ml' ."
+severity = "critical"
+
+[integrity.proof-layer-sound]
+description = "No soundness escape hatches in the Idris2 ABI proof layer (mirrors the ci.yml guard from PR #52)"
+run = "! grep -rnE 'believe_me|assert_total|\\bpostulate\\b|\\bpartial\\b|idris_crash' src/abi/Crypto.idr src/abi/Packages"
+severity = "critical"
+
+[integrity.license-content]
+description = "LICENSE carries the MPL-2.0 SPDX identifier"
+run = "grep -q 'SPDX-License-Identifier: MPL-2.0' LICENSE"
+severity = "warning"
+
+[integrity.author-provenance]
+description = "Git author matches expected identity"
+run = "git log -1 --format='%ae' | grep -qE '(hyperpolymath|jewell|noreply.github.com)'"
+severity = "advisory"
+
+# ── Container provenance ──
+
+[integrity.container-base-noted]
+description = "Container builds are explicit files (Containerfile, Containerfile.crypto, Dockerfile.*); base-image pinning is tracked, not yet enforced"
+status = "advisory"
+note = "Multiple historical Dockerfile.* variants exist at the repo root; consolidation is a known cleanup item (see Dustfile)."
