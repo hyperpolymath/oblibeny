@@ -13,7 +13,7 @@ workflow = ".github/workflows/instant-sync.yml"
 target = "hyperpolymath/.git-private-farm"
 event-type = "propagate"
 # Secret NAME only — never the value.
-secret = "FARM_DISPATCH_TOKEN"
+secret-name = "FARM_DISPATCH_TOKEN"
 # Both workflow steps are gated on secret presence since PR #53:
 #   if: env.FARM_DISPATCH_TOKEN != ''
 presence-gated = true
