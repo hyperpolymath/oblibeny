@@ -7,6 +7,7 @@ project = "oblibeny"
 author = "Jonathan D.A. Jewell <jonathan.jewell@gmail.com>"
 license = "MPL-2.0"
 standard = "RSR 2026"
+last-updated = "2026-06-12"
 
 # ---------------------------------------------------------------------------
 # Architecture decisions — each carries the original decision date.
@@ -23,6 +24,12 @@ date = "2026-06-02"
 decision = "echo[A, B] is affine iff A or B is non-copyable; both-copyable echoes are unrestricted"
 rationale = "Echo should not make copyable data non-copyable by magic. If both sides are copyable, duplicating the echo smuggles in no extra authority, heap state, trace state, or hidden capability. For non-copyable contents, affine consumption is essential to prevent echo[A,B] degenerating into an unrestricted product A*B that can be freely destructured."
 alternatives-rejected = "All echoes affine (gratuitously restrictive for primitive copyable data, breaks constrained-form usability); no affinity at all (allows non-copyable resource duplication)"
+
+[architecture-decisions.echo-linear-overwrite-drop]
+date = "2026-06-04"
+decision = "Non-copyable echoes are linear (consumed exactly once), not merely affine: a still-live residue may not be overwritten (SAssign) or dropped (scope exit) before projection (PR #55)"
+rationale = "Type-enforces the echo-reversibility symmetry the Idris bridge proved: reversible implies no residue; irreversible implies an echo. An irreversible step must account for an echo of what it loses — silently discarding the residue would defeat accountability. The affine half (no second use) already existed; #55 adds the must-consume half via a live_echoes tracker in lib/typecheck.ml."
+alternatives-rejected = "Affine-only discipline (allows silent residue discard); extending linearity to copyable echoes or reversible primitives (they lose nothing — gratuitous restriction)"
 
 [architecture-decisions.echo-not-reversible]
 date = "2026-06-02"

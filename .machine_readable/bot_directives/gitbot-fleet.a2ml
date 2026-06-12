@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# gitbot-fleet.a2ml — directives for the hyperpolymath gitbot fleet.
+
+[metadata]
+repo = "hyperpolymath/oblibeny"
+last-updated = "2026-06-12"
+owner = "hyperpolymath"
+
+[fleet]
+bots = ["rhodibot", "echidnabot", "sustainabot", "glambot", "seambot", "finishbot"]
+rhodibot = "git operations"
+echidnabot = "code quality"
+sustainabot = "dependency updates"
+glambot = "documentation"
+seambot = "integration"
+finishbot = "task completion"
+
+[branch-policy]
+# Repo convention per 6a2/AGENTIC.a2ml [gitbot-automation].
+working-branch-pattern = "claude/<short-description>-<random-id>"
+draft-PRs-only = true
+ci-green-before-merge = true
+# Adapted for oblibeny: the proof layer lives in src/abi/ (Idris2), the
+# language core in lib/ (OCaml), the FFI in ffi/ (Zig), and the
+# conformance gate in test/. None of these are bot territory.
+never-touch = [
+  ".claude/CLAUDE.md",
+  "src/abi/",
+  "lib/",
+  "ffi/",
+  "test/",
+]
+
+# ---------------------------------------------------------------------------
+# Per-bot rules where this repo gives specific reason; defaults otherwise.
+# ---------------------------------------------------------------------------
+
+[per-bot.sustainabot]
+allow = ["action SHA pin bumps in .github/workflows (dependabot-style, e.g. PRs #57/#58)", "opam/dune dependency version bumps in dune-project and oblibeny.opam"]
+deny = ["changing workflow logic while bumping pins"]
+
+[per-bot.echidnabot]
+allow = ["lint/format suggestions as issues"]
+deny = ["any change under lib/ or src/abi/ — language-core and proof changes require the no-rhino review (6a2/META.a2ml constrained-form-no-rhino) and a maintainer-approved task"]
+
+[per-bot.glambot]
+allow = ["docs/", "wiki/", "README.adoc", "EXPLAINME.adoc"]
+deny = ["SPEC.core.scm — the authoritative formal specification is maintainer territory"]
+
+[per-bot.rhodibot]
+deny = ["branch deletion (GS007 cleanup is pending maintainer; see hypatia.a2ml)"]

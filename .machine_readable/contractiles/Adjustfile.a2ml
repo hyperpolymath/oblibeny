@@ -1,0 +1,56 @@
+# SPDX-License-Identifier: MPL-2.0
+# Adjustfile — Drift-tolerance contract for oblibeny
+# Author: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+#
+# Cumulative-drift catchment: tolerance bands + corrective actions.
+# Advisory — it warns and trends, it does not block (see Mustfile for
+# hard gates). Created 2026-06-12 (governance checkpoint); tolerances
+# are drawn from drift this repo has actually exhibited.
+
+[metadata]
+repo = "hyperpolymath/oblibeny"
+version = "1.0.0"
+format = "a2ml"
+last-updated = "2026-06-12"
+
+[drift.status-claims]
+description = "README/wiki status claims must match CI reality"
+tolerance = "No '100% / production-ready' claim while live blockers exist (liboqs link, verify stub, token rotation)"
+corrective = "Recalibrate README.adoc status + 6a2/STATE.a2ml together; the 2026-02-07 '100%' drifted for 4 months before the 2026-06-12 recalibration"
+severity = "advisory"
+
+[drift.metadata-staleness]
+description = "6a2/STATE.a2ml should be re-checkpointed regularly"
+tolerance = "last-updated within 90 days of HEAD commit date"
+corrective = "Refresh STATE from git log (the [recent-work] pattern); bump last-updated"
+severity = "advisory"
+
+[drift.test-count-claims]
+description = "Docs citing test counts must match test/conformance_test.ml"
+tolerance = "Cited counts equal grep -c 'test_case \"' test/conformance_test.ml (27 as of 2026-06-12)"
+corrective = "Update PLAYBOOK conformance-gate + README/wiki counts when the suite grows"
+severity = "advisory"
+
+[drift.metadata-path-references]
+description = "No references to the removed .machine_readable/*.scm files"
+tolerance = "0 references outside provenance comments and .claude/CLAUDE.md (guardrail-blocked, pending maintainer)"
+corrective = "Point references at .machine_readable/6a2/*.a2ml"
+severity = "advisory"
+
+[drift.spdx-headers]
+description = "All new files carry SPDX-License-Identifier headers"
+tolerance = "0 new files missing headers"
+corrective = "Add MPL-2.0 SPDX headers"
+severity = "advisory"
+
+[drift.adoc-preference]
+description = "Long-form prose docs prefer AsciiDoc (6a2/META practices.documentation)"
+tolerance = "New long-form docs are *.adoc; conventional files (CHANGELOG, wiki) stay *.md"
+corrective = "Convert on touch, do not churn"
+severity = "advisory"
+
+[drift.todo-accumulation]
+description = "Inline TODO/FIXME markers should trend down or move to tracked issues"
+tolerance = "Baseline 119 markers (2026-06-12); no net growth between checkpoints"
+corrective = "Promote top items to GitHub issues (see docs/academic/TODO.adoc tracking section)"
+severity = "advisory"

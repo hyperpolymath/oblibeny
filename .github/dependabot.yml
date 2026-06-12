@@ -1,49 +1,12 @@
 version: 2
 updates:
-  # GitHub Actions
+  # GitHub Actions — the only package ecosystem actually present in this
+  # repo (OCaml/opam, Zig, and Idris2 are not dependabot ecosystems).
+  # The previous template listed npm/pip/cargo/gomod/nuget/composer for
+  # stacks that do not exist here (several are policy-banned outright);
+  # the stray nuget entry fed GitHub's automatic .NET dependency
+  # submission, which failed on every push ("No .NET project files").
   - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-
-  # npm (JavaScript/TypeScript)
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
-
-  # pip (Python)
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
-
-  # cargo (Rust)
-  - package-ecosystem: "cargo"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-
-  # gomod (Go)
-  - package-ecosystem: "gomod"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-
-  # nuget (C#/.NET)
-  - package-ecosystem: "nuget"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-
-  # composer (PHP)
-  - package-ecosystem: "composer"
     directory: "/"
     schedule:
       interval: "weekly"

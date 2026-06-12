@@ -1,0 +1,56 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# ANCHOR.a2ml - authoritative anchor and realignment record for oblibeny.
+# Prior anchor (identity/scope arrest): ANCHOR.scope-arrest.2026-01-01.Jewell.scm
+# at the repository root. This file records subsequent realignments.
+
+[metadata]
+version = "1.0.0"
+created = "2026-06-12"
+last-updated = "2026-06-12"
+
+[anchor]
+schema = "hyperpolymath.anchor/1"
+repo = "hyperpolymath/oblibeny"
+authority = "upstream-canonical"
+prior-anchor = "ANCHOR.scope-arrest.2026-01-01.Jewell.scm (repository root)"
+
+[identity]
+project = "oblibeny"
+kind = "language"
+one-sentence = "Dual-form secure edge language: Turing-complete factory form generating a Turing-incomplete, reversible, accountable constrained form"
+domain = "security-critical edge computing / formally-bounded languages"
+
+[golden-path]
+smoke-test-command = [
+  "dune build",
+  "dune runtest",
+  "idris2 --build src/abi/oblibeny-abi.ipkg",
+]
+success-criteria = [
+  "OCaml build green",
+  "27-test conformance suite green",
+  "Idris2 ABI proof layer type-checks with zero escape hatches",
+]
+
+# ---------------------------------------------------------------------------
+# Realignment entries — newest first. Each cites its evidence (PRs/commits).
+# ---------------------------------------------------------------------------
+
+[realignment.2026-06-04]
+title = "Proofs made true, CI gate added, echo-reversibility closed, metadata standardised"
+evidence = "PRs #51 (d1deb29), #52 (de2468e), #53 (76ca68e), #54 (526610a), #55 (b2e58ca), #56 (70d86f3)"
+what-changed-1 = "PR #51: the Idris2 ABI 'proofs' were discovered to be non-compiling stubs, with one believe_me masking a theorem that was FALSE as written (doubleInstallIdempotent under cons semantics). Replaced with genuine total proofs (path-set model, idempotent insert); no believe_me, no postulate, no funext. Also fixed an Eq/Neq progress hole in the constrained-form checker."
+what-changed-2 = "PR #52: added the build/test/proof CI gate (ci.yml) this repo never had — the root cause that let broken proofs merge unnoticed. Conformance suite + Idris2 proof type-check + escape-hatch guard now gate every PR."
+what-changed-3 = "PR #55: non-copyable echoes upgraded from affine to linear (overwrite/drop discipline), type-enforcing the echo-reversibility symmetry; suite grew to 27 tests."
+what-changed-4 = "PR #56: .machine_readable/*.scm migrated to 6a2/*.a2ml (estate convention); Zig FFI made compilable under Zig 0.13; CodeQL cron monthly."
+why = "The 2026-02-07 'production-ready 100%' status was contradicted by reality: nothing built or tested the code in CI, and the proof layer was unsound. The realignment recalibrates status to active-development with honest blockers (liboqs link dep, obli-pkg verify stub, FARM_DISPATCH_TOKEN rotation)."
+
+[realignment.2026-06-12]
+title = "Governance checkpoint: estate-standardization salvage + metadata refresh"
+evidence = "Branch claude/confident-shannon-xf0Td; path-salvage from origin/estate-standardization-20260607 (002cabb)"
+what-changed-1 = "Salvaged estate artifacts: 6a2 directory manifest + README, anchor directory, GOVERNANCE.adoc, .github/CODEOWNERS, MAINTAINERS.adoc, README OpenSSF badge. The estate branch's stale 6a2 metadata bodies and workflow edits were NOT taken (main's are newer)."
+what-changed-2 = "6a2 metadata refreshed to 2026-06-12 reality: STATE recalibrated (status active-development, completion 85%, live blockers), stale .scm path references fixed in AGENTIC/PLAYBOOK, #55 linear-echo decision recorded in META."
+what-changed-3 = "Added bot_directives trio (hypatia, gitbot-fleet, git-private-farm), flat contractiles (Mustfile/Trustfile/Dustfile/Bustfile/Intentfile/Adjustfile/Justfile), and self-validating k9 set."
+why = "Estate-wide governance checkpoint of 2026-06-12: bring oblibeny to the new canonical .machine_readable layout without disturbing source, proofs, or workflows."

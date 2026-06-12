@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# hypatia.a2ml — directives for the Hypatia security scanner.
+# Accepted findings below are triaged against repo reality as of
+# 2026-06-12; evidence cited per entry.
+
+[metadata]
+repo = "hyperpolymath/oblibeny"
+last-updated = "2026-06-12"
+owner = "hyperpolymath"
+
+[scanner]
+# No .hypatia-ignore file is present in this repository as of 2026-06-12.
+ignore-file = ".hypatia-ignore"
+ignore-file-present = false
+workflow = ".github/workflows/hypatia-scan.yml"
+
+# ---------------------------------------------------------------------------
+# Accepted findings — known false-positives / consciously-accepted
+# advisories. Do not re-open these without new evidence.
+# ---------------------------------------------------------------------------
+
+[accepted-findings.reusable-caller-timeout-minutes]
+finding = "missing timeout-minutes on workflow jobs"
+status = "false-positive"
+reason = "hypatia-scan.yml and scorecard.yml are thin callers of estate reusable workflows (hyperpolymath/standards); a job that 'uses:' a reusable workflow cannot set timeout-minutes — timeouts are set at job level inside the reusable. Jobs that run steps directly DO set them (ci.yml: 15/30 min; instant-sync.yml: 10 min)."
+
+[accepted-findings.instant-sync-presence-gate]
+finding = "secret_action_without_presence_gate on instant-sync.yml"
+status = "fixed-stale-finding"
+reason = "The presence gate EXISTS since PR #53 (76ca68e): both steps guard on `if: env.FARM_DISPATCH_TOKEN != ''`. Any recurrence of this finding is scanning a stale revision."
+
+[accepted-findings.gs007-multi-branch]
+finding = "GS007 multiple long-lived remote branches"
+status = "accepted-pending-maintainer"
+reason = "Stale remote branches (claude/codeql-actions-scan, claude/proof-debt-ledger, cicd/codeql-cron-monthly, estate-standardization-20260607) await maintainer deletion. Bots must not delete branches (see prohibited-actions)."
+
+[accepted-findings.scorecard-token-permissions]
+finding = "Scorecard token-permissions advisories"
+status = "accepted-deliberate"
+reason = "Top-level `permissions: read-all` with explicit job-level permissions (contents: read, security-events: write, id-token: write) is deliberate; the job-level block matches what the scorecard reusable declares it needs (set in #47, corrected with contents:read in #53 after the startup_failure root-cause)."
+
+# ---------------------------------------------------------------------------
+# Prohibited actions.
+# ---------------------------------------------------------------------------
+
+[prohibited-actions]
+auto-delete-branches = false
+auto-merge = false
+modify-workflows = false
+escalation = "open an issue, do not spam PR comments"

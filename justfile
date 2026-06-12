@@ -35,6 +35,25 @@ test-verbose:
     dune test --force --verbose
 
 # ============================================================================
+# PROOFS + FFI CHECKS (local mirrors of the ci.yml gate, PR #52/#56)
+# ============================================================================
+
+# Type-check (= prove) the Idris2 ABI proof layer — same gate as CI
+proofs:
+    idris2 --build src/abi/oblibeny-abi.ipkg
+
+# Compile-check every Zig FFI source (no link; linking needs system liboqs)
+zig-ffi-check:
+    @if command -v zig >/dev/null 2>&1; then \
+        for f in ffi/zig/src/*.zig ffi/zig/src/packages/*.zig; do \
+            [ -f "$$f" ] && echo "ast-check $$f" && zig ast-check "$$f"; \
+        done; \
+        echo "✓ Zig FFI sources compile-checked"; \
+    else \
+        echo "zig not installed — skipping (see ffi/zig/build.zig; Zig 0.13 verified in PR #56)"; \
+    fi
+
+# ============================================================================
 # RUN
 # ============================================================================
 

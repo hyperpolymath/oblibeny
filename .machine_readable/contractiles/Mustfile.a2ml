@@ -1,0 +1,96 @@
+# SPDX-License-Identifier: MPL-2.0
+# Mustfile — Hard-requirement contract for oblibeny
+# Author: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+#
+# What MUST be true of this repository. Hard requirements: CI fails if
+# any of these fail.
+#
+# Provenance: created 2026-06-12 (governance checkpoint). The [checks.*]
+# and [transitions.*] sections port the root ./Mustfile (deployment
+# contract, YAML-style, routes through the root justfile) into the flat
+# estate TOML layout; the root Mustfile is kept as-is. The remaining
+# sections state the presence/gate invariants actually enforced or
+# expected on main as of 2026-06-12.
+
+[metadata]
+repo = "hyperpolymath/oblibeny"
+version = "1.0.0"
+format = "a2ml"
+last-updated = "2026-06-12"
+description = "Hard requirements: build, test, proofs, governance files"
+
+# ── Ported from the root ./Mustfile (all checks route through justfile) ──
+
+[checks.build]
+description = "Build the Oblíbený compiler"
+run = "just build"
+severity = "critical"
+
+[checks.test]
+description = "Run conformance and unit tests (27-test suite)"
+run = "just test"
+severity = "critical"
+
+[checks.lint]
+description = "Static analysis and validation"
+run = "just lint"
+severity = "critical"
+
+[checks.fmt]
+description = "Code formatting check"
+run = "just fmt"
+severity = "warning"
+
+[checks.golden-path]
+description = "Run the ANCHOR-defined smoke test"
+run = "just demo"
+severity = "critical"
+
+[transitions.release]
+requires = ["build", "test", "lint"]
+run = "just release $VERSION"
+description = "Prepare a release (requires VERSION env var)"
+
+# ── CI gate invariants (enforced by .github/workflows/ci.yml since PR #52) ──
+
+[checks.proofs]
+description = "Idris2 ABI proof layer type-checks (the proofs ARE the type-check)"
+run = "idris2 --build src/abi/oblibeny-abi.ipkg"
+severity = "critical"
+
+[checks.no-escape-hatches]
+description = "No believe_me / postulate / assert_total / partial / holes in the ABI proof layer"
+run = "! grep -rnE 'believe_me|assert_total|\\bpostulate\\b|\\bpartial\\b|idris_crash' src/abi/Crypto.idr src/abi/Packages"
+severity = "critical"
+
+# ── File-presence invariants ──
+
+[checks.license-present]
+description = "LICENSE file must exist (MPL-2.0)"
+run = "test -f LICENSE"
+severity = "critical"
+
+[checks.readme-present]
+description = "README.adoc must exist"
+run = "test -f README.adoc"
+severity = "critical"
+
+[checks.security-policy]
+description = "SECURITY.md must exist"
+run = "test -f SECURITY.md"
+severity = "critical"
+
+[checks.governance-docs]
+description = "GOVERNANCE.adoc, MAINTAINERS.adoc, CODEOWNERS must exist"
+run = "test -f GOVERNANCE.adoc && test -f MAINTAINERS.adoc && test -f .github/CODEOWNERS"
+severity = "critical"
+
+[checks.six-a2-present]
+description = "6a2 directory exists with all six core A2ML files"
+run = "test -f .machine_readable/6a2/STATE.a2ml && test -f .machine_readable/6a2/META.a2ml && test -f .machine_readable/6a2/ECOSYSTEM.a2ml && test -f .machine_readable/6a2/AGENTIC.a2ml && test -f .machine_readable/6a2/NEUROSYM.a2ml && test -f .machine_readable/6a2/PLAYBOOK.a2ml"
+severity = "critical"
+
+[checks.spdx-headers]
+description = "SPDX-License-Identifier headers on source files"
+run = "grep -L 'SPDX-License-Identifier' lib/*.ml bin/*.ml | wc -l | grep -q '^0$'"
+severity = "warning"

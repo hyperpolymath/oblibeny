@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: MPL-2.0
+# Intentfile — north-star contractile for oblibeny
+# Author: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+#
+# Declares BOTH concrete committed next-actions AND horizon aspirations.
+# [intents] — "we WILL do this; track progress"
+#             status: declared -> in_progress -> done | deferred | retired
+# [wishes]  — "we WISH this were true; revisit later" (near / mid / far)
+# Non-gating — this is a report, not a gate (see Mustfile for hard gates).
+# Created 2026-06-12 (governance checkpoint), from STATE next-actions,
+# ROADMAP.adoc, and docs/academic/TODO.adoc.
+
+[metadata]
+repo = "hyperpolymath/oblibeny"
+version = "1.0.0"
+format = "a2ml"
+last-updated = "2026-06-12"
+
+[purpose]
+statement = "Oblíbený is a dual-form language: a Turing-complete factory form that generates a Turing-incomplete, reversible, accountable constrained form for security-critical edge devices. The constrained form guarantees termination, static resource bounds, reversibility, and an immutable audit trail; the echo[A,B] type witnesses irreversible loss."
+
+[anti-purpose]
+not-1 = "NOT a general-purpose language — the constrained form is deliberately hostile to expressivity (no-rhino principle)"
+not-2 = "NOT a proof assistant — proof obligations live in the Idris2 ABI layer, not in the language"
+not-3 = "NOT Turing-complete at runtime — that is the security boundary, not a limitation to fix"
+
+# ── Committed next-actions ──
+
+[intents.rotate-farm-dispatch-token]
+description = "Rotate the expired FARM_DISPATCH_TOKEN so forge propagation resumes"
+status = "declared"
+owner = "maintainer"
+evidence = "found expired in PR #52; instant-sync presence-gated in #53"
+
+[intents.derive-obli-pkg-signed-payload]
+description = "Derive the real canonical signed payload for obli-pkg verify (closes TODO(security) at ffi/zig/src/obli-pkg.zig:377)"
+status = "declared"
+evidence = "explicit MVP stub left by PR #56"
+
+[intents.zig-ffi-in-ci]
+description = "Decide and implement CI strategy for the Zig FFI: build liboqs from source in CI or vendor a pinned build, then add a zig build job"
+status = "declared"
+evidence = "FFI compiles under Zig 0.13 (#56) but links only where liboqs is installed; ci.yml builds OCaml + Idris only"
+
+[intents.claude-md-scm-refs]
+description = "Maintainer edit of .claude/CLAUDE.md: .machine_readable/*.scm references -> 6a2/*.a2ml"
+status = "declared"
+owner = "maintainer"
+evidence = "file is guardrail-blocked for agents; migration landed in #56"
+
+[intents.stale-branch-cleanup]
+description = "Delete 4 stale remote branches (GS007)"
+status = "declared"
+owner = "maintainer"
+
+# ── Wishes ──
+
+[wishes.near]
+w01 = "Consolidate the 8 root container build files into one parameterised Containerfile (open route-to-mvp item)"
+w02 = "Registry client for obli-pkg (dependency resolution beyond local verify)"
+
+[wishes.mid]
+w01 = "obli-transpiler-framework: source-to-source transpilation for oblivious execution (ROADMAP Phase 2)"
+w02 = "obli-fs: ORAM-based oblivious filesystem (ROADMAP Phase 2)"
+w03 = "Formal verification of critical paths beyond the ABI layer (ROADMAP Phase 4; docs/academic/TODO.adoc P0 items)"
+
+[wishes.far]
+w01 = "obli-riscv-dev-kit: RISC-V emulator with oblivious-memory ISA extensions (ROADMAP)"
+w02 = "Coq/Lean formalisation of Path ORAM security claims (docs/academic/TODO.adoc P0)"
+w03 = "Hardware ORAM coprocessor prototype (docs/academic/TODO.adoc research directions)"

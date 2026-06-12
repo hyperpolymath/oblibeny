@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MPL-2.0
 = Oblíbený
+image:https://img.shields.io/badge/OpenSSF-Best_Practices-green?logo=openssourcesecurity[OpenSSF Best Practices,link="https://www.bestpractices.dev/en/projects/new?repo_url=https://github.com/hyperpolymath/oblibeny"]
+
 :toc: preamble
 :toclevels: 3
 :icons: font
 :source-highlighter: rouge
 
-image:https://img.shields.io/badge/License-PMPL--1.0--or--later-indigo.svg[License: MPL-2.0,link="https://github.com/hyperpolymath/palimpsest-license"]
-image:https://img.shields.io/badge/Completion-100%25-brightgreen.svg[Completion: 100%]
-image:https://img.shields.io/badge/Status-Production--Ready-success.svg[Status: Production Ready]
+image:https://img.shields.io/badge/License-MPL--2.0-indigo.svg[License: MPL-2.0,link="https://github.com/hyperpolymath/palimpsest-license"]
+image:https://img.shields.io/badge/Status-Active--Development-blue.svg[Status: Active Development]
 image:https://img.shields.io/badge/Verification-Formal-blue.svg[Formal Verification]
 image:https://img.shields.io/badge/Crypto-Post--Quantum-purple.svg[Post-Quantum Crypto]
 
@@ -16,9 +17,9 @@ image:https://img.shields.io/badge/Crypto-Post--Quantum-purple.svg[Post-Quantum 
 [.lead]
 Oblíbený (Czech for "favorite" or "beloved") is a dual-form programming language that guarantees termination through Turing-incompleteness while maintaining full reversibility and complete accountability. Built for deployment in hostile environments where formal guarantees are essential.
 
-== Status: Production-Ready (100%)
+== Status: Active Development
 
-*Integration Complete* -- All core components implemented, tested, and formally verified (2026-02-07)
+*CI-gated since 2026-06* -- the language toolchain is functional: OCaml build, the 27-test conformance suite, and the Idris2 ABI proof layer (genuine total proofs since PR #51, no `believe_me`/`postulate`) are all gated in CI (PR #52). Honest open items: the Zig crypto FFI compiles (Zig 0.13, PR #56) but links only where the external `liboqs` library is installed; the `obli-pkg` signature-verify path is an explicit MVP stub (`TODO(security)`); see `.machine_readable/6a2/STATE.a2ml` for the live blocker list.
 
 [cols="1,1,3",options="header"]
 |===
@@ -50,15 +51,15 @@ Oblíbený (Czech for "favorite" or "beloved") is a dual-form programming langua
 
 |*Echo Residue Type*
 |✅ 100%
-|First-class `echo[A, B]` type: structured, proof-relevant residue of irreversible collapse; content-sensitive affinity discipline
+|First-class `echo[A, B]` type: structured, proof-relevant residue of irreversible collapse; content-sensitive linearity discipline (non-copyable echoes consumed exactly once, PR #55)
 
 |*Documentation*
 |✅ 100%
 |Language specification, tutorial, security model, API reference, EXPLAINME, contractiles, echo-6a2 spec
 
 |*Crypto FFI*
-|✅ 100%
-|Post-quantum crypto (liboqs + libsodium) via Zig FFI with Idris2 ABI proofs
+|⚠️ Compiles
+|Post-quantum crypto (liboqs + libsodium) via Zig FFI with Idris2 ABI proofs; compiles under Zig 0.13, links only with system liboqs; obli-pkg verify path is an MVP stub (TODO(security))
 
 |*Deployment*
 |✅ 100%
@@ -170,7 +171,7 @@ fn main() -> () {
 |The retained source constraint
 |===
 
-**Affinity discipline**: `echo[A, B]` is affine (may be used at most once) if and only if `A` or `B` is non-copyable. `echo[i64, i64]` projects freely; `echo[Cargo, i64]` is consumed on first projection.
+**Linearity discipline**: `echo[A, B]` is linear (consumed exactly once) if and only if `A` or `B` is non-copyable. `echo[i64, i64]` projects freely; `echo[Cargo, i64]` is consumed on first projection, and discarding it unconsumed (overwrite or drop) is a type error — an irreversible step must account for an echo of what it loses (PR #55).
 
 This realises, in a non-dependent constrained language, the echo-types fibre
 `Echo f y := Σ (x : A), f x ≡ y`
@@ -315,7 +316,7 @@ q, quit      - Exit debugger
 
 Oblibeny integrates with:
 
-- **Idris2**: ABI proofs for FFI safety (`src/abi/*.idr`)
+- **Idris2**: ABI proofs for FFI safety (`src/abi/*.idr`) — genuine total proofs, machine-checked in CI with an escape-hatch guard (no `believe_me`/`postulate`; PRs #51/#52)
 - **Zig**: Memory-safe FFI implementation (`ffi/zig/`)
 - **Vörðr**: Runtime verification with formal proofs
 
@@ -429,19 +430,19 @@ Libraries: liboqs 0.10.0+ and libsodium 1.0.19+
 |Metric |Value
 
 |Lines of Code
-|5,200+
+|~5,900 (OCaml 4,304 + Zig 1,047 + Idris2 554; measured 2026-06-12)
 
 |Files
-|65
+|170 tracked
 
 |Languages
-|OCaml (54 files), Zig (3 files), Idris2 (1 file)
+|OCaml (20 files), Zig (5 files), Idris2 (3 files)
 
-|Completion
-|100%
+|Status
+|Active development (see .machine_readable/6a2/STATE.a2ml)
 
 |Test Coverage
-|Core components tested
+|27-test conformance suite, CI-gated (PR #52)
 
 |Documentation
 |Complete (spec + tutorial + examples)

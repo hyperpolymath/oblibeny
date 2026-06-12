@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: MPL-2.0
+# Justfile.a2ml — runnable-recipe catalogue for oblibeny
+# Author: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+#
+# The EXECUTABLE source of truth is the root ./justfile (just task
+# runner; all operations route through it per the root Mustfile and
+# AUTHORITY_STACK.mustfile-nickel.scm). This contractile catalogues the
+# recipes so machine readers know the repo's runnable interface without
+# parsing just syntax. Created 2026-06-12 (governance checkpoint).
+
+[metadata]
+repo = "hyperpolymath/oblibeny"
+version = "1.0.0"
+format = "a2ml"
+last-updated = "2026-06-12"
+executable-source = "./justfile"
+
+[recipes.build]
+command = "just build"
+description = "Build the Oblíbený compiler (dune build)"
+
+[recipes.test]
+command = "just test"
+description = "Run the 27-test conformance + unit suite (dune test)"
+
+[recipes.demo]
+command = "just demo"
+description = "Golden-path smoke test (dune exec -- oblibeny examples/hello.obl --dump-trace)"
+
+[recipes.run]
+command = "just run FILE"
+description = "Execute an Oblíbený program"
+
+[recipes.check]
+command = "just check FILE"
+description = "Validate constrained form without executing"
+
+[recipes.lint]
+command = "just lint"
+description = "Static checks (dune build @check)"
+
+[recipes.fmt]
+command = "just fmt"
+description = "Format OCaml code"
+
+[recipes.ci]
+command = "just ci"
+description = "lint + test (local mirror of the CI gate)"
+
+[recipes.proofs]
+command = "just proofs"
+description = "Type-check the Idris2 ABI proof layer (idris2 --build src/abi/oblibeny-abi.ipkg) — same gate as ci.yml"
+
+[recipes.zig-ffi-check]
+command = "just zig-ffi-check"
+description = "Compile-check every Zig FFI source (zig ast-check; link step needs system liboqs and is not part of this check)"
+
+[recipes.abi-check-hello]
+command = "just abi-check-hello"
+description = "Check Idris2 ABI proofs for the hello package (idris2 --check src/abi/packages/hello/Interface.idr)"
+
+[recipes.ffi-build-hello]
+command = "just ffi-build-hello"
+description = "Build Zig FFI library for the hello package"
+
+[recipes.distroless]
+command = "just distroless-build-all"
+description = "Distroless bootstrap pipeline (export static binaries, build + verify minimal image)"
+
+[recipes.validate-spec]
+command = "just validate-spec"
+description = "Verify ANCHOR/SPEC/AUTHORITY Scheme files exist"

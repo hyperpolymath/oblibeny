@@ -38,9 +38,9 @@ Lago Grey is designed to integrate seamlessly with the broader hyperpolymath sec
 ### 1. [[Svalinn Integration]] - Security & Cryptography
 **What Svalinn Gets:**
 - Pre-built post-quantum crypto libraries (liboqs, libsodium)
-- Triple signature verification (Dilithium5 + Ed448 + SPHINCS+)
+- Triple signature verification (Dilithium5 + SPHINCS+ + Ed25519)
 - Argon2id password hashing (512 MiB, 8 iterations)
-- Formally verified crypto primitives (Coq proofs)
+- Crypto FFI with Idris2 ABI proofs (machine-checked in CI; crypto primitives themselves come from upstream liboqs/libsodium)
 
 **Integration Points:**
 - `/usr/lib/liboqs.a` - PQ crypto library

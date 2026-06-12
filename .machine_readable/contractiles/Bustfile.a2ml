@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: MPL-2.0
+# Bustfile — Breakage / rollback contract for oblibeny
+# Author: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+#
+# BUST defines what to do when something breaks: named failure scenarios
+# with their rollback procedures, the escalation ladder, and durable
+# backup points. Created 2026-06-12 (governance checkpoint); fully
+# written, no stubs. Scenarios are drawn from failures this repo has
+# actually seen (PRs #51-#53, #56) plus the live PLAYBOOK procedures.
+
+[metadata]
+repo = "hyperpolymath/oblibeny"
+version = "1.0.0"
+format = "a2ml"
+last-updated = "2026-06-12"
+description = "Rollback procedures when something breaks"
+
+[scenarios]
+ci-gate-red = "If a previously-green ci.yml check regresses: stop, diagnose before pushing more commits (6a2/PLAYBOOK alerts), then `git revert <sha>` — never force-push main"
+proof-layer-regression = "If the Idris2 job or escape-hatch guard fails: any new believe_me/postulate must be triaged in docs/proof-debt.md BEFORE merge; otherwise revert the offending commit. Precedent: PR #51 discharged exactly this debt"
+echo-conformance-regression = "If echo affinity/linearity tests fail: check is_copyable in lib/typecheck.ml first, then the live_echoes tracker (#55); revert if not immediately diagnosable"
+reusable-workflow-startup-failure = "If Hypatia/Scorecard fail with 0 jobs: check (a) the reusable's SHA pin is current (stale-pin failure mode, fixed in #52) and (b) caller job permissions grant everything the reusable declares (contents:read omission failure mode, fixed in #53)"
+instant-sync-bad-credentials = "FARM_DISPATCH_TOKEN expired/invalid (seen in #52): the presence gate (#53) makes the workflow a safe no-op; restore by rotating the secret — gh secret set FARM_DISPATCH_TOKEN — never by committing a token"
+zig-ffi-link-failure = "Link failing only on absent liboqs is the KNOWN state (external dep, not a code defect — #56); roll back only if compile errors appear (zig ast-check / zig build-obj each source to bisect)"
+bad-governance-merge = "If a metadata/governance PR breaks TOML parsing or contradicts repo reality: revert the PR commit; .a2ml files must parse with python3 tomllib"
+
+[escalation-ladder]
+steps = [
+  "1. git revert <sha> on a branch + PR (reversible, low blast radius)",
+  "2. emergency revert PR via GitHub UI — still no force-push of main",
+  "3. force-push to main — PROHIBITED without explicit maintainer confirmation",
+  "4. repo-level actions (archive/delete, secret rotation) — maintainer-only, never by AI",
+]
+
+[backup-points]
+points = [
+  "origin/main history on GitHub is the durable record (squash-merged PR units)",
+  "Every release is tagged vX.Y.Z (PLAYBOOK release procedure)",
+  "CI runs preserve build/test logs per workflow retention",
+]
+
+[not-applicable]
+database-restore = { status = "not-applicable", reason = "no databases or stateful services; oblibeny is a language toolchain repo" }
+deployment-rollback = { status = "not-applicable", reason = "container/K8s manifests exist (deploy/, svalinn-compose.yaml) but nothing is continuously deployed from this repo; rollback = redeploy a previous tagged image" }

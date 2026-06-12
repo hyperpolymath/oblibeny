@@ -92,10 +92,10 @@ Both use the same tech stack:
 
 | Layer | Technology | Purpose | Shared |
 |-------|------------|---------|--------|
-| **ABI** | Idris2 | Interface definitions + proofs | ✅ Yes |
+| **ABI** | Idris2 | Interface definitions + proofs (machine-checked in CI since PR #52) | ✅ Yes |
 | **FFI** | Zig | System implementation | ✅ Yes |
 | **Coordination** | Oblibeny | Constrained-form operations | ✅ Yes |
-| **Proofs** | Coq | Crypto primitive verification | ✅ Yes |
+| **Proofs** | Coq | Crypto primitive verification (planned — no Coq proofs exist in-tree yet) | 🔮 Planned |
 
 **Benefit:** Code reuse and unified verification approach
 

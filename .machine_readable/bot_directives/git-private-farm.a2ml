@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# git-private-farm.a2ml — forge-propagation directives.
+
+[metadata]
+repo = "hyperpolymath/oblibeny"
+last-updated = "2026-06-12"
+owner = "hyperpolymath"
+
+[propagation]
+workflow = ".github/workflows/instant-sync.yml"
+target = "hyperpolymath/.git-private-farm"
+event-type = "propagate"
+# Secret NAME only — never the value.
+secret-name = "FARM_DISPATCH_TOKEN"
+# Both workflow steps are gated on secret presence since PR #53:
+#   if: env.FARM_DISPATCH_TOKEN != ''
+presence-gated = true
+# Note: the token was found expired/invalid in PR #52; propagation is
+# dormant (gate makes the workflow a no-op) until the maintainer rotates it.
+token-status = "rotation-pending (found expired in #52)"
+
+[never-propagate]
+items = ["secrets", "unmerged branches", "work-in-progress"]
+
+[on-token-rotation]
+command = "gh secret set FARM_DISPATCH_TOKEN --repo hyperpolymath/oblibeny"
+note = "Name only here; paste the value interactively, never commit it."
