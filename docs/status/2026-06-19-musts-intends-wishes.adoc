@@ -1,0 +1,115 @@
+// SPDX-License-Identifier: MPL-2.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+= Oblíbený — status by normative tier (MUST / INTEND / WISH)
+:toc: macro
+:toclevels: 2
+
+_A status snapshot grouped into oblibeny's own normative contractile tiers._
+_Stamped 2026-06-19T21:37:36Z UTC, against `origin/main` = `1fef6d9`._
+
+[NOTE]
+====
+The three tiers are oblibeny's *own* contractiles — this report does not invent
+priorities, it reads them:
+
+* *MUST* — `Mustfile` / `.machine_readable/contractiles/Mustfile.a2ml`. Hard,
+  gating: "CI fails if any of these fail." *This is the normative MUST,
+  oblibeny's own.*
+* *INTEND* — `.machine_readable/contractiles/Intentfile.a2ml` `[intents]`:
+  "we WILL do this; track progress" (declared → in_progress → done).
+* *WISH* — `Intentfile.a2ml` `[wishes]`: "we WISH this were true" (near / mid / far).
+
+Status legend: ✅ run-green this session · 📄 documented + CI-gated, NOT run this
+session · 🟡 declared (not started) · 🔒 maintainer-only (agents must not) ·
+💭 unstarted horizon · ⛔ external-dependency blocker.
+====
+
+toc::[]
+
+== Verification basis
+
+Live checks were run this session with `dune 3.14.0`, `OCaml 4.14.1`,
+`zig 0.13.0`; `idris2` and `just` were *absent* (recipes run as their underlying
+commands). See link:../../AFFIRMATION.adoc[`AFFIRMATION.adoc`] for the full
+anchor, reproduction commands, and epistemic contract.
+
+== MUST — the normative gate (`Mustfile`)
+
+[cols="2,3,1,3",options="header"]
+|===
+| Check | Command | Status | Where we are (this session)
+
+| `build`             | `dune build`                           | ✅ | exit 0
+| `test`              | `dune test`                            | ✅ | exit 0; `test/conformance_test.ml` = *27 `test_case`s* (the documented suite)
+| `golden-path`       | `oblibeny examples/hello.obl --dump-trace` | ✅ | exit 0; real *26-entry* accountability trace, hash `260943924`
+| `lint`              | `dune build @check` ⟶ `dune build`     | ✅ | covered by the green build
+| `fmt` (warning)     | `dune fmt`                             | ✅ | non-blocking (severity *warning*)
+| `no-escape-hatches` | grep `believe_me\|assert_total\|postulate\|partial\|idris_crash` over `src/abi/Crypto.idr` + `src/abi/Packages` | ✅ | none found — guard PASSES (source-level; see proofs caveat)
+| `license-present`   | `test -f LICENSE`                      | ✅ | present (MPL-2.0)
+| `readme-present`    | `test -f README.adoc`                  | ✅ | present
+| `security-policy`   | `test -f SECURITY.md`                  | ✅ | present
+| `governance-docs`   | `GOVERNANCE.adoc` + `MAINTAINERS.adoc` + `.github/CODEOWNERS` | ✅ | all present
+| `six-a2-present`    | the six `.machine_readable/6a2/*.a2ml` | ✅ | STATE/META/ECOSYSTEM/AGENTIC/NEUROSYM/PLAYBOOK all present
+| `spdx-headers` (warning) | SPDX on `lib/*.ml` + `bin/*.ml`   | ✅ | *0* missing
+| *`proofs`*          | `idris2 --build src/abi/oblibeny-abi.ipkg` | 📄 | *NOT run — `idris2` absent.* Documented: genuine total proofs since PR #51, no `believe_me`/`postulate`, CI-gated since PR #52. Re-run to upgrade to live.
+| `transitions.release` | requires `build`+`test`+`lint`       | ✅ | the three prerequisites are green this session
+|===
+
+*MUST verdict:* every *runnable* MUST is green. The *one* MUST not run is the
+Idris2 proof layer (toolchain absent), carried forward as CI-gated/documented.
+
+== INTEND — committed next-actions (`Intentfile.a2ml [intents]`)
+
+[cols="2,3,1,3",options="header"]
+|===
+| Intent | Description | Status | Note
+
+| `derive-obli-pkg-signed-payload` | Derive the real canonical signed payload for `obli-pkg verify` | 🟡 | closes `TODO(security)` at `ffi/zig/src/obli-pkg.zig:377`; *agent-actionable*
+| `zig-ffi-in-ci` | Build `liboqs` from source in CI (or vendor a pinned build), then add a `zig build` job | 🟡 ⛔ | FFI ast-checks under Zig 0.13 (verified this session) but *links* only with `liboqs`; CI builds OCaml + Idris only. *Agent-actionable* (CI design)
+| `rotate-farm-dispatch-token` | Rotate the expired `FARM_DISPATCH_TOKEN` so forge propagation resumes | 🔒 | maintainer-only (secret); *agent must not*
+| `claude-md-scm-refs` | Edit `.claude/CLAUDE.md`: `.machine_readable/*.scm` → `6a2/*.a2ml` | 🔒 | file is guardrail-blocked for agents; maintainer edit
+| `stale-branch-cleanup` | Delete 4 stale remote branches (GS007) | 🔒 | maintainer-only; *branch deletion is forbidden for the agent too*
+|===
+
+*INTEND verdict:* all five are still `declared`. Two are agent-actionable
+(`derive-obli-pkg-signed-payload`, `zig-ffi-in-ci`); three are maintainer-gated.
+
+== WISH — horizon aspirations (`Intentfile.a2ml [wishes]`)
+
+[cols="1,4,1",options="header"]
+|===
+| Horizon | Wish | Status
+
+| near | Consolidate the 8 root container build files into one parameterised `Containerfile` | 💭
+| near | Registry client for `obli-pkg` (dependency resolution beyond local verify) | 💭
+| mid  | `obli-transpiler-framework`: source-to-source transpilation for oblivious execution (ROADMAP Phase 2) | 💭
+| mid  | `obli-fs`: ORAM-based oblivious filesystem (ROADMAP Phase 2) | 💭
+| mid  | Formal verification of critical paths beyond the ABI layer (ROADMAP Phase 4) | 💭
+| far  | `obli-riscv-dev-kit`: RISC-V emulator with oblivious-memory ISA extensions | 💭
+| far  | Coq/Lean formalisation of Path ORAM security claims | 💭
+| far  | Hardware ORAM coprocessor prototype | 💭
+|===
+
+*WISH verdict:* unstarted; ROADMAP phases 2–4 are "specification pending".
+
+== Bottom line — where we are
+
+Oblíbený sits at *~85%* (`STATE.a2ml`, recalibrated *down* from a prior inflated
+100% once PR #51's CI gate exposed non-compiling proof stubs — an honest figure).
+The *language core is solid and live-green this session*: build, the 27-test
+conformance suite, and an actually-traced golden-path run. The whole live
+frontier is in the *INTEND* tier and is mostly *not* agent-actionable: the
+post-quantum crypto FFI compiles but cannot link in CI (external `liboqs`),
+`obli-pkg verify` is a deliberate MVP stub, and three housekeeping intents are
+maintainer-only. The *WISH* tier — the `obli-*` sibling ecosystem and deeper
+formalisation — is unstarted horizon work.
+
+The single honesty gap in *this* snapshot vs a complete one: the Idris2 ABI
+proof MUST was *not run here* (no `idris2`), only carried forward as CI-gated.
+
+== Cross-repo note
+
+Oblíbený's constrained form carries an `echo[A,B]` type that "witnesses
+irreversible loss" (landed end-to-end in PR #48) — the same structured-loss
+notion formalised in `hyperpolymath/echo-types`. That is the live conceptual
+bridge between the two repos.
