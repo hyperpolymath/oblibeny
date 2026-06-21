@@ -53,6 +53,16 @@ description = "Delete 4 stale remote branches (GS007)"
 status = "declared"
 owner = "maintainer"
 
+[intents.language-metatheory-followons]
+description = "Language-soundness metatheory follow-ons toward verified extraction: 3b checker completeness (validate_program p = [] => Ranking p), 4b general semantic reversibility over a lawful/DecEq store, 5b runtime-trace faithfulness"
+status = "declared"
+evidence = "first pass (Slices 1-5, src/abi/Lang/*) landed in PRs #73-#77; follow-ons tracked in #78"
+
+[intents.educational-docs]
+description = "Developer/maintainer/end-user learning paths beyond setup: the dual-form language, the constrained-form guarantees, the ABI + Lang.* proof story, the crypto/package toolchain"
+status = "declared"
+evidence = "wiki is integration-focused; gap tracked in #79"
+
 # ── Wishes ──
 
 [wishes.near]
