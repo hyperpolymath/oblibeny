@@ -15,3 +15,5 @@ sourcedir = "."
 modules = Crypto
         , Packages.Hello.Interface
         , Packages.Hello.Echo
+        , Lang.Syntax
+        , Lang.Eval
