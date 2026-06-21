@@ -19,3 +19,4 @@ modules = Crypto
         , Lang.Eval
         , Lang.Checker
         , Lang.Reversible
+        , Lang.Resource
