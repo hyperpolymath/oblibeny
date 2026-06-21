@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 // SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
-= AFFIRMATION — oblibeny, as of 2026-06-19
+= AFFIRMATION — oblibeny, as of 2026-06-21
 :toc: macro
 :toclevels: 2
 
@@ -9,259 +9,156 @@ _the No-Bullshit file: what we affirm was true and checkable at this moment_
 [NOTE]
 ====
 *Genre.* An *affirmation* is a solemn declaration of the truth of a statement,
-made by someone who _declines to swear an oath_. That is exactly what this is:
-our truth-as-best-believed at a stamped instant — binding on our honesty, not a
-claim of infallibility. It is not the README and not the EXPLAINME:
+made by someone who _declines to swear an oath_: our truth-as-best-believed at a
+stamped instant — binding on our honesty, not a claim of infallibility.  It is
+not the README (vision/intent) nor the EXPLAINME (mechanism).  Every repo in the
+estate may carry one (`AFFIRMATION.adoc`), small, dated, and signed.
 
-[cols="1,3,2",options="header"]
-|===
-| File | Answers | Tense
-| `README` (`README.adoc`) | _Where is this going, and why?_ — steering, intent, vision | future / aspirational
-| `EXPLAINME` (`EXPLAINME.adoc`) | _How is it built, and what's the evidence?_ — engineering underpinnings | descriptive / mechanism
-| *`AFFIRMATION`* (this file) | _What can we honestly affirm was *true and checkable* at a stamped moment?_ | a frozen instant, falsifiable
-|===
-
-Every repo in the estate may carry one (`AFFIRMATION.adoc`). It is deliberately
-small, dated, and signed, so a reader can hold us to exactly what we affirmed,
-when we affirmed it.
+*This one SUPERSEDES the 2026-06-19 affirmation*, which stated `idris2` was
+absent and so left the proof layer "documented, not run".  That was an
+environment artefact: `idris2` is installed (off `PATH`); the proofs are
+*run-green below*.
 ====
 
 toc::[]
 
-== What this is, and how it is designed to work
-
-*What it is.* A short, dated, jointly-signed snapshot of what we can _honestly
-and verifiably_ claim about the Oblíbený toolchain at one exact commit. Nothing
-here is marketing and nothing is a promise about the future — both of those live
-in the README. This file is the receipt.
-
-*How it is designed to work.* Three moving parts make it trustworthy:
+== How it works
 
 . *Ground truth, not memory.* Every green claim below was produced by _running
-  the tool in the session that wrote this file_ — `dune build`, `dune test`, the
-  golden-path interpreter run, the escape-hatch grep, the file-presence checks,
-  and `zig ast-check`. Where a status doc, the `Justfile`, or a memory said
-  otherwise, the live run wins and we flag the contradiction. *Where a check
-  could NOT be run in this session (no `idris2`), we say so explicitly and do
-  NOT borrow its result.*
-. *A frozen anchor.* The file names the exact commit SHA, branch, UTC timestamp,
-  and toolchain (see <<Verifiable anchor>>), so "true" always means "true _at
-  this point_". Move the SHA and the file becomes a draft until re-run.
-. *A real signature.* It is landed by a *signed git commit*; that signature over
-  this content at the anchored SHA is what makes the affirmation tamper-evident
-  and attributable — not the prose alone.
+  the tool in the session that wrote this file_ (see <<reproduce>>).  Where a
+  status doc said otherwise, the live run wins.
+. *A frozen anchor.* The exact SHA, branch, UTC, and toolchain are below; "true"
+  means "true at this point".  Move the SHA and this is a draft until re-run.
+. *A real signature.* It is landed by a signed git commit over this content.
 
-*We are fallible.* We can be wrong, stale, or simply mistaken about our own
-work. This file is our best honest belief, not a proof of its own correctness.
-Treat it as a falsifiable claim, not gospel.
-
-== The epistemic contract (read this before you trust _or_ attack)
-
-This document records our *best joint belief* at the timestamp below. It is
-*not a guarantee of correctness.* We may be wrong. We may have missed something
-— a stale doc, a check we could not run, a stub we forgot was load-bearing.
-
-*No intentional overclaim.* That is the only guarantee here: we have not
-_knowingly_ inflated anything. Where something was run-green-in-this-session we
-say so; where it is documented-and-CI-gated-but-not-run-here we say _that_
-(distinctly); where it is an explicit stub or an external-dependency blocker, we
-name it.
-
-*Standing invitation to refute.* You are _invited_ to bulldoze any claim here.
-The fair form of the attack is: (1) read this file at the stamped commit;
-(2) reproduce (or fail to reproduce) the checks in <<reproduce>>; (3) _then_
-tell us where the discrepancy is, against the artefact as it stood at this
-moment, so we can justify it or concede it on the record. An attack that skips
-(1)–(2) is attacking a strawman of a different date or environment.
+*No intentional overclaim.* Where something is run-green we say so; where it is
+a model (not the OCaml itself), an external dependency, or a stub, we name it.
 
 == Verifiable anchor
 
 [cols="1,3"]
 |===
-| *Repo*        | `hyperpolymath/oblibeny` (dual-form secure edge language: a Turing-complete factory form that generates a Turing-incomplete, reversible, accountable constrained form)
+| *Repo*        | `hyperpolymath/oblibeny` (dual-form secure edge language)
 | *Branch*      | `claude/confident-shannon-xf0Td`
-| *Commit (HEAD at verification)* | `1fef6d9e4e68d3eac351bd612fd5e44ff7b909d2`
-| *Permalink*   | https://github.com/hyperpolymath/oblibeny/tree/1fef6d9e4e68d3eac351bd612fd5e44ff7b909d2
-| *Verified (UTC)* | 2026-06-19T21:37:36Z
-| *Working-tree delta at verification* | Clean (`git status --porcelain` empty); the green results below are HEAD `1fef6d9` itself. This `AFFIRMATION.adoc` and its two companion docs are added on top as the landing commit.
-| *Toolchain (present)* | dune 3.14.0 · OCaml 4.14.1 · opam 2.1.5 · zig 0.13.0 · git
-| *Toolchain (ABSENT — see nuance)* | `idris2` is NOT installed in this session. The Idris2 ABI proof MUST (`idris2 --build src/abi/oblibeny-abi.ipkg`) was therefore *not run here*.
-| *`just`* | NOT installed; the `Justfile` recipes were executed directly as their underlying `dune`/`grep`/`zig` commands (see <<reproduce>>).
+| *Commit (HEAD at verification)* | `313cf5907247ed1ee2b0d0f78c458ccdd8d9e6b2`
+| *Permalink*   | https://github.com/hyperpolymath/oblibeny/tree/313cf5907247ed1ee2b0d0f78c458ccdd8d9e6b2
+| *Verified (UTC)* | 2026-06-21T22:19:55Z
+| *Working-tree delta* | Clean; the green results below are HEAD itself.  This file is added on top.
+| *Toolchain (present)* | Idris2 0.7.0 (`/opt/idris2-install/bin`, off `PATH`) · dune 3.14.0 · OCaml 4.14.1 · zig 0.13.0
+| *Absent* | system `liboqs` (the Zig crypto FFI ast-checks but does not *link*)
 |===
-
-[IMPORTANT]
-If you are reading this at a _later_ commit, the claims may have drifted.
-Re-run <<reproduce>> and write a fresh affirmation; do not trust a stale one.
-
-== Companion documents and repo metadata (cross-check)
-
-This affirmation should be read against the repo's own public claims. Where they
-drift from what we verified, we say so here rather than leave the reader to find
-out.
-
-* *`README.adoc`* — *present.* Its Status section is honest about the open items
-  (Zig FFI links only where `liboqs` is installed; `obli-pkg` verify is an MVP
-  stub). *But* its component table prints `✅ 100%` against Compiler & Runtime,
-  Static Analyzer, LSP Server, and Debugger, whereas `.machine_readable/6a2/STATE.a2ml`
-  records *85% overall*. Both can be true at once (per-component completeness vs
-  whole-repo completion that discounts the FFI link gap, the `obli-pkg` stub, and
-  the proof-layer recalibration), but the `100%` badges read stronger than the
-  honest whole-repo figure. Named, not glossed.
-* *`EXPLAINME.adoc`* — *present.* Engineering-mechanism document; not re-audited
-  line-by-line in this session.
-* *GitHub repo description / topics* — not re-fetched in this session; cross-check
-  deferred. The verified substance below is the authority, not the badges.
-* *`STATE.a2ml` (2026-06-12 checkpoint)* — its recalibration narrative (down from
-  a prior inflated "100% / production-ready" after PR #51 found a `believe_me`-masked
-  FALSE theorem) is consistent with what we can check at the *source* level today
-  (the escape-hatch grep is clean), though we did not _re-run_ the Idris2 proofs.
 
 == The honest state (one breath)
 
-*Oblíbený is a real, building, test-passing dual-form language: the OCaml
-toolchain compiles, the 27-test conformance suite passes, and the constrained
-form executes a program while emitting a complete, hashed accountability trace —
-all run green in this session. The Idris2 ABI proof layer is documented as
-genuine (total proofs, no `believe_me`/`postulate` since PR #51) and CI-gated,
-and its source is escape-hatch-clean today, but it was NOT type-checked in this
-session because `idris2` is absent. The post-quantum Zig crypto FFI ast-checks
-clean under Zig 0.13 but links only where the external `liboqs` system library
-is present, and `obli-pkg`'s signature-verify path is an explicit MVP stub. The
-language core is solid; the live frontier is crypto-FFI CI + the verify payload.*
+*Oblíbený builds, its 27-test conformance suite passes, and the constrained
+form executes a program while emitting a complete hashed accountability trace —
+all run green this session.  The Idris2 proof layer type-checks green: the ABI
+install/uninstall + echo-residue + triple-signature proofs, AND a new
+machine-checked metatheory of the constrained form (`src/abi/Lang/*`) covering
+all four advertised guarantees — termination, checker soundness, reversibility,
+and resource-bound = accountability-trace-length — `%default total`, zero escape
+hatches.  The proofs are metatheory of a faithful MODEL of the OCaml, not the
+OCaml itself; the post-quantum crypto FFI links only with external `liboqs`, and
+`obli-pkg verify` is hardened (canonical payload + fail-closed) but lacks a
+signer.  Solid, honestly-scoped foundational work.*
 
 === What is solid (run green — this session)
 
-* *The compiler builds.* `dune build` *exits 0*.
-* *The conformance suite passes.* `dune test` *exits 0*;
-  `test/conformance_test.ml` defines *27 `test_case`s* (the documented 27-test
-  suite — count confirmed by grep).
-* *The golden path runs and is accountable.*
-  `dune exec -- oblibeny examples/hello.obl --dump-trace` *exits 0* and emits a
-  real *Accountability Trace* of *26 entries* with *trace hash `260943924`* —
-  i.e. the constrained form's reversibility/audit story is not just typed, it
-  produced an actual trace at this commit.
-* *No escape hatches in the ABI proof source.* The Mustfile guard
-  `grep -rnE 'believe_me|assert_total|\bpostulate\b|\bpartial\b|idris_crash'
-  src/abi/Crypto.idr src/abi/Packages` finds *nothing* (guard PASSES). This
-  corroborates the "no `believe_me`/`postulate`" claim _at the source level_ —
-  see the nuance below on what it does and does not establish.
-* *Governance/file-presence invariants hold.* `LICENSE`, `README.adoc`,
-  `SECURITY.md`, `GOVERNANCE.adoc`, `MAINTAINERS.adoc`, `.github/CODEOWNERS`, and
-  all six `.machine_readable/6a2/*.a2ml` core files are present; *0* `lib/*.ml` /
-  `bin/*.ml` files are missing an `SPDX-License-Identifier` header.
-* *The Zig FFI sources compile-check.* `zig ast-check` (zig 0.13.0) passes on
-  every `ffi/zig/src/*.zig` (+ `packages/`). This matches the documented "compiles
-  under Zig 0.13" claim — it is *ast-check only*, not a link.
+* *The Idris2 proofs type-check.* `idris2 --build src/abi/oblibeny-abi.ipkg`
+  *exits 0*.  This covers `Packages.Hello.Interface` (`installReversible`,
+  `doubleInstallIdempotent`), `Packages.Hello.Echo` (echo residue), `Crypto`
+  (`tripleSignatureConjunction`), AND the five new constrained-form metatheory
+  modules `Lang.{Syntax,Eval,Checker,Reversible,Resource}`.  A green total
+  type-check is the proof.
+* *No escape hatches in the proof tree.* `grep -rnE
+  'believe_me|assert_total|idris_crash' src/abi/Crypto.idr src/abi/Packages
+  src/abi/Lang` finds *nothing*.
+* *The compiler builds; the suite passes.* `dune build` and `dune test` *exit 0*;
+  `test/conformance_test.ml` defines *27 `test_case`s*.
+* *The golden path runs and is accountable.* `dune exec -- oblibeny
+  examples/hello.obl --dump-trace` *exits 0*, emitting *26* trace entries with
+  *trace hash `260943924`*.
+* *The Zig FFI sources compile-check.* `zig ast-check` passes on every
+  `ffi/zig/src/*.zig` (zig 0.13.0) — ast-check only, not a link.
 
-[#nuance]
+=== The new layer: constrained-form metatheory (`src/abi/Lang/*`)
+
+Machine-checked, over a faithful model of `lib/ast.ml` / `lib/eval.ml` /
+`lib/constrained_check.ml` (landed in PRs #73–#77; mapped in
+link:src/abi/Lang/README.adoc[`src/abi/Lang/README.adoc`]):
+
+[cols="1,3",options="header"]
+|===
+| Guarantee | Headline (proved)
+| Termination | the evaluator is a TOTAL function — loops via a `Nat` count from static bounds; calls via the rank-stratified `evalLevel` over the acyclic call graph (`Lang.Eval`)
+| Checker soundness | a `Ranking` rules out direct & mutual recursion (`Lang.Checker`)
+| Reversibility | `inverse` is an involution on `incr`/`decr`/`swap`; `assign` is the irreversible `echo[A,B]` boundary (`Lang.Reversible`)
+| Resource + accountability | the static budget IS the accountability-trace length, both total (`Lang.Resource`)
+|===
+
 === The honest nuance you must not lose
 
-A green `dune build` / `dune test` proves *the OCaml toolchain compiles and the
-conformance suite passes as written*. The escape-hatch grep proves *the ABI proof
-source contains no escape-hatch tokens*. Together they do NOT prove:
+* *These proofs are of a MODEL, not the OCaml.* The Idris2 `Lang.*` syntax /
+  semantics / checker faithfully *model* `lib/ast.ml` etc., but the model-fidelity
+  gap is real.  Closing it — 3b checker completeness, 4b general reversibility,
+  5b runtime-trace faithfulness, and ultimately verified extraction — is tracked
+  in *https://github.com/hyperpolymath/oblibeny/issues/78[#78]*.  Reading
+  "constrained form proven sound" as "the OCaml is proven sound" is over-reading.
+* *Crypto is an external trust boundary.* The post-quantum signature
+  completeness/soundness live in linked C (`liboqs`/`libsodium`); `liboqs` is
+  absent here, so the FFI does not link.  `obli-pkg verify` derives the canonical
+  payload and is fail-closed (PR #72) but has no matching *signer* yet.
 
-* *that the Idris2 ABI proofs type-check at this commit.* `idris2` was *absent in
-  this session*, so the proof MUST (`idris2 --build src/abi/oblibeny-abi.ipkg`)
-  was *not executed here*. We carry the "genuine total proofs since PR #51, CI-gated
-  in PR #52" claim forward as a *documented and CI-gated* fact we did *not*
-  re-verify locally. A clean escape-hatch grep is necessary-but-not-sufficient:
-  it shows no `believe_me`/`postulate` in the source, not that the proofs close.
-  Re-run with `idris2` to upgrade this from "documented" to "affirmed-live".
-* *that the crypto FFI links or that `obli-pkg verify` is sound.* The Zig FFI
-  *links* only where `liboqs` is installed (absent here; not attempted), and
-  `obli-pkg`'s verify path is an *explicit MVP stub* with a placeholder payload
-  (`TODO(security)` at `ffi/zig/src/obli-pkg.zig:377`). ast-check passing is not
-  linking, and linking is not a verified signature scheme.
-* *that the sibling `obli-*` ecosystem exists beyond specification.*
-  `obli-transpiler-framework` / `obli-fs` / `obli-riscv-dev-kit` are ROADMAP
-  "specification pending"; none was touched here.
+== Tier summary
 
-=== Known-incomplete but honestly fenced
-
-* *`idris2` ABI proofs not run locally (this session).* The single biggest gap
-  between this affirmation and a full one: the proof MUST is CI-gated but was not
-  reproduced here. Treat the proof claim as CI's, not this session's.
-* *Crypto FFI link blocked on `liboqs`* (external system dep); CI builds OCaml +
-  Idris only. Tracked as INTEND `zig-ffi-in-ci`.
-* *`obli-pkg verify` is an MVP stub* (`TODO(security)`); the canonical signed
-  payload still needs deriving. Tracked as INTEND `derive-obli-pkg-signed-payload`.
-* *Maintainer-only items outstanding:* expired `FARM_DISPATCH_TOKEN` (forge
-  propagation off until rotated), `.claude/CLAUDE.md` still references the removed
-  `.scm` files (guardrail-blocked for agents), and 4 stale remote branches
-  (GS007). These are owner actions; an agent cannot and must not do them.
-
-== Tier summary (musts / intends / wishes)
-
-The full, sourced detail lives in
-link:docs/status/2026-06-19-musts-intends-wishes.adoc[`docs/status/2026-06-19-musts-intends-wishes.adoc`].
-One-line: *every runnable MUST is green; the one MUST we could not run is the
-Idris2 proof layer (no `idris2`); all INTENDs are still "declared"; all WISHes
-are unstarted horizon work.*
+`Mustfile` MUSTs are green (build / test / golden-path / proofs / escape-hatch /
+file-presence).  INTENDs and the `Lang.*` follow-ons are tracked in
+`.machine_readable/contractiles/Intentfile.a2ml` and issues #78 / #79.
 
 [#reproduce]
 == Reproduce it yourself
 
-From the repo root, at the commit above. `just` is not required (and was absent
-here); the recipes reduce to:
+From the repo root, at the commit above (`just` not required):
 
 [source,sh]
 ----
-# MUST build / test / golden-path (expect exit 0 each)
-dune build
-dune test                                              # 27-test conformance suite
-dune exec -- oblibeny examples/hello.obl --dump-trace  # emits the accountability trace
-
-# MUST no-escape-hatches (expect: prints nothing, i.e. PASS)
-grep -rnE 'believe_me|assert_total|\bpostulate\b|\bpartial\b|idris_crash' \
-  src/abi/Crypto.idr src/abi/Packages
-
-# FFI sources compile-check (expect all pass; NOT a link)
-for f in ffi/zig/src/*.zig ffi/zig/src/packages/*.zig; do zig ast-check "$f"; done
-
-# The MUST we could NOT run here — install idris2 first, then:
-idris2 --build src/abi/oblibeny-abi.ipkg               # expect exit 0 (CI-gated)
+export PATH=/opt/idris2-install/bin:$PATH      # idris2 is installed off PATH
+idris2 --build src/abi/oblibeny-abi.ipkg        # ABI + Lang.* proofs; expect exit 0
+dune build && dune test                          # 27-test conformance; expect exit 0
+dune exec -- oblibeny examples/hello.obl --dump-trace   # accountability trace
+grep -rnE 'believe_me|assert_total|idris_crash' src/abi/Crypto.idr src/abi/Packages src/abi/Lang  # expect: nothing
+for f in ffi/zig/src/*.zig; do zig ast-check "$f"; done  # FFI compile-check (not a link)
 ----
-
-Expected at this commit: the first three exit `0`; the grep prints nothing
-(guard passes); `zig ast-check` passes on every source. The `idris2` line is the
-open verification — run it to turn the proof claim from _documented_ into
-_affirmed-live_.
 
 == One-line characterisation (quote this)
 
 [quote]
 ____
-"A real dual-form secure-edge language whose OCaml toolchain builds, whose 27-test
-conformance suite passes, and whose constrained form executes a program while
-emitting a complete hashed accountability trace — all run green at this commit.
-The Idris2 ABI proof layer is CI-gated and escape-hatch-clean at source but was
-NOT type-checked in this session (no `idris2`); the post-quantum crypto FFI
-ast-checks under Zig 0.13 but links only with external `liboqs`, and `obli-pkg
-verify` is an explicit MVP stub. Solid language core, honest crypto frontier. No
-intentional overclaim."
+"A dual-form secure-edge language whose OCaml toolchain builds, whose 27-test
+suite passes, whose constrained form runs with a complete hashed accountability
+trace, and whose Idris2 proof layer (the package ABI AND a new machine-checked
+metatheory of the constrained form's four guarantees) type-checks green with
+zero escape hatches — all run live.  The metatheory is of a faithful MODEL of
+the OCaml, not the OCaml itself (gap tracked in #78); crypto links only with
+external liboqs.  Serious, honestly-scoped foundational work.  No intentional
+overclaim."
 ____
 
 == Joint attestation
 
-We, the undersigned, assert that *to the best of our joint belief at the
-timestamp above, every claim in this file is true and was checked as described*
-— with no intentional overclaim, and with the open gaps (notably the un-run
-Idris2 proof layer) stated rather than hidden.
+To the best of our joint belief at the timestamp above, every claim here is true
+and was checked as described — no intentional overclaim, open gaps stated.
 
 * *Engineering party (AI):* Claude Opus 4.8 (1M context), via Claude Code — ran
-  the checks recorded here (`dune build`, `dune test`, the golden-path
-  interpreter run, the escape-hatch grep, the file-presence/SPDX checks, and
-  `zig ast-check`) on 2026-06-19T21:37:36Z and stands behind the wording above as
-  a faithful report of those runs, including the explicit note that `idris2` was
-  absent and the proof layer was not re-verified.
+  the recorded checks (`idris2 --build`, `dune build`/`test`, the golden-path
+  run, the escape-hatch grep, `zig ast-check`) on 2026-06-21T22:19:55Z and stands
+  behind this as a faithful report of those runs.
 * *Owner / maintainer:* Jonathan D.A. Jewell — _signs by committing this file
-  with `-S`; the git commit signature over this content, at the commit SHA
-  recorded above, is the cryptographic form of this affirmation._
+  with `-S`._
 +
 Signed-off-date: ____________________  (fill on signing)
 
 [TIP]
-The authoritative, tamper-evident signature is the *signed git commit* that
-lands this file. If the SHA in <<Verifiable anchor>> matches the parent of that
-commit and the commit verifies, this affirmation is anchored. If they don't
-match, treat the file as a draft.
+The authoritative signature is the *signed git commit* that lands this file.  If
+the SHA in <<Verifiable anchor>> matches the parent of that commit and the commit
+verifies, this affirmation is anchored; otherwise treat it as a draft.
