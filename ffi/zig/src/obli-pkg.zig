@@ -291,6 +291,31 @@ fn verifyPackage(allocator: std.mem.Allocator, pkg_path: []const u8) !void {
     }
 }
 
+/// Derive the canonical signed payload from package bytes: the package content
+/// with every signature-envelope line removed — every line beginning with
+/// "SIGNATURE:" (the format written/extracted as "SIGNATURE:<name>:<base64>\n").
+/// A signer signs THIS payload and then appends the SIGNATURE: lines; the
+/// verifier strips them back out to recover the exact bytes that were signed.
+/// MVP canonical form: signatures must occupy their own lines.
+fn deriveSignedPayload(allocator: std.mem.Allocator, pkg_content: []const u8) ![]u8 {
+    var out = std.ArrayList(u8).init(allocator);
+    errdefer out.deinit();
+
+    var i: usize = 0;
+    while (i < pkg_content.len) {
+        const nl = std.mem.indexOfScalarPos(u8, pkg_content, i, '\n');
+        const line_end = nl orelse pkg_content.len;
+        const line = pkg_content[i..line_end];
+        if (!std.mem.startsWith(u8, line, "SIGNATURE:")) {
+            try out.appendSlice(line);
+            if (nl != null) try out.append('\n');
+        }
+        i = if (nl) |e| e + 1 else pkg_content.len;
+    }
+
+    return out.toOwnedSlice();
+}
+
 fn verifyPackageInternal(allocator: std.mem.Allocator, pkg_path: []const u8) !bool {
     // Step 1: Read package file
     _ = try posix.write(posix.STDOUT_FILENO, "  → Reading package file...\n");
@@ -331,23 +356,23 @@ fn verifyPackageInternal(allocator: std.mem.Allocator, pkg_path: []const u8) !bo
 
     readKeyOrDefault(keyring_path, "dilithium5.pub", &d5_pubkey) catch |err| {
         var buf: [256]u8 = undefined;
-        const msg = try std.fmt.bufPrint(&buf, "  ⚠ Dilithium5 key not found ({}), using test key\n", .{err});
-        _ = try posix.write(posix.STDOUT_FILENO, msg);
-        @memset(&d5_pubkey, 0);
+        const msg = try std.fmt.bufPrint(&buf, "  ✗ Dilithium5 public key not found ({}); refusing to verify (fail-closed)\n", .{err});
+        _ = try posix.write(posix.STDERR_FILENO, msg);
+        return false;
     };
 
     readKeyOrDefault(keyring_path, "sphincsplus.pub", &sp_pubkey) catch |err| {
         var buf: [256]u8 = undefined;
-        const msg = try std.fmt.bufPrint(&buf, "  ⚠ SPHINCS+ key not found ({}), using test key\n", .{err});
-        _ = try posix.write(posix.STDOUT_FILENO, msg);
-        @memset(&sp_pubkey, 0);
+        const msg = try std.fmt.bufPrint(&buf, "  ✗ SPHINCS+ public key not found ({}); refusing to verify (fail-closed)\n", .{err});
+        _ = try posix.write(posix.STDERR_FILENO, msg);
+        return false;
     };
 
     readKeyOrDefault(keyring_path, "ed25519.pub", &ed_pubkey) catch |err| {
         var buf: [256]u8 = undefined;
-        const msg = try std.fmt.bufPrint(&buf, "  ⚠ Ed25519 key not found ({}), using test key\n", .{err});
-        _ = try posix.write(posix.STDOUT_FILENO, msg);
-        @memset(&ed_pubkey, 0);
+        const msg = try std.fmt.bufPrint(&buf, "  ✗ Ed25519 public key not found ({}); refusing to verify (fail-closed)\n", .{err});
+        _ = try posix.write(posix.STDERR_FILENO, msg);
+        return false;
     };
 
     // Extract signatures (for MVP: look for .sig files in package header)
@@ -356,32 +381,41 @@ fn verifyPackageInternal(allocator: std.mem.Allocator, pkg_path: []const u8) !bo
     var ed_sig: [64]u8 = undefined;
 
     extractSignatureOrDefault(pkg_content, "dilithium5.sig", &d5_sig) catch {
-        _ = try posix.write(posix.STDOUT_FILENO, "  ⚠ Dilithium5 signature not found, using test\n");
-        @memset(&d5_sig, 0);
+        _ = try posix.write(posix.STDERR_FILENO, "  ✗ Dilithium5 signature not found in package; refusing to verify (fail-closed)\n");
+        return false;
     };
 
     extractSignatureOrDefault(pkg_content, "sphincsplus.sig", &sp_sig) catch {
-        _ = try posix.write(posix.STDOUT_FILENO, "  ⚠ SPHINCS+ signature not found, using test\n");
-        @memset(&sp_sig, 0);
+        _ = try posix.write(posix.STDERR_FILENO, "  ✗ SPHINCS+ signature not found in package; refusing to verify (fail-closed)\n");
+        return false;
     };
 
     extractSignatureOrDefault(pkg_content, "ed25519.sig", &ed_sig) catch {
-        _ = try posix.write(posix.STDOUT_FILENO, "  ⚠ Ed25519 signature not found, using test\n");
-        @memset(&ed_sig, 0);
+        _ = try posix.write(posix.STDERR_FILENO, "  ✗ Ed25519 signature not found in package; refusing to verify (fail-closed)\n");
+        return false;
     };
 
-    // NOTE(security, MVP): the canonical signed payload still needs to be
-    // derived — a real scheme signs the package bytes *excluding* the embedded
-    // signature blocks. This verify path is a stub (see the zeroed
-    // test-signature fallbacks above), so this is a compile-level placeholder,
-    // not a production payload. TODO(security): derive the real signed payload.
-    const mock_message: []const u8 = pkg_content;
+    // Canonical signed payload: the package bytes with the SIGNATURE: envelope
+    // lines stripped — the exact bytes a signer signs before appending the
+    // signature lines (see deriveSignedPayload). This replaces the former
+    // whole-pkg_content stub. Verification is fail-closed above: a missing
+    // public key or signature is rejected, never defaulted to test zeros.
+    //
+    // MVP scope: this fixes the canonical-payload derivation + fail-closed
+    // behaviour. A matching SIGNER (producing real SIGNATURE: blocks over this
+    // payload) and end-to-end test vectors remain follow-on work
+    // (derive-obli-pkg-signed-payload, full scheme).
+    const signed_payload = deriveSignedPayload(allocator, pkg_content) catch {
+        _ = try posix.write(posix.STDERR_FILENO, "  ✗ Failed to derive signed payload\n");
+        return false;
+    };
+    defer allocator.free(signed_payload);
 
     // Verify Dilithium5
     _ = try posix.write(posix.STDOUT_FILENO, "  → Verifying Dilithium5 signature...\n");
     const d5_valid = try crypto.verifySignature(
         .dilithium5,
-        mock_message,
+        signed_payload,
         &d5_sig,
         &d5_pubkey,
     );
@@ -396,7 +430,7 @@ fn verifyPackageInternal(allocator: std.mem.Allocator, pkg_path: []const u8) !bo
     _ = try posix.write(posix.STDOUT_FILENO, "  → Verifying SPHINCS+ signature...\n");
     const sp_valid = try crypto.verifySignature(
         .sphincsplus,
-        mock_message,
+        signed_payload,
         &sp_sig,
         &sp_pubkey,
     );
@@ -411,7 +445,7 @@ fn verifyPackageInternal(allocator: std.mem.Allocator, pkg_path: []const u8) !bo
     _ = try posix.write(posix.STDOUT_FILENO, "  → Verifying Ed25519 signature...\n");
     const ed_valid = try crypto.verifySignature(
         .ed25519,
-        mock_message,
+        signed_payload,
         &ed_sig,
         &ed_pubkey,
     );
