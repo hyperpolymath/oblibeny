@@ -62,6 +62,7 @@ pr-54 = "Removed 6 orphaned submodule gitlinks (no .gitmodules, no upstream repo
 pr-55 = "Echo-reversibility linear discipline: non-copyable echoes must be consumed exactly once (overwrite/drop discipline); conformance suite grew to 27 tests"
 pr-56 = "Metadata migrated .machine_readable/*.scm to 6a2/*.a2ml (estate convention); Zig FFI compile-fixes for Zig 0.13 (build.zig LazyPath idiom, obli-pkg.zig fixes); CodeQL cron weekly to monthly"
 pr-57-58 = "Dependabot: codeql-action 4.36.0->4.36.2, actions/checkout 6.0.2->6.0.3"
+pr-73-77 = "Language-soundness metatheory (src/abi/Lang/*): machine-checked Idris2 proofs of the constrained form's four guarantees — termination (call-free + full-language via the acyclic-call-graph rank), checker soundness (a ranking rules out direct/mutual recursion), reversibility (inverse involution + the echo[A,B] boundary), and resource-bound = accountability-trace-length. Faithful model of lib/ast.ml/eval.ml/constrained_check.ml; %default total; zero escape hatches; idris2 --build green (Idris2 0.7.0). Modules Lang.{Syntax,Eval,Checker,Reversible,Resource} + src/abi/Lang/README.adoc. Follow-ons (3b/4b/5b/verified-extraction) tracked in #78. (2026-06-21)"
 
 # ---------------------------------------------------------------------------
 # Current blockers (live list, 2026-06-12). The [blockers.*] tables further
@@ -79,6 +80,8 @@ n01 = "Rotate FARM_DISPATCH_TOKEN (maintainer; gh secret set FARM_DISPATCH_TOKEN
 n02 = "Derive the real signed payload for obli-pkg verify (closes TODO(security))"
 n03 = "Decide CI strategy for the Zig FFI: build liboqs from source in CI or vendor a pinned build"
 n04 = "Maintainer edit of .claude/CLAUDE.md: .scm references -> 6a2/*.a2ml"
+n05 = "Language-metatheory follow-ons toward verified extraction (#78): 3b checker completeness, 4b general reversibility, 5b runtime-trace faithfulness"
+n06 = "Educational docs: developer/maintainer/end-user learning paths beyond setup (#79)"
 
 # ---------------------------------------------------------------------------
 # Components — each is complete (status complete, 100% where a completion

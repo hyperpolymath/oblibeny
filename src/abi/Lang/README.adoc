@@ -1,0 +1,90 @@
+// SPDX-License-Identifier: MPL-2.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell
+
+= Lang.* — machine-checked metatheory of the constrained form
+:toc: macro
+:toclevels: 2
+
+This directory is the Idris2 *metatheory* of Oblíbený's constrained form: a
+faithful model of `lib/ast.ml` / `lib/eval.ml` / `lib/constrained_check.ml`,
+proving the four guarantees the constrained form advertises.  It sits beside the
+ABI proof layer (`../Packages/Hello/*`) and is built by the same gate:
+
+[source,sh]
+----
+idris2 --build src/abi/oblibeny-abi.ipkg   # exit 0 == every proof type-checks
+----
+
+All modules are `%default total`, with **no escape hatches** — no
+totality-bypass primitives, no axiom stand-ins, no foreign calls.  In Idris2 a
+green total type-check *is* the proof.
+
+toc::[]
+
+== What is proved (first pass complete)
+
+[cols="1,2,3",options="header"]
+|===
+| Module | Guarantee | Headline
+
+| `Syntax.idr`
+| —
+| The constrained AST (the termination guarantee is visible in the *types*: no
+  `while`/`loop` constructor exists; `SForRange` carries *static* bounds).
+
+| `Eval.idr`
+| *Termination*
+| The evaluator is a TOTAL function.  Loops: `evalForW` recurses on a `Nat`
+  iteration count from the static bounds.  Calls: the rank-stratified `evalLevel`
+  recurses on the DAG rank, so an acyclic call graph bounds call depth.
+  Headlines `terminates`, `constrainedTerminates`.
+
+| `Checker.idr`
+| *Checker soundness*
+| A `Ranking` (the acyclic-call-graph property `validate_program` verifies)
+  rules out direct AND mutual recursion: `noSelfRecursion`, `noMutualRecursion`.
+
+| `Reversible.idr`
+| *Reversibility*
+| `inverse` is an involution on the reversible primitives (`inverseInvolutive`);
+  `incr`/`decr`/`swap` restore the state; `assign` is the irreversible boundary
+  where an `echo[A,B]` residue is required (`assignNotReversible`).
+
+| `Resource.idr`
+| *Resource bound + accountability*
+| The static resource budget IS the accountability-trace length
+  (`cost = length . staticTrace`), both total: `resourceBounded`,
+  `costIsTraceLength`.
+|===
+
+== Honest scope (this is the metatheory of a MODEL)
+
+These proofs are about a faithful Idris2 *model* of the OCaml, not the OCaml
+itself.  The path from "faithful model" to "the implementation" is tracked in
+*https://github.com/hyperpolymath/oblibeny/issues/78[#78]*:
+
+* *3b — checker completeness.*  Mechanize the OCaml DFS cycle-detector and prove
+  `validate_program p = [] => Ranking p` (the existence of a ranking from
+  acceptance).  Slice 3 proved the dual; the forward construction is open.
+* *4b — general semantic reversibility.*  Lift the concrete reversibility
+  witnesses to a general theorem over a lawful / `DecEq`-keyed store (blocked
+  for primitive `String` names, where `x == x` does not reduce for a variable).
+* *5b — runtime-trace faithfulness.*  A trace-producing evaluator whose output
+  realizes `staticTrace` (with the one-branch-per-`if` refinement), tying
+  `oblibeny --dump-trace` to the static skeleton.
+* *Verified extraction (research-scale).*  Relate the OCaml `lib/*` to this
+  model — translation validation or codegen — closing the model-fidelity gap.
+
+== Sketch area
+
+The follow-ons above are deliberately *not* stubbed as broken modules (every
+file here builds).  When opening one, add a new `Lang.<Name>` module, wire it
+into `../oblibeny-abi.ipkg`, and keep the build green.  Reusable Idris2 lessons
+learned across slices 1–5:
+
+* lowercase free names in a *type signature* auto-bind as implicits — qualify
+  them (`Lang.Eval.noCall`) or inline;
+* a named top-level value may not reduce in a `Refl` across modules — inline the
+  literal, or mark helpers `public export` (cross-module reduction);
+* prefer a top-level pattern-matching helper to an inline `case` for reduction;
+* a `|||` doc comment cannot attach to a `mutual` block — use `--`.
