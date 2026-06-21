@@ -38,6 +38,7 @@ data Expr
   | EVar  Name
   | EBin  Op Expr Expr
   | EIf   Expr Expr Expr
+  | ECall Name (List Expr)                        -- f(e1, ..., en)  (call graph checked: DAG)
 
 public export
 data Stmt
@@ -47,3 +48,20 @@ data Stmt
   | SSwap     Name Name                           -- swap(a,b) (self-inverse)
   | SIf       Expr (List Stmt) (List Stmt)
   | SForRange Name Integer Integer (List Stmt)    -- for v in lo..hi   (STATIC bounds, by type)
+
+||| A function: name, parameters, body, and a return expression evaluated over
+||| the post-body environment.  (Mirrors `DFunction` in `lib/ast.ml`; the
+||| explicit return expr models the `Return` value without modelling the
+||| exception.)
+public export
+record Func where
+  constructor MkFunc
+  fname  : Name
+  params : List Name
+  body   : List Stmt
+  ret    : Expr
+
+||| A program is a list of function declarations.
+public export
+Program : Type
+Program = List Func
