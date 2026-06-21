@@ -31,10 +31,12 @@ public export
 State : Type
 State = List (Name, Value)
 
+public export
 asInt : Value -> Integer
 asInt (VInt n) = n
 asInt _        = 0
 
+public export
 asBool : Value -> Bool
 asBool (VBool b) = b
 asBool (VInt n)  = n /= 0
@@ -52,6 +54,7 @@ set : Name -> Value -> State -> State
 set x v []               = [(x, v)]
 set x v ((y, w) :: rest) = if x == y then (x, v) :: rest else (y, w) :: set x v rest
 
+public export
 evalOp : Op -> Value -> Value -> Value
 evalOp Add x y = VInt  (asInt x + asInt y)
 evalOp Sub x y = VInt  (asInt x - asInt y)
