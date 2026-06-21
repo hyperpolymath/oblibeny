@@ -17,3 +17,4 @@ modules = Crypto
         , Packages.Hello.Echo
         , Lang.Syntax
         , Lang.Eval
+        , Lang.Checker
