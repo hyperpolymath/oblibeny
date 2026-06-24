@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: CC-BY-SA-4.0
 = Oblíbený
 image:https://img.shields.io/badge/OpenSSF-Best_Practices-green?logo=openssourcesecurity[OpenSSF Best Practices,link="https://www.bestpractices.dev/en/projects/new?repo_url=https://github.com/hyperpolymath/oblibeny"]
 
@@ -459,7 +459,7 @@ See link:CONTRIBUTING.md[CONTRIBUTING.md] for development guidelines.
 
 == License
 
-SPDX-License-Identifier: MPL-2.0
+SPDX-License-Identifier: CC-BY-SA-4.0
 
 Oblíbený is free software under the https://github.com/hyperpolymath/palimpsest-license[Palimpsest License] (MPL-2.0).
 
