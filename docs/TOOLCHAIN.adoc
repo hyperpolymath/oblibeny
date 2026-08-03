@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: MPL-2.0 OR Palimpsest-0.8
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell
+= Local toolchain setup
+
+Everything the CI gate runs (`.github/workflows/ci.yml`) can be reproduced
+locally with `just ci` plus `just proofs`. The pins live in `.tool-versions`.
+
+== Idris2 (>= 0.7.0) — the ABI proof layer
+
+Not packaged on most distros; bootstrap from source with Chez Scheme:
+
+[source,bash]
+----
+sudo apt-get install -y chezscheme libgmp-dev
+git clone --depth 1 -b v0.7.0 https://github.com/idris-lang/Idris2
+cd Idris2 && make bootstrap SCHEME=chezscheme && sudo make install
+----
+
+== OCaml (>= 4.14, pinned 5.1.1) with dune + menhir
+
+Via apt:
+
+[source,bash]
+----
+sudo apt-get install -y ocaml ocaml-dune menhir libmenhir-ocaml-dev \
+  libyojson-ocaml-dev libsedlex-ocaml-dev libppx-deriving-ocaml-dev \
+  libppx-deriving-yojson-ocaml-dev libalcotest-ocaml-dev ocaml-findlib
+----
+
+...or via opam:
+
+[source,bash]
+----
+opam install dune menhir sedlex yojson ppx_deriving ppx_deriving_yojson alcotest
+----
+
+== Zig (0.13 verified) — the FFI layer
+
+`just zig-ffi-check` compile-checks every FFI source without linking.
+A full `zig build` link requires system liboqs + libsodium
+(see `ffi/zig/build.zig` and `Containerfile.liboqs`).
+
+== The gate itself
+
+* `just proofs` — `idris2 --build src/abi/oblibeny-abi.ipkg`
+* `just ci` — dune lint + conformance suite + Zig FFI compile-check +
+  escape-hatch guard (no `believe_me` / `postulate` / `assert_total` /
+  `partial` / `idris_crash` / holes in the ABI proofs)
