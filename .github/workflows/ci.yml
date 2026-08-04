@@ -49,6 +49,37 @@ jobs:
       - name: Conformance suite
         run: dune runtest
 
+  zig-ffi:
+    name: Zig FFI compile check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Pinned official tarball + hardcoded sha256 instead of a third-party
+      # setup action — keeps the workflow fully SHA-pinned. 0.13.0 is the
+      # verified FFI toolchain (see .tool-versions); 0.14+ renamed
+      # callconv(.C) and would reject these sources.
+      - name: Install Zig 0.13.0 (sha256-verified tarball)
+        run: |
+          curl -fsSL -o /tmp/zig.tar.xz \
+            https://ziglang.org/download/0.13.0/zig-linux-x86_64-0.13.0.tar.xz
+          echo "d45312e61ebcc48032b77bc4cf7fd6915c11fa16e4aad116b66c9468211230ea  /tmp/zig.tar.xz" | sha256sum -c -
+          mkdir -p "$HOME/zig"
+          tar -xJf /tmp/zig.tar.xz -C "$HOME/zig" --strip-components=1
+          echo "$HOME/zig" >> "$GITHUB_PATH"
+
+      # ast-check compiles-checks every FFI source without linking — a full
+      # `zig build` link needs system liboqs/libsodium (see ffi/zig/build.zig
+      # and Containerfile.liboqs; deferred until a liboqs image gates CI).
+      - name: Compile-check FFI sources (zig ast-check)
+        run: |
+          for f in ffi/zig/src/*.zig ffi/zig/src/packages/*.zig; do
+            echo "ast-check $f"
+            zig ast-check "$f"
+          done
+
   idris-proofs:
     name: Idris2 ABI proofs
     runs-on: ubuntu-latest
