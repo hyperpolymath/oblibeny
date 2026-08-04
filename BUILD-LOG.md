@@ -1,5 +1,7 @@
 # Lago Grey Build Log - 2026-02-05
 
+> **Historical document (2026-02).** The container files it references were consolidated in 2026-08: `Dockerfile.oblibeny-bootstrap`→`Containerfile.bootstrap`, `Dockerfile.oblibeny-minimal`→`Containerfile.minimal`, `Dockerfile.liboqs`→`Containerfile.liboqs`; the other `Dockerfile.*`/`Containerfile*` experiments were removed (see git history / issue #67).
+
 ## ✅ Proof of Concept: First Component Built!
 
 **Date:** 2026-02-05

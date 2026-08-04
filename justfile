@@ -235,7 +235,7 @@ dist-info:
 # Build bootstrap toolchain on Alpine
 distroless-bootstrap:
     @echo "Building Oblibeny toolchain on Alpine..."
-    docker build -f Dockerfile.oblibeny-bootstrap -t oblibeny-bootstrap:latest .
+    podman build -f Containerfile.bootstrap -t oblibeny-bootstrap:latest .
     @echo "✓ Bootstrap environment ready"
 
 # Export static binaries for distroless
@@ -255,35 +255,35 @@ distroless-export:
 # Build minimal distroless image (~11MB)
 distroless-image:
     @echo "Building minimal distroless image..."
-    docker build -f Dockerfile.oblibeny-minimal -t oblibeny:minimal .
+    podman build -f Containerfile.minimal -t oblibeny:minimal .
     @echo "✓ Image built: oblibeny:minimal"
 
 # Run minimal image
 distroless-run:
     @echo "Running minimal distroless image..."
-    docker run --rm oblibeny:minimal
+    podman run --rm oblibeny:minimal
 
 # Verify distroless image properties
 distroless-verify:
     @echo "Verifying minimal distroless image..."
     @echo ""
     @echo "=== Image Size ==="
-    @docker images oblibeny:minimal --format "Size: {{{{.Size}}}}"
+    @podman images oblibeny:minimal --format "Size: {{{{.Size}}}}"
     @echo ""
     @echo "=== File Count ==="
-    @docker run --rm oblibeny:minimal sh -c 'find / -type f 2>/dev/null | wc -l' || \
+    @podman run --rm oblibeny:minimal sh -c 'find / -type f 2>/dev/null | wc -l' || \
         echo "(Cannot count - no shell in distroless, which is GOOD)"
     @echo ""
     @echo "=== Binaries ==="
-    @docker run --rm --entrypoint=/usr/bin/obli-pkg oblibeny:minimal || echo "obli-pkg present"
-    @docker run --rm oblibeny:minimal || echo "hello present"
+    @podman run --rm --entrypoint=/usr/bin/obli-pkg oblibeny:minimal || echo "obli-pkg present"
+    @podman run --rm oblibeny:minimal || echo "hello present"
     @echo ""
     @echo "✓ Verification complete"
 
 # Clean distroless artifacts
 distroless-clean:
     rm -rf dist/distroless
-    docker rmi oblibeny:minimal oblibeny-bootstrap 2>/dev/null || true
+    podman rmi oblibeny:minimal oblibeny-bootstrap 2>/dev/null || true
 
 # Full distroless build pipeline
 distroless-build-all: distroless-export distroless-image distroless-verify

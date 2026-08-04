@@ -1,5 +1,7 @@
 # 🏔️ Lago Grey First Image - SUCCESS!
 
+> **Historical document (2026-02).** The container files it references were consolidated in 2026-08: `Dockerfile.oblibeny-bootstrap`→`Containerfile.bootstrap`, `Dockerfile.oblibeny-minimal`→`Containerfile.minimal`, `Dockerfile.liboqs`→`Containerfile.liboqs`; the other `Dockerfile.*`/`Containerfile*` experiments were removed (see git history / issue #67).
+
 **Date:** 2026-02-05
 **Status:** ✅ COMPLETE
 **Classification:** Small Iceberg (14.6 MB)

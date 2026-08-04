@@ -184,7 +184,7 @@ just distroless-export
 === Phase 1: Minimal Distroless Runtime
 
 ```dockerfile
-# Dockerfile.oblibeny-minimal
+# Containerfile.minimal
 FROM gcr.io/distroless/static-debian12
 
 # Copy ONLY what we proved necessary
@@ -353,7 +353,7 @@ distroless-export:
 
 # Build minimal distroless image
 distroless-image:
-    docker build -f Dockerfile.oblibeny-minimal -t oblibeny:minimal .
+    podman build -f Containerfile.minimal -t oblibeny:minimal .
 
 # Verify image size
 distroless-verify:
@@ -379,7 +379,7 @@ distroless-verify:
 
 == Next Steps
 
-1. Create `Dockerfile.oblibeny-minimal`
+1. Create `Containerfile.minimal`
 2. Bootstrap toolchain on Alpine
 3. Export static binaries for distroless
 4. Build first package (`hello`) for distroless
