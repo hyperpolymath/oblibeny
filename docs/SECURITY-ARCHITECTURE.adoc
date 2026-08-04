@@ -270,7 +270,7 @@ Total:                 ~17.5MB
 === Build Requirements
 
 ```dockerfile
-# Dockerfile.oblibeny-crypto
+# Containerfile.liboqs (illustrative)
 FROM alpine:latest AS builder
 
 # Build liboqs (post-quantum crypto)

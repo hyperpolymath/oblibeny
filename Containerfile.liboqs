@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: MPL-2.0
-# Dockerfile.liboqs - Build liboqs for Lago Grey
+# Containerfile.liboqs - Build liboqs for Lago Grey
+#
+# Not yet wired into tooling: this image is the intended vehicle for the
+# deferred full-link Zig FFI CI gate (see issue #62 and ffi/zig/build.zig,
+# which links system liboqs + libsodium).
 
 FROM docker.io/alpine:latest AS builder
 

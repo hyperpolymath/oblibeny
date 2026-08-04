@@ -46,3 +46,6 @@ dist/
 # Zig (FFI) build artifacts
 .zig-cache/
 zig-out/
+
+# Cross-compiled package binaries (just pkg-build-hello)
+examples/packages/hello.zpkg/binaries/

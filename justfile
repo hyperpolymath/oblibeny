@@ -46,12 +46,21 @@ proofs:
 zig-ffi-check:
     @if command -v zig >/dev/null 2>&1; then \
         for f in ffi/zig/src/*.zig ffi/zig/src/packages/*.zig; do \
-            [ -f "$$f" ] && echo "ast-check $$f" && zig ast-check "$$f"; \
+            [ -f "$f" ] && echo "ast-check $f" && zig ast-check "$f"; \
         done; \
         echo "✓ Zig FFI sources compile-checked"; \
     else \
         echo "zig not installed — skipping (see ffi/zig/build.zig; Zig 0.13 verified in PR #56)"; \
     fi
+
+# Fail if any soundness escape hatch appears in the ABI proofs — same gate as ci.yml
+guard-escape-hatches:
+    @if grep -rnE 'believe_me|assert_total|\bpostulate\b|\bpartial\b|idris_crash|\?[A-Za-z_][A-Za-z0-9_]*' \
+         src/abi/Crypto.idr src/abi/Packages; then \
+        echo "ERROR: soundness escape hatch found in ABI proofs"; \
+        exit 1; \
+    fi
+    @echo "no escape hatches"
 
 # ============================================================================
 # RUN
@@ -105,8 +114,8 @@ doc:
 # RELEASE
 # ============================================================================
 
-# Run all checks (lint + test)
-ci: lint test
+# Run all checks (lint + test + FFI compile-check + escape-hatch guard)
+ci: lint test zig-ffi-check guard-escape-hatches
     @echo "All checks passed."
 
 # Prepare a release
@@ -125,8 +134,8 @@ release VERSION:
 validate-spec:
     @echo "Validating specification files..."
     @for f in ANCHOR*.scm SPEC*.scm AUTHORITY*.scm; do \
-        if [ -f "$$f" ]; then \
-            echo "  ✓ $$f exists"; \
+        if [ -f "$f" ]; then \
+            echo "  ✓ $f exists"; \
         fi; \
     done
 
@@ -139,31 +148,35 @@ golden-path:
 # DISTRIBUTION PROOF-OF-CONCEPT
 # ============================================================================
 
-# Verify Idris2 ABI proofs for hello package
+# Verify Idris2 ABI proofs for hello package (ipkg-level; per-file --check is a fake gate)
 abi-check-hello:
-    @echo "Checking Idris2 ABI proofs..."
-    idris2 --check src/abi/packages/hello/Interface.idr
+    @echo "Checking Idris2 ABI proofs (via oblibeny-abi.ipkg)..."
+    cd src/abi && idris2 --build oblibeny-abi.ipkg
 
-# Generate C headers from Idris2 ABI
+# Generate C code from the Idris2 ABI interface (module root = src/abi)
 abi-gen-hello:
-    @echo "Generating C headers from Idris2..."
+    @echo "Generating C from Idris2..."
     mkdir -p generated/abi/hello
-    idris2 --codegen c src/abi/packages/hello/Interface.idr
-    @echo "Headers generated in generated/abi/"
+    cd src/abi && idris2 --codegen c Packages/Hello/Interface.idr
+    @echo "Generated under src/abi/build/ (C backend)"
 
 # Build Zig FFI library for hello package
 ffi-build-hello:
     @echo "Building Zig FFI for hello package..."
+    mkdir -p dist/ffi
     cd ffi/zig && zig build-lib src/packages/hello.zig \
         -dynamic \
         -target x86_64-linux-musl \
         -O ReleaseSafe \
-        -femit-bin=../../lib/libhello.so
-    @echo "Built: lib/libhello.so"
+        -femit-bin=../../dist/ffi/libhello.so
+    @echo "Built: dist/ffi/libhello.so"
 
 # Build hello package for all architectures
 pkg-build-hello:
     @echo "Cross-compiling hello for all architectures..."
+    @mkdir -p examples/packages/hello.zpkg/binaries/x86_64 \
+        examples/packages/hello.zpkg/binaries/aarch64 \
+        examples/packages/hello.zpkg/binaries/riscv64
     @echo "  x86_64..."
     @cd examples/packages/hello.zpkg && \
         echo 'const std = @import("std"); pub fn main() !void { std.debug.print("Hello, Oblibeny Distribution!\\n", .{}); }' > hello.zig && \
@@ -177,7 +190,7 @@ pkg-build-hello:
     @cd examples/packages/hello.zpkg && \
         zig build-exe hello.zig -target riscv64-linux-musl -O ReleaseSafe && \
         mv hello binaries/riscv64/ && \
-        rm hello.zig hello.o || true
+        rm -f hello.zig hello.o
     @echo "✓ Cross-compilation complete"
 
 # Package hello.zpkg archive
@@ -222,7 +235,7 @@ dist-info:
 # Build bootstrap toolchain on Alpine
 distroless-bootstrap:
     @echo "Building Oblibeny toolchain on Alpine..."
-    docker build -f Dockerfile.oblibeny-bootstrap -t oblibeny-bootstrap:latest .
+    podman build -f Containerfile.bootstrap -t oblibeny-bootstrap:latest .
     @echo "✓ Bootstrap environment ready"
 
 # Export static binaries for distroless
@@ -242,35 +255,35 @@ distroless-export:
 # Build minimal distroless image (~11MB)
 distroless-image:
     @echo "Building minimal distroless image..."
-    docker build -f Dockerfile.oblibeny-minimal -t oblibeny:minimal .
+    podman build -f Containerfile.minimal -t oblibeny:minimal .
     @echo "✓ Image built: oblibeny:minimal"
 
 # Run minimal image
 distroless-run:
     @echo "Running minimal distroless image..."
-    docker run --rm oblibeny:minimal
+    podman run --rm oblibeny:minimal
 
 # Verify distroless image properties
 distroless-verify:
     @echo "Verifying minimal distroless image..."
     @echo ""
     @echo "=== Image Size ==="
-    @docker images oblibeny:minimal --format "Size: {{{{.Size}}}}"
+    @podman images oblibeny:minimal --format "Size: {{{{.Size}}}}"
     @echo ""
     @echo "=== File Count ==="
-    @docker run --rm oblibeny:minimal sh -c 'find / -type f 2>/dev/null | wc -l' || \
+    @podman run --rm oblibeny:minimal sh -c 'find / -type f 2>/dev/null | wc -l' || \
         echo "(Cannot count - no shell in distroless, which is GOOD)"
     @echo ""
     @echo "=== Binaries ==="
-    @docker run --rm --entrypoint=/usr/bin/obli-pkg oblibeny:minimal || echo "obli-pkg present"
-    @docker run --rm oblibeny:minimal || echo "hello present"
+    @podman run --rm --entrypoint=/usr/bin/obli-pkg oblibeny:minimal || echo "obli-pkg present"
+    @podman run --rm oblibeny:minimal || echo "hello present"
     @echo ""
     @echo "✓ Verification complete"
 
 # Clean distroless artifacts
 distroless-clean:
     rm -rf dist/distroless
-    docker rmi oblibeny:minimal oblibeny-bootstrap 2>/dev/null || true
+    podman rmi oblibeny:minimal oblibeny-bootstrap 2>/dev/null || true
 
 # Full distroless build pipeline
 distroless-build-all: distroless-export distroless-image distroless-verify
