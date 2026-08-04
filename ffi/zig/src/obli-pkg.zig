@@ -342,8 +342,13 @@ fn verifyPackageInternal(allocator: std.mem.Allocator, pkg_path: []const u8) !bo
     // For MVP: look for embedded signatures in first 4KB
     _ = try posix.write(posix.STDOUT_FILENO, "  → Extracting signatures...\n");
 
-    // Read from keyring (for now, use test keys from ~/.obli-pkg/keyring/)
-    const home = std.process.getEnvVarOwned(allocator, "HOME") catch "/tmp";
+    // Read from keyring (for now, use test keys from ~/.obli-pkg/keyring/).
+    // Fail-closed: no HOME means no keyring location — refuse to verify
+    // rather than fall back to a world-writable path like /tmp.
+    const home = std.process.getEnvVarOwned(allocator, "HOME") catch {
+        _ = try posix.write(posix.STDERR_FILENO, "  ✗ HOME not set; cannot locate keyring; refusing to verify (fail-closed)\n");
+        return false;
+    };
     defer allocator.free(home);
 
     var keyring_path_buf: [512]u8 = undefined;
@@ -354,23 +359,23 @@ fn verifyPackageInternal(allocator: std.mem.Allocator, pkg_path: []const u8) !bo
     var sp_pubkey: [64]u8 = undefined;
     var ed_pubkey: [32]u8 = undefined;
 
-    readKeyOrDefault(keyring_path, "dilithium5.pub", &d5_pubkey) catch |err| {
+    readKey(keyring_path, "dilithium5.pub", &d5_pubkey) catch |err| {
         var buf: [256]u8 = undefined;
-        const msg = try std.fmt.bufPrint(&buf, "  ✗ Dilithium5 public key not found ({}); refusing to verify (fail-closed)\n", .{err});
+        const msg = try std.fmt.bufPrint(&buf, "  ✗ Dilithium5 public key missing or wrong length ({}); refusing to verify (fail-closed)\n", .{err});
         _ = try posix.write(posix.STDERR_FILENO, msg);
         return false;
     };
 
-    readKeyOrDefault(keyring_path, "sphincsplus.pub", &sp_pubkey) catch |err| {
+    readKey(keyring_path, "sphincsplus.pub", &sp_pubkey) catch |err| {
         var buf: [256]u8 = undefined;
-        const msg = try std.fmt.bufPrint(&buf, "  ✗ SPHINCS+ public key not found ({}); refusing to verify (fail-closed)\n", .{err});
+        const msg = try std.fmt.bufPrint(&buf, "  ✗ SPHINCS+ public key missing or wrong length ({}); refusing to verify (fail-closed)\n", .{err});
         _ = try posix.write(posix.STDERR_FILENO, msg);
         return false;
     };
 
-    readKeyOrDefault(keyring_path, "ed25519.pub", &ed_pubkey) catch |err| {
+    readKey(keyring_path, "ed25519.pub", &ed_pubkey) catch |err| {
         var buf: [256]u8 = undefined;
-        const msg = try std.fmt.bufPrint(&buf, "  ✗ Ed25519 public key not found ({}); refusing to verify (fail-closed)\n", .{err});
+        const msg = try std.fmt.bufPrint(&buf, "  ✗ Ed25519 public key missing or wrong length ({}); refusing to verify (fail-closed)\n", .{err});
         _ = try posix.write(posix.STDERR_FILENO, msg);
         return false;
     };
@@ -380,18 +385,18 @@ fn verifyPackageInternal(allocator: std.mem.Allocator, pkg_path: []const u8) !bo
     var sp_sig: [49856]u8 = undefined;
     var ed_sig: [64]u8 = undefined;
 
-    extractSignatureOrDefault(pkg_content, "dilithium5.sig", &d5_sig) catch {
-        _ = try posix.write(posix.STDERR_FILENO, "  ✗ Dilithium5 signature not found in package; refusing to verify (fail-closed)\n");
+    extractSignature(pkg_content, "dilithium5.sig", &d5_sig) catch {
+        _ = try posix.write(posix.STDERR_FILENO, "  ✗ Dilithium5 signature missing or malformed in package; refusing to verify (fail-closed)\n");
         return false;
     };
 
-    extractSignatureOrDefault(pkg_content, "sphincsplus.sig", &sp_sig) catch {
-        _ = try posix.write(posix.STDERR_FILENO, "  ✗ SPHINCS+ signature not found in package; refusing to verify (fail-closed)\n");
+    extractSignature(pkg_content, "sphincsplus.sig", &sp_sig) catch {
+        _ = try posix.write(posix.STDERR_FILENO, "  ✗ SPHINCS+ signature missing or malformed in package; refusing to verify (fail-closed)\n");
         return false;
     };
 
-    extractSignatureOrDefault(pkg_content, "ed25519.sig", &ed_sig) catch {
-        _ = try posix.write(posix.STDERR_FILENO, "  ✗ Ed25519 signature not found in package; refusing to verify (fail-closed)\n");
+    extractSignature(pkg_content, "ed25519.sig", &ed_sig) catch {
+        _ = try posix.write(posix.STDERR_FILENO, "  ✗ Ed25519 signature missing or malformed in package; refusing to verify (fail-closed)\n");
         return false;
     };
 
@@ -460,8 +465,10 @@ fn verifyPackageInternal(allocator: std.mem.Allocator, pkg_path: []const u8) !bo
     return d5_valid and sp_valid and ed_valid;
 }
 
-// Helper: Read public key from keyring or use default
-fn readKeyOrDefault(keyring_path: []const u8, filename: []const u8, buffer: []u8) !void {
+// Helper: read a public key from the keyring. The file must contain exactly
+// the algorithm's key length — a short or oversized key file is rejected
+// (fail-closed), never zero-padded to size.
+fn readKey(keyring_path: []const u8, filename: []const u8, buffer: []u8) !void {
     var path_buf: [1024]u8 = undefined;
     const full_path = try std.fmt.bufPrint(&path_buf, "{s}{s}", .{ keyring_path, filename });
 
@@ -469,31 +476,39 @@ fn readKeyOrDefault(keyring_path: []const u8, filename: []const u8, buffer: []u8
     defer file.close();
 
     const bytes_read = try file.readAll(buffer);
-    if (bytes_read < buffer.len) {
-        @memset(buffer[bytes_read..], 0);
-    }
+    if (bytes_read != buffer.len) return error.KeyWrongLength;
+    var probe: [1]u8 = undefined;
+    if (try file.read(&probe) != 0) return error.KeyWrongLength;
 }
 
-// Helper: Extract signature from package content
-fn extractSignatureOrDefault(pkg_content: []const u8, sig_name: []const u8, buffer: []u8) !void {
-    // Look for signature marker in package header
-    // Format: "SIGNATURE:<name>:<base64-data>\n"
+// Helper: find `marker` at the start of a line (offset 0 or right after '\n').
+// Signature extraction and deriveSignedPayload share these line-start
+// semantics, so a mid-line "SIGNATURE:" can never be extracted as an
+// envelope while surviving in the signed payload.
+fn indexOfLineStart(haystack: []const u8, marker: []const u8) ?usize {
+    var i: usize = 0;
+    while (std.mem.indexOfPos(u8, haystack, i, marker)) |idx| {
+        if (idx == 0 or haystack[idx - 1] == '\n') return idx;
+        i = idx + 1;
+    }
+    return null;
+}
+
+// Helper: extract a signature envelope from package content.
+// Format: "SIGNATURE:<name>:<base64-data>\n" on its own line.
+// The decoded signature must be exactly the algorithm's length — a short
+// decode would leave part of `buffer` unset and hand garbage to the verifier.
+fn extractSignature(pkg_content: []const u8, sig_name: []const u8, buffer: []u8) !void {
     var marker_buf: [128]u8 = undefined;
     const marker = try std.fmt.bufPrint(&marker_buf, "SIGNATURE:{s}:", .{sig_name});
 
-    if (std.mem.indexOf(u8, pkg_content, marker)) |start_idx| {
-        const data_start = start_idx + marker.len;
-        if (std.mem.indexOfPos(u8, pkg_content, data_start, "\n")) |end_idx| {
-            const sig_data = pkg_content[data_start..end_idx];
+    const start_idx = indexOfLineStart(pkg_content, marker) orelse return error.SignatureNotFound;
+    const data_start = start_idx + marker.len;
+    const end_idx = std.mem.indexOfPos(u8, pkg_content, data_start, "\n") orelse return error.SignatureNotFound;
+    const sig_data = pkg_content[data_start..end_idx];
 
-            // Decode base64 signature
-            const decoder = std.base64.standard.Decoder;
-            decoder.decode(buffer, sig_data) catch {
-                return error.InvalidSignatureFormat;
-            };
-            return;
-        }
-    }
-
-    return error.SignatureNotFound;
+    const decoder = std.base64.standard.Decoder;
+    const decoded_len = decoder.calcSizeForSlice(sig_data) catch return error.InvalidSignatureFormat;
+    if (decoded_len != buffer.len) return error.InvalidSignatureFormat;
+    decoder.decode(buffer, sig_data) catch return error.InvalidSignatureFormat;
 }
