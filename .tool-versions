@@ -1,3 +1,4 @@
 # SPDX-License-Identifier: MPL-2.0
 # asdf version manager configuration
 ocaml 5.1.1
+zig 0.13.0
