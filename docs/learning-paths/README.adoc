@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell
+= Learning Paths
+:toc: preamble
+
+Audience-divided paths for engaging with Oblíbený beyond setup and a basic
+run. Skeleton for issue #79 — each track below becomes its own page.
+
+== End users — _use the language_
+
+* The dual form: Turing-complete factory → Turing-incomplete constrained
+  form, and why.
+* Writing and running `.obl`; the reversible/accountable constrained form;
+  the `echo[A,B]` residue by example.
+* Reading the accountability trace (`--dump-trace`).
+* `obli-pkg` usage and the triple-signature trust model
+  (Dilithium5 + SPHINCS+ + Ed25519).
+
+== Developers — _extend the language_
+
+* Architecture walkthrough:
+  `lexer → parse → typecheck → eval → constrained_check → static_analyzer`.
+* The proof layer for newcomers: the Idris2 ABI
+  (`installReversible`/`echoResidueNonTrivial`) and the `Lang.*` metatheory
+  (#78) — what each guarantee means, how to extend a slice, the
+  model-fidelity caveat.
+* The Zig crypto FFI; adding a language feature end-to-end.
+
+== Maintainers — _run the project_
+
+* CI gates (`justfile`, `ci.yml`), and the escape-hatch guard discipline.
+* The contractiles + `.machine_readable/6a2/` governance model.
+* The `docs/proof-debt.md` ledger discipline; standards reusable workflows;
+  the release transition.
