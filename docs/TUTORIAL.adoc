@@ -1,32 +1,36 @@
-# Oblíbený Tutorial: Getting Started
+== Oblíbený Tutorial: Getting Started
 
-Welcome to Oblíbený! This tutorial will teach you the fundamentals of writing reversible, accountable programs.
+Welcome to Oblíbený! This tutorial will teach you the fundamentals of
+writing reversible, accountable programs.
 
-## Part 1: Hello World
+=== Part 1: Hello World
 
-Create a file `hello.obl`:
+Create a file `+hello.obl+`:
 
-```rust
+[source,rust]
+----
 fn main() -> () {
     checkpoint("start");
     trace("message", "Hello, Oblíbený!");
     checkpoint("end");
 }
-```
+----
 
 Run it:
-```bash
+
+[source,bash]
+----
 oblibeny hello.obl
-```
+----
 
-**Key concepts:**
-- Every program needs a `main()` function
-- `checkpoint()` marks important execution points
-- `trace()` logs events to the accountability trail
+*Key concepts:* - Every program needs a `+main()+` function -
+`+checkpoint()+` marks important execution points - `+trace()+` logs
+events to the accountability trail
 
-## Part 2: Variables and Types
+=== Part 2: Variables and Types
 
-```rust
+[source,rust]
+----
 fn main() -> () {
     // Immutable binding
     let x: i64 = 42;
@@ -44,18 +48,17 @@ fn main() -> () {
 
     trace("updated", counter);
 }
-```
+----
 
-**Key concepts:**
-- `let` creates immutable bindings
-- `let mut` creates mutable bindings
-- Type annotations are required (for now)
+*Key concepts:* - `+let+` creates immutable bindings - `+let mut+`
+creates mutable bindings - Type annotations are required (for now)
 
-## Part 3: Bounded Loops
+=== Part 3: Bounded Loops
 
-Oblíbený only allows loops with **static bounds**:
+Oblíbený only allows loops with *static bounds*:
 
-```rust
+[source,rust]
+----
 fn main() -> () {
     let mut sum: i64 = 0;
 
@@ -72,18 +75,18 @@ fn main() -> () {
     // Sum should be 0+1+2+...+9 = 45
     assert_invariant(sum == 45, "sum should be 45");
 }
-```
+----
 
-**Key concepts:**
-- `for i in 0..N` where N is a compile-time constant
-- No `while` or `loop` keywords (they would allow infinite loops!)
-- Static bounds guarantee termination
+*Key concepts:* - `+for i in 0..N+` where N is a compile-time constant -
+No `+while+` or `+loop+` keywords (they would allow infinite loops!) -
+Static bounds guarantee termination
 
-## Part 4: Reversible Operations
+=== Part 4: Reversible Operations
 
 Oblíbený provides special operations that can be undone:
 
-```rust
+[source,rust]
+----
 fn main() -> () {
     let mut x: i64 = 10;
     let mut y: i64 = 20;
@@ -111,17 +114,16 @@ fn main() -> () {
     trace("restored", x, y);  // x=10, y=20 (back to original!)
     checkpoint("final");
 }
-```
+----
 
-**Key concepts:**
-- `incr(x, delta)` ↔ `decr(x, delta)` are inverses
-- `swap(x, y)` is self-inverse
-- `x ^= val` (XOR) is self-inverse
-- Reversibility enables powerful debugging and auditing
+*Key concepts:* - `+incr(x, delta)+` ↔ `+decr(x, delta)+` are inverses -
+`+swap(x, y)+` is self-inverse - `+x ^= val+` (XOR) is self-inverse -
+Reversibility enables powerful debugging and auditing
 
-## Part 5: Accountability with Traces
+=== Part 5: Accountability with Traces
 
-```rust
+[source,rust]
+----
 fn factorial(n: i64) -> i64 {
     let mut result: i64 = 1;
     let mut i: i64 = 1;
@@ -146,31 +148,38 @@ fn main() -> () {
 
     assert_invariant(five_factorial == 120, "5! should be 120");
 }
-```
+----
 
-**Key concepts:**
-- Every function should have checkpoints at start/end
-- Use `trace()` to log intermediate values
-- `assert_invariant()` validates correctness
-- Traces create a complete audit trail
+*Key concepts:* - Every function should have checkpoints at start/end -
+Use `+trace()+` to log intermediate values - `+assert_invariant()+`
+validates correctness - Traces create a complete audit trail
 
-## Part 6: Echo Types — Structured, Non-Total Loss
+=== Part 6: Echo Types — Structured, Non-Total Loss
 
-The `echo[A, B]` type is the type-level dual of the reversible core. Where a computation cannot be reversed, it can still retain a structured *echo* of what was lost.
+The `+echo[A, B]+` type is the type-level dual of the reversible core.
+Where a computation cannot be reversed, it can still retain a structured
+_echo_ of what was lost.
 
-**Concept**: a parity collapse maps any integer to `0` (even) or `1` (odd). The mapping is not injective — both 7 and 9 collapse to 1. An echo retains the original value (the *witness*) alongside the surviving observation (the *visible*):
+*Concept*: a parity collapse maps any integer to `+0+` (even) or `+1+`
+(odd). The mapping is not injective — both 7 and 9 collapse to 1. An
+echo retains the original value (the _witness_) alongside the surviving
+observation (the _visible_):
 
-```rust
+[source,rust]
+----
 fn collapse(n: i64) -> echo[i64, i64] {
     return echo(n, n % 2);
 }
-```
+----
 
-`echo(n, n % 2)` builds a residue: `n` is the witness (the full source), `n % 2` is the visible (the surviving observation after the parity collapse).
+`+echo(n, n % 2)+` builds a residue: `+n+` is the witness (the full
+source), `+n % 2+` is the visible (the surviving observation after the
+parity collapse).
 
-**Reading the echo back**:
+*Reading the echo back*:
 
-```rust
+[source,rust]
+----
 fn main() -> () {
     let a: echo[i64, i64] = collapse(7);
     let b: echo[i64, i64] = collapse(9);
@@ -185,24 +194,30 @@ fn main() -> () {
 
     checkpoint("done");
 }
-```
+----
 
 Run this:
-```bash
+
+[source,bash]
+----
 oblibeny examples/echo-types.obl
-```
+----
 
-**Affinity**: `echo[A, B]` is usable at most once (affine) if `A` or `B` is a non-copyable type (struct, array, trace). For primitive echoes like `echo[i64, i64]`, both projections can be used freely:
+*Affinity*: `+echo[A, B]+` is usable at most once (affine) if `+A+` or
+`+B+` is a non-copyable type (struct, array, trace). For primitive
+echoes like `+echo[i64, i64]+`, both projections can be used freely:
 
-```rust
+[source,rust]
+----
 let e: echo[i64, i64] = collapse(7);
 let v: i64 = echo_visible(e);   // fine
 let w: i64 = echo_witness(e);   // also fine — echo[i64, i64] is copyable
-```
+----
 
 For a non-copyable echo:
 
-```rust
+[source,rust]
+----
 struct Cargo { mass: i64 }
 fn ship(m: i64) -> echo[Cargo, i64] {
     return echo(Cargo { mass: m }, m % 2);
@@ -212,18 +227,19 @@ fn main() -> () {
     let v: i64 = echo_visible(e);    // OK — e is consumed here
     // let w: Cargo = echo_witness(e); // COMPILE ERROR: e was already consumed
 }
-```
+----
 
-**Key concepts**:
-- `echo(source, base)` forms a residue
-- `echo_visible(e)` returns the surviving observation
-- `echo_witness(e)` returns the retained source constraint
-- Echo is *not* reversible — it exists precisely for computations that cannot be reversed
-- See link:LANGUAGE-SPEC.md#_3_4_echo_residue_type[Language Spec §3.4] for the full type rules
+*Key concepts*: - `+echo(source, base)+` forms a residue -
+`+echo_visible(e)+` returns the surviving observation -
+`+echo_witness(e)+` returns the retained source constraint - Echo is
+_not_ reversible — it exists precisely for computations that cannot be
+reversed - See link:LANGUAGE-SPEC.md#_3_4_echo_residue_type[Language
+Spec §3.4] for the full type rules
 
-## Part 7: What NOT to Do
+=== Part 7: What NOT to Do
 
-```rust
+[source,rust]
+----
 // ❌ INVALID: while loop (unbounded)
 fn bad_loop() -> () {
     let mut x: i64 = 0;
@@ -247,23 +263,24 @@ fn bad_dynamic(limit: i64) -> () {
         trace("i", i);
     }
 }
-```
+----
 
-**Why these restrictions?**
-- Oblíbený guarantees **termination**
-- All programs must finish in bounded time
-- This makes it safe for deployment in critical systems
+*Why these restrictions?* - Oblíbený guarantees *termination* - All
+programs must finish in bounded time - This makes it safe for deployment
+in critical systems
 
-## Part 7: Static Analysis
+=== Part 7: Static Analysis
 
-Check your program's resource usage:
+Check your program’s resource usage:
 
-```bash
+[source,bash]
+----
 oblibeny --analyze my_program.obl
-```
+----
 
 Output:
-```
+
+....
 === Oblíbený Static Analysis Report ===
 
 ## Constrained Form Validation
@@ -279,33 +296,34 @@ Estimated memory: 48 bytes
 
 ## Accountability Trace Coverage
 Coverage: 75.0%
-```
+....
 
-## Part 8: Debugging (Reversible!)
+=== Part 8: Debugging (Reversible!)
 
-```bash
+[source,bash]
+----
 oblibeny --debug my_program.obl
-```
+----
 
-Debugger commands:
-- `s` or `step` - Execute next statement
-- `b` or `back` - **Step backward** through execution!
-- `p` or `print` - Show variable values
-- `t` or `trace` - Show accountability trace
-- `c` or `continue` - Run to next checkpoint
+Debugger commands: - `+s+` or `+step+` - Execute next statement - `+b+`
+or `+back+` - *Step backward* through execution! - `+p+` or `+print+` -
+Show variable values - `+t+` or `+trace+` - Show accountability trace -
+`+c+` or `+continue+` - Run to next checkpoint
 
-**The debugger can step BACKWARD** because all operations are reversible!
+*The debugger can step BACKWARD* because all operations are reversible!
 
-## Next Steps
+=== Next Steps
 
-1. Read the [Language Specification](LANGUAGE-SPEC.md)
-2. Study the [Security Model](SECURITY-MODEL.md)
-3. Check out more [Examples](../examples/)
-4. Try the [VSCode Extension](../editors/vscode/)
+[arabic]
+. Read the link:LANGUAGE-SPEC.md[Language Specification]
+. Study the link:SECURITY-MODEL.md[Security Model]
+. Check out more link:../examples/[Examples]
+. Try the link:../editors/vscode/[VSCode Extension]
 
-## Getting Help
+=== Getting Help
 
-- GitHub Issues: https://github.com/hyperpolymath/oblibeny/issues
-- Documentation: https://github.com/hyperpolymath/oblibeny/tree/main/docs
+* GitHub Issues: https://github.com/hyperpolymath/oblibeny/issues
+* Documentation:
+https://github.com/hyperpolymath/oblibeny/tree/main/docs
 
 Happy coding with Oblíbený! 🔐✨
