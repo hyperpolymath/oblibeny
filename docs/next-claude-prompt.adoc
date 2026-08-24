@@ -1,17 +1,14 @@
-<!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
-<!-- SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk> -->
+== Next-Claude handoff prompt — oblibeny
 
-# Next-Claude handoff prompt — oblibeny
+This file is a ready-to-paste prompt to start the *next* Claude Code
+session on `+hyperpolymath/oblibeny+`. It encodes where the work stands
+as of *2026-06-19* (see `+AFFIRMATION.adoc+` and
+`+docs/status/2026-06-19-musts-intends-wishes.adoc+` for the verified
+detail). Copy everything in the fenced block below.
 
-This file is a ready-to-paste prompt to start the **next** Claude Code session on
-`hyperpolymath/oblibeny`. It encodes where the work stands as of
-**2026-06-19** (see `AFFIRMATION.adoc` and
-`docs/status/2026-06-19-musts-intends-wishes.adoc` for the verified detail).
-Copy everything in the fenced block below.
+'''''
 
----
-
-```
+....
 You are continuing work on hyperpolymath/oblibeny — "Oblíbený", a dual-form
 secure edge language: a Turing-COMPLETE factory form that generates a
 Turing-INCOMPLETE, reversible, accountable constrained form for security-critical
@@ -73,10 +70,10 @@ SUGGESTED FIRST MOVE: pick (1) or (2) above, or — if you want to first make th
 affirmation complete — install `idris2`, run the proofs MUST, and update
 `AFFIRMATION.adoc` to upgrade the proof layer from "documented" to
 "affirmed-live".
-```
+....
 
----
+'''''
 
-*Maintenance note:* regenerate this prompt (and `AFFIRMATION.adoc`) whenever the
-verified state moves materially. The prompt should always point at the most
-recent `AFFIRMATION.adoc` and status doc.
+_Maintenance note:_ regenerate this prompt (and `+AFFIRMATION.adoc+`)
+whenever the verified state moves materially. The prompt should always
+point at the most recent `+AFFIRMATION.adoc+` and status doc.
