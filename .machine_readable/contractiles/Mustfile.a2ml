@@ -86,7 +86,7 @@ run = "test -f GOVERNANCE.adoc && test -f MAINTAINERS.adoc && test -f .github/CO
 severity = "critical"
 
 [checks.six-a2-present]
-description = "6a2 directory exists with all six core A2ML files"
+description = "descriptiles directory exists with all six core A2ML files"
 run = "test -f .machine_readable/descriptiles/STATE.a2ml && test -f .machine_readable/descriptiles/META.a2ml && test -f .machine_readable/descriptiles/ECOSYSTEM.a2ml && test -f .machine_readable/descriptiles/AGENTIC.a2ml && test -f .machine_readable/descriptiles/NEUROSYM.a2ml && test -f .machine_readable/descriptiles/PLAYBOOK.a2ml"
 severity = "critical"
 

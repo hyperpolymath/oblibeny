@@ -34,7 +34,7 @@ oblibeny/
 ├── examples/            # .obl programs and packages/hello.zpkg
 ├── docs/                # Documentation (TOOLCHAIN, DISTRIBUTION-ARCHITECTURE, …)
 ├── deploy/              # Deployment manifests (kubernetes/, svalinn-compose.yaml)
-├── .machine_readable/   # A2ML project metadata (6a2/) + contractiles
+├── .machine_readable/   # A2ML project metadata (descriptiles/) + contractiles
 ├── .github/workflows/   # CI gates (see ci.yml root-cause note)
 ├── justfile             # Task runner — all operations go through this
 ├── README.adoc

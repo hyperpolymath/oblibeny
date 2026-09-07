@@ -48,7 +48,7 @@ K9!
 
     # RSR compliance features to enable
     features = {
-      checkpoint_files | Bool = true,  # 6a2/STATE.a2ml, ECOSYSTEM.a2ml, META.a2ml
+      checkpoint_files | Bool = true,  # descriptiles/STATE.a2ml, ECOSYSTEM.a2ml, META.a2ml
       security_workflows | Bool = true,  # CodeQL, Scorecard, etc.
       quality_checks | Bool = true,  # Linting, formatting
       mirroring | Bool = false,  # GitLab/Bitbucket mirrors
@@ -120,9 +120,9 @@ K9!
     },
 
     "create-checkpoint-files" = {
-      description = "Create 6a2/STATE.a2ml, ECOSYSTEM.a2ml, META.a2ml",
+      description = "Create descriptiles/STATE.a2ml, ECOSYSTEM.a2ml, META.a2ml",
       commands = [
-        "mkdir -p .machine_readable/6a2",
+        "mkdir -p .machine_readable/descriptiles",
         "printf '[metadata]\\nproject = \"%{config.repo_name}\"\\nversion = \"1.0.0\"\\n' > .machine_readable/descriptiles/STATE.a2ml",
         "printf '[metadata]\\nname = \"%{config.repo_name}\"\\nversion = \"1.0.0\"\\n' > .machine_readable/descriptiles/ECOSYSTEM.a2ml",
         "printf '[metadata]\\nproject = \"%{config.repo_name}\"\\nversion = \"1.0.0\"\\n' > .machine_readable/descriptiles/META.a2ml",

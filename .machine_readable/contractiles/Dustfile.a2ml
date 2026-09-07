@@ -25,7 +25,7 @@ todo-tracking = "119 TODO/FIXME/XXX markers in-tree as of 2026-06-12; consolidat
 
 [reversibility]
 backup-before-destructive = true
-rollback-mechanism = "git-revert (never force-push main — 6a2/PLAYBOOK.a2ml procedures.rollback)"
+rollback-mechanism = "git-revert (never force-push main — descriptiles/PLAYBOOK.a2ml procedures.rollback)"
 data-retention-policy = "git history on origin/main is the durable record"
 
 # ── Deprecation register (real, dated, from git history) ──────────────
@@ -34,7 +34,7 @@ data-retention-policy = "git history on origin/main is the durable record"
 name = "legacy-scm-metadata"
 status = "removed"
 date = "2026-06-04"
-evidence = "PR #56 (commit ae1d91f): .machine_readable/*.scm migrated to 6a2/*.a2ml, faithful translation, legacy .scm removed"
+evidence = "PR #56 (commit ae1d91f): .machine_readable/*.scm migrated to descriptiles/*.a2ml, faithful translation, legacy .scm removed"
 replacement = ".machine_readable/descriptiles/{STATE,META,ECOSYSTEM,AGENTIC,NEUROSYM,PLAYBOOK}.a2ml"
 residue = ".claude/CLAUDE.md still references the .scm names (guardrail-blocked; maintainer edit pending). Root SPEC.core.scm and ANCHOR.scope-arrest.2026-01-01.Jewell.scm are NOT deprecated — they are the live formal spec and identity anchor."
 

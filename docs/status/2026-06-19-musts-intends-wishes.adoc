@@ -67,7 +67,7 @@ Idris2 proof layer (toolchain absent), carried forward as CI-gated/documented.
 | `derive-obli-pkg-signed-payload` | Derive the real canonical signed payload for `obli-pkg verify` | 🟡 | closes `TODO(security)` at `ffi/zig/src/obli-pkg.zig:377`; *agent-actionable*
 | `zig-ffi-in-ci` | Build `liboqs` from source in CI (or vendor a pinned build), then add a `zig build` job | 🟡 ⛔ | FFI ast-checks under Zig 0.13 (verified this session) but *links* only with `liboqs`; CI builds OCaml + Idris only. *Agent-actionable* (CI design)
 | `rotate-farm-dispatch-token` | Rotate the expired `FARM_DISPATCH_TOKEN` so forge propagation resumes | 🔒 | maintainer-only (secret); *agent must not*
-| `claude-md-scm-refs` | Edit `.claude/CLAUDE.md`: `.machine_readable/*.scm` → `6a2/*.a2ml` | 🔒 | file is guardrail-blocked for agents; maintainer edit
+| `claude-md-scm-refs` | Edit `.claude/CLAUDE.md`: `.machine_readable/*.scm` → `descriptiles/*.a2ml` | 🔒 | file is guardrail-blocked for agents; maintainer edit
 | `stale-branch-cleanup` | Delete 4 stale remote branches (GS007) | 🔒 | maintainer-only; *branch deletion is forbidden for the agent too*
 |===
 
