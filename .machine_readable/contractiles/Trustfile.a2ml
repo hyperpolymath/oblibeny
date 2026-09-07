@@ -20,7 +20,7 @@ current = "standard"
 read = "unrestricted"
 build-test = "unrestricted (dune build / dune runtest / idris2 --build src/abi/oblibeny-abi.ipkg)"
 modify-requires-approval = [
-  "lib/ (language core — no-rhino review per descriptiles/META.a2ml)",
+  "lib/ (language core — no-rhino review per .machine_readable/descriptiles/META.a2ml)",
   "src/abi/ (proof layer — escape-hatch guard territory)",
   "ffi/ (Zig FFI, security-critical crypto surface)",
   "test/ (the conformance gate itself)",

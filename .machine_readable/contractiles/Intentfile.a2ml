@@ -43,7 +43,7 @@ status = "declared"
 evidence = "FFI compiles under Zig 0.13 (#56) but links only where liboqs is installed; ci.yml builds OCaml + Idris only"
 
 [intents.claude-md-scm-refs]
-description = "Maintainer edit of .claude/CLAUDE.md: .machine_readable/*.scm references -> descriptiles/*.a2ml"
+description = "Maintainer edit of .claude/CLAUDE.md: .machine_readable/*.scm references -> .machine_readable/descriptiles/*.a2ml"
 status = "declared"
 owner = "maintainer"
 evidence = "file is guardrail-blocked for agents; migration landed in #56"
