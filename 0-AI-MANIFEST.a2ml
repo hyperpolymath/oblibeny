@@ -14,21 +14,21 @@ a Turing-incomplete reversible/constrained form). It declares:
 
 ## CANONICAL LOCATIONS (UNIVERSAL RULE)
 
-### Machine-Readable Metadata: `.machine_readable/6a2/` ONLY
+### Machine-Readable Metadata: `.machine_readable/descriptiles/` ONLY
 
 These 6 A2ML files are the canonical, machine-readable source of truth and
-MUST exist under `.machine_readable/6a2/` ONLY:
+MUST exist under `.machine_readable/descriptiles/` ONLY:
 
-1. **.machine_readable/6a2/STATE.a2ml** - Project state, progress, blockers, next actions
-2. **.machine_readable/6a2/META.a2ml** - Architecture decisions, governance, development practices
-3. **.machine_readable/6a2/ECOSYSTEM.a2ml** - Position in ecosystem, relationships to other projects
-4. **.machine_readable/6a2/AGENTIC.a2ml** - AI agent interaction patterns and constraints
-5. **.machine_readable/6a2/NEUROSYM.a2ml** - Neurosymbolic integration configuration
-6. **.machine_readable/6a2/PLAYBOOK.a2ml** - Operational runbook, procedures, alerts
+1. **.machine_readable/descriptiles/STATE.a2ml** - Project state, progress, blockers, next actions
+2. **.machine_readable/descriptiles/META.a2ml** - Architecture decisions, governance, development practices
+3. **.machine_readable/descriptiles/ECOSYSTEM.a2ml** - Position in ecosystem, relationships to other projects
+4. **.machine_readable/descriptiles/AGENTIC.a2ml** - AI agent interaction patterns and constraints
+5. **.machine_readable/descriptiles/NEUROSYM.a2ml** - Neurosymbolic integration configuration
+6. **.machine_readable/descriptiles/PLAYBOOK.a2ml** - Operational runbook, procedures, alerts
 
 **CRITICAL:** If any of these exist in the repository root (or as legacy
 `.machine_readable/*.scm` files), that is an ERROR — they were migrated to
-A2ML under `6a2/` on 2026-06-04.
+A2ML under `descriptiles/` on 2026-06-04.
 
 ### Agent Instructions
 
@@ -37,10 +37,10 @@ A2ML under `6a2/` on 2026-06-04.
 
 ## CORE INVARIANTS
 
-1. **Single source of truth** - `.machine_readable/6a2/` is authoritative for project metadata.
+1. **Single source of truth** - `.machine_readable/descriptiles/` is authoritative for project metadata.
 2. **No metadata duplication** - the root must NOT contain `STATE.*`/`META.*`/etc.; no legacy `.machine_readable/*.scm`.
 3. **Licence consistency** - all code is MPL-2.0; SPDX headers on all files.
-4. **Author attribution** - "Jonathan D.A. Jewell" (contact in `.machine_readable/6a2/META.a2ml` / `dune-project`).
+4. **Author attribution** - "Jonathan D.A. Jewell" (contact in `.machine_readable/descriptiles/META.a2ml` / `dune-project`).
 5. **Language policy** - per `.claude/CLAUDE.md` (OCaml compiler, Zig FFI, Idris2 ABI proofs; banned: TypeScript/Node/Go/Python/etc.).
 6. **Proofs stay green** - the Idris2 ABI proofs (`src/abi/oblibeny-abi.ipkg`) carry no escape hatches; the conformance suite (`dune runtest`) must pass.
 
@@ -60,7 +60,7 @@ oblibeny/
 ├── docs/                        # Architecture, specs, proof-debt, echo-alignment
 ├── scripts/                     # check-proofs.sh, etc.
 ├── config/ deploy/ editors/ hooks/ wiki/
-└── .machine_readable/6a2/       # The 6 canonical A2ML metadata files
+└── .machine_readable/descriptiles/       # The 6 canonical A2ML metadata files
     ├── STATE.a2ml
     ├── META.a2ml
     ├── ECOSYSTEM.a2ml
@@ -72,10 +72,10 @@ oblibeny/
 ## SESSION STARTUP CHECKLIST
 
 ✅ Read THIS file (0-AI-MANIFEST.a2ml) first
-✅ Understand the canonical location (`.machine_readable/6a2/`)
+✅ Understand the canonical location (`.machine_readable/descriptiles/`)
 ✅ Know the invariants (single source of truth, MPL-2.0, language policy, proofs green)
-✅ Read `.machine_readable/6a2/STATE.a2ml` for current status, phase, blockers
-✅ Read `.machine_readable/6a2/AGENTIC.a2ml` for interaction patterns
+✅ Read `.machine_readable/descriptiles/STATE.a2ml` for current status, phase, blockers
+✅ Read `.machine_readable/descriptiles/AGENTIC.a2ml` for interaction patterns
 ✅ Read `.claude/CLAUDE.md` for the language policy
 
 ## LIFECYCLE HOOKS
@@ -83,12 +83,12 @@ oblibeny/
 ### on-enter (Session Start)
 
 1. Read and acknowledge this manifest.
-2. Read `.machine_readable/6a2/STATE.a2ml`; check for blockers and next actions.
+2. Read `.machine_readable/descriptiles/STATE.a2ml`; check for blockers and next actions.
 3. State understanding of the canonical location.
 
 ### on-exit (Session End)
 
-1. Update `.machine_readable/6a2/STATE.a2ml` if changes were made.
+1. Update `.machine_readable/descriptiles/STATE.a2ml` if changes were made.
 2. Document any new blockers and summarize outcomes.
 3. Sync to the language tracker if available: `~/sync-language-tracker.sh`.
 
@@ -97,7 +97,7 @@ oblibeny/
 After reading this file, demonstrate understanding by stating:
 
 **"I have read the AI manifest. The canonical machine-readable metadata lives in
-`.machine_readable/6a2/*.a2ml` ONLY; I will not create duplicate or legacy
+`.machine_readable/descriptiles/*.a2ml` ONLY; I will not create duplicate or legacy
 `.scm` metadata in the root or in `.machine_readable/`."**
 
 ## META

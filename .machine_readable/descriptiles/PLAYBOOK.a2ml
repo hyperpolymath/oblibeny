@@ -21,7 +21,7 @@ analyze = "dune exec oblibeny -- --analyze examples/echo-types.obl"
 [procedures.release]
 step-1-check-ci = "Verify all CI checks green on the branch before merging"
 step-2-update-changelog = "Add release entry to CHANGELOG.md under [Unreleased] -> [X.Y.Z]"
-step-3-update-state = "Update .machine_readable/6a2/STATE.a2ml version field and add session-history entry"
+step-3-update-state = "Update .machine_readable/descriptiles/STATE.a2ml version field and add session-history entry"
 step-4-merge = "Squash-merge to main via GitHub PR"
 step-5-tag = "git tag vX.Y.Z main && git push origin vX.Y.Z"
 step-6-cleanup = "Delete feature branches: git push origin --delete <branch>"

@@ -49,7 +49,7 @@ anchor, reproduction commands, and epistemic contract.
 | `readme-present`    | `test -f README.adoc`                  | ✅ | present
 | `security-policy`   | `test -f SECURITY.md`                  | ✅ | present
 | `governance-docs`   | `GOVERNANCE.adoc` + `MAINTAINERS.adoc` + `.github/CODEOWNERS` | ✅ | all present
-| `six-a2-present`    | the six `.machine_readable/6a2/*.a2ml` | ✅ | STATE/META/ECOSYSTEM/AGENTIC/NEUROSYM/PLAYBOOK all present
+| `six-a2-present`    | the six `.machine_readable/descriptiles/*.a2ml` | ✅ | STATE/META/ECOSYSTEM/AGENTIC/NEUROSYM/PLAYBOOK all present
 | `spdx-headers` (warning) | SPDX on `lib/*.ml` + `bin/*.ml`   | ✅ | *0* missing
 | *`proofs`*          | `idris2 --build src/abi/oblibeny-abi.ipkg` | 📄 | *NOT run — `idris2` absent.* Documented: genuine total proofs since PR #51, no `believe_me`/`postulate`, CI-gated since PR #52. Re-run to upgrade to live.
 | `transitions.release` | requires `build`+`test`+`lint`       | ✅ | the three prerequisites are green this session

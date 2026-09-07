@@ -35,7 +35,7 @@ name = "legacy-scm-metadata"
 status = "removed"
 date = "2026-06-04"
 evidence = "PR #56 (commit ae1d91f): .machine_readable/*.scm migrated to 6a2/*.a2ml, faithful translation, legacy .scm removed"
-replacement = ".machine_readable/6a2/{STATE,META,ECOSYSTEM,AGENTIC,NEUROSYM,PLAYBOOK}.a2ml"
+replacement = ".machine_readable/descriptiles/{STATE,META,ECOSYSTEM,AGENTIC,NEUROSYM,PLAYBOOK}.a2ml"
 residue = ".claude/CLAUDE.md still references the .scm names (guardrail-blocked; maintainer edit pending). Root SPEC.core.scm and ANCHOR.scope-arrest.2026-01-01.Jewell.scm are NOT deprecated — they are the live formal spec and identity anchor."
 
 [[deprecations]]

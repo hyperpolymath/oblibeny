@@ -385,3 +385,8 @@ v02 = "Static resource bounds (iterations, call depth, memory)"
 v03 = "Acyclic call graph (no recursion)"
 v04 = "Reversible operations validated"
 v05 = "SLSA Level 3 provenance"
+
+[language-portfolio-audit-20260907]
+scope = "Evidence audit and scoped repairs; no blanket readiness upgrade"
+report = "https://github.com/hyperpolymath/nextgen-languages/blob/main/docs/audits/2026-09-07-language-portfolio.md"
+metadata-path = ".machine_readable/descriptiles/"
