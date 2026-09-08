@@ -35,6 +35,7 @@ K9!
     repo_name
       | String
       | std.string.NonEmpty
+      | std.string.Matches "^[A-Za-z0-9][A-Za-z0-9._-]*$"
       = "my-new-repo",
 
     repo_type
@@ -73,7 +74,8 @@ K9!
 
     # Individual setup tasks
     setup = {
-      dependencies = ["check-env", "create-structure", "init-git", "setup-workflows", "create-checkpoint-files"],
+      dependencies = ["check-env", "create-structure", "init-git", "setup-workflows"]
+        @ (if config.features.checkpoint_files then ["create-checkpoint-files"] else []),
       commands = [
         "echo 'Repository skeleton created; complete the templates before claiming RSR compliance.'",
         "echo 'Run: git status to see changes'",
