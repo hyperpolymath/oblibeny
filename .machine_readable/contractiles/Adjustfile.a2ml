@@ -16,11 +16,11 @@ last-updated = "2026-06-12"
 [drift.status-claims]
 description = "README/wiki status claims must match CI reality"
 tolerance = "No '100% / production-ready' claim while live blockers exist (liboqs link, verify stub, token rotation)"
-corrective = "Recalibrate README.adoc status + 6a2/STATE.a2ml together; the 2026-02-07 '100%' drifted for 4 months before the 2026-06-12 recalibration"
+corrective = "Recalibrate README.adoc status + descriptiles/STATE.a2ml together; the 2026-02-07 '100%' drifted for 4 months before the 2026-06-12 recalibration"
 severity = "advisory"
 
 [drift.metadata-staleness]
-description = "6a2/STATE.a2ml should be re-checkpointed regularly"
+description = "descriptiles/STATE.a2ml should be re-checkpointed regularly"
 tolerance = "last-updated within 90 days of HEAD commit date"
 corrective = "Refresh STATE from git log (the [recent-work] pattern); bump last-updated"
 severity = "advisory"
@@ -34,7 +34,7 @@ severity = "advisory"
 [drift.metadata-path-references]
 description = "No references to the removed .machine_readable/*.scm files"
 tolerance = "0 references outside provenance comments and .claude/CLAUDE.md (guardrail-blocked, pending maintainer)"
-corrective = "Point references at .machine_readable/6a2/*.a2ml"
+corrective = "Point references at .machine_readable/descriptiles/*.a2ml"
 severity = "advisory"
 
 [drift.spdx-headers]
@@ -44,7 +44,7 @@ corrective = "Add MPL-2.0 SPDX headers"
 severity = "advisory"
 
 [drift.adoc-preference]
-description = "Long-form prose docs prefer AsciiDoc (6a2/META practices.documentation)"
+description = "Long-form prose docs prefer AsciiDoc (descriptiles/META practices.documentation)"
 tolerance = "New long-form docs are *.adoc; conventional files (CHANGELOG, wiki) stay *.md"
 corrective = "Convert on touch, do not churn"
 severity = "advisory"

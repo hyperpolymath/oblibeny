@@ -41,14 +41,14 @@ let methodology_guard = {
     state_not_template = {
       description = "STATE.a2ml must not contain template placeholders",
       severity = "warning",
-      file = ".machine_readable/6a2/STATE.a2ml",
+      file = ".machine_readable/descriptiles/STATE.a2ml",
       reject_patterns = ["{{PLACEHOLDER}}", "OBLIBENY", "rsr-template-repo"],
     },
 
     state_updated = {
       description = "STATE.a2ml should be re-checkpointed within 90 days (oblibeny has no coverage.a2ml; staleness is tracked on STATE itself)",
       severity = "info",
-      file = ".machine_readable/6a2/STATE.a2ml",
+      file = ".machine_readable/descriptiles/STATE.a2ml",
       staleness_days = 90,
     },
   },

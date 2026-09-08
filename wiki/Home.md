@@ -77,9 +77,9 @@ The oblibeny language toolchain that underpins Lago Grey moved substantially in 
 - **Real Idris2 ABI proofs** (#51): the proof layer's placeholder stubs were replaced with genuine, total, machine-checked proofs (`installReversible`, `doubleInstallIdempotent`); one `believe_me`-masked theorem was found to be *false as written* and corrected. A type-safety hole in the constrained-form checker (`==`/`!=` accepting non-scalar operands) was closed.
 - **CI gate** (#52, #53): every PR now runs the OCaml build, the 27-test conformance suite, and the Idris2 proof type-check, with an escape-hatch guard (no `believe_me`/`postulate`/`assert_total`). Hypatia and Scorecard wrappers were root-caused and fixed; instant-sync is presence-gated on its token.
 - **Echo linearity** (#55): non-copyable `echo[A,B]` residues are now *linear* — consumed exactly once; discarding a residue unconsumed is a type error.
-- **Hygiene** (#54, #56): orphaned submodule gitlinks removed; metadata migrated to `.machine_readable/6a2/*.a2ml`; the Zig FFI compiles under Zig 0.13 (the link step needs a system liboqs — exactly the library Lago Grey ships).
+- **Hygiene** (#54, #56): orphaned submodule gitlinks removed; metadata migrated to `.machine_readable/descriptiles/*.a2ml`; the Zig FFI compiles under Zig 0.13 (the link step needs a system liboqs — exactly the library Lago Grey ships).
 
-The Lago Grey distribution status above (0.1.0-alpha, PoC → MVP) is unchanged by this; the language layer is in active development with the honest blocker list in `.machine_readable/6a2/STATE.a2ml`.
+The Lago Grey distribution status above (0.1.0-alpha, PoC → MVP) is unchanged by this; the language layer is in active development with the honest blocker list in `.machine_readable/descriptiles/STATE.a2ml`.
 
 ---
 

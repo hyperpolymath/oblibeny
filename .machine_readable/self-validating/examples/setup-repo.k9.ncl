@@ -35,6 +35,7 @@ K9!
     repo_name
       | String
       | std.string.NonEmpty
+      | std.string.Matches "^[A-Za-z0-9][A-Za-z0-9._-]*$"
       = "my-new-repo",
 
     repo_type
@@ -48,7 +49,7 @@ K9!
 
     # RSR compliance features to enable
     features = {
-      checkpoint_files | Bool = true,  # 6a2/STATE.a2ml, ECOSYSTEM.a2ml, META.a2ml
+      checkpoint_files | Bool = true,  # Six canonical descriptive anchors
       security_workflows | Bool = true,  # CodeQL, Scorecard, etc.
       quality_checks | Bool = true,  # Linting, formatting
       mirroring | Bool = false,  # GitLab/Bitbucket mirrors
@@ -73,9 +74,10 @@ K9!
 
     # Individual setup tasks
     setup = {
-      dependencies = ["check-env", "create-structure", "init-git", "setup-workflows"],
+      dependencies = ["check-env", "create-structure", "init-git", "setup-workflows"]
+        @ (if config.features.checkpoint_files then ["create-checkpoint-files"] else []),
       commands = [
-        "echo '✅ Repository setup complete!'",
+        "echo 'Repository skeleton created; complete the templates before claiming RSR compliance.'",
         "echo 'Run: git status to see changes'",
       ],
     },
@@ -115,17 +117,20 @@ K9!
       commands = [
         # This would copy workflow templates
         # In a real implementation, would fetch from rsr-template-repo
-        "echo '✓ Workflows configured'",
+        "echo 'Workflow copying is not implemented in this example; install reviewed templates separately.'",
       ],
     },
 
     "create-checkpoint-files" = {
-      description = "Create 6a2/STATE.a2ml, ECOSYSTEM.a2ml, META.a2ml",
+      description = "Create all six canonical descriptive anchor templates",
       commands = [
-        "mkdir -p .machine_readable/6a2",
-        "printf '[metadata]\\nproject = \"%{config.repo_name}\"\\nversion = \"1.0.0\"\\n' > .machine_readable/6a2/STATE.a2ml",
-        "printf '[metadata]\\nname = \"%{config.repo_name}\"\\nversion = \"1.0.0\"\\n' > .machine_readable/6a2/ECOSYSTEM.a2ml",
-        "printf '[metadata]\\nproject = \"%{config.repo_name}\"\\nversion = \"1.0.0\"\\n' > .machine_readable/6a2/META.a2ml",
+        "mkdir -p .machine_readable/descriptiles",
+        "printf '[metadata]\\nproject = \"%{config.repo_name}\"\\nversion = \"1.0.0\"\\n' > .machine_readable/descriptiles/STATE.a2ml",
+        "printf '[metadata]\\nname = \"%{config.repo_name}\"\\nversion = \"1.0.0\"\\n' > .machine_readable/descriptiles/ECOSYSTEM.a2ml",
+        "printf '[metadata]\\nproject = \"%{config.repo_name}\"\\nversion = \"1.0.0\"\\n' > .machine_readable/descriptiles/META.a2ml",
+        "printf '[metadata]\\nproject = \"%{config.repo_name}\"\\nversion = \"1.0.0\"\\n' > .machine_readable/descriptiles/AGENTIC.a2ml",
+        "printf '[metadata]\\nproject = \"%{config.repo_name}\"\\nversion = \"1.0.0\"\\n' > .machine_readable/descriptiles/NEUROSYM.a2ml",
+        "printf '[metadata]\\nproject = \"%{config.repo_name}\"\\nversion = \"1.0.0\"\\n' > .machine_readable/descriptiles/PLAYBOOK.a2ml",
         "echo '✓ Checkpoint files created'",
       ],
     },
@@ -154,7 +159,7 @@ K9!
         "echo '⚠️  This will delete all generated files'",
         "echo 'Press Ctrl+C to cancel, or wait 5 seconds...'",
         "sleep 5",
-        "rm -f .machine_readable/6a2/STATE.a2ml .machine_readable/6a2/ECOSYSTEM.a2ml .machine_readable/6a2/META.a2ml",
+        "rm -f .machine_readable/descriptiles/STATE.a2ml .machine_readable/descriptiles/ECOSYSTEM.a2ml .machine_readable/descriptiles/META.a2ml .machine_readable/descriptiles/AGENTIC.a2ml .machine_readable/descriptiles/NEUROSYM.a2ml .machine_readable/descriptiles/PLAYBOOK.a2ml",
         "echo '✓ Cleaned'",
       ],
     },

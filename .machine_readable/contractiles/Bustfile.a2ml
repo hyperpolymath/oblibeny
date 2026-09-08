@@ -16,7 +16,7 @@ last-updated = "2026-06-12"
 description = "Rollback procedures when something breaks"
 
 [scenarios]
-ci-gate-red = "If a previously-green ci.yml check regresses: stop, diagnose before pushing more commits (6a2/PLAYBOOK alerts), then `git revert <sha>` — never force-push main"
+ci-gate-red = "If a previously-green ci.yml check regresses: stop, diagnose before pushing more commits (descriptiles/PLAYBOOK alerts), then `git revert <sha>` — never force-push main"
 proof-layer-regression = "If the Idris2 job or escape-hatch guard fails: any new believe_me/postulate must be triaged in docs/proof-debt.md BEFORE merge; otherwise revert the offending commit. Precedent: PR #51 discharged exactly this debt"
 echo-conformance-regression = "If echo affinity/linearity tests fail: check is_copyable in lib/typecheck.ml first, then the live_echoes tracker (#55); revert if not immediately diagnosable"
 reusable-workflow-startup-failure = "If Hypatia/Scorecard fail with 0 jobs: check (a) the reusable's SHA pin is current (stale-pin failure mode, fixed in #52) and (b) caller job permissions grant everything the reusable declares (contents:read omission failure mode, fixed in #53)"

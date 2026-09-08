@@ -21,7 +21,7 @@ analyze = "dune exec oblibeny -- --analyze examples/echo-types.obl"
 [procedures.release]
 step-1-check-ci = "Verify all CI checks green on the branch before merging"
 step-2-update-changelog = "Add release entry to CHANGELOG.md under [Unreleased] -> [X.Y.Z]"
-step-3-update-state = "Update .machine_readable/6a2/STATE.a2ml version field and add session-history entry"
+step-3-update-state = "Update .machine_readable/descriptiles/STATE.a2ml version field and add session-history entry"
 step-4-merge = "Squash-merge to main via GitHub PR"
 step-5-tag = "git tag vX.Y.Z main && git push origin vX.Y.Z"
 step-6-cleanup = "Delete feature branches: git push origin --delete <branch>"
@@ -48,7 +48,7 @@ step-6-static-analyzer = "Add memory sizing and call depth analysis to lib/stati
 step-7-tests = "Add to test/conformance_test.ml: typecheck, constrained-check, eval, type-error rejection, safety/no-rhino"
 step-8-example = "Add runnable .obl example to examples/"
 step-9-docs = "Update README.adoc, CHANGELOG.md, SPEC.core.scm, LANGUAGE-SPEC.md, TUTORIAL.md, CONTRACTILES.adoc"
-step-10-machine-readable = "Update 6a2/STATE.a2ml session-history, 6a2/META.a2ml arch-decisions, 6a2/ECOSYSTEM.a2ml if needed"
+step-10-machine-readable = "Update .machine_readable/descriptiles/STATE.a2ml session-history, .machine_readable/descriptiles/META.a2ml arch-decisions, .machine_readable/descriptiles/ECOSYSTEM.a2ml if needed"
 
 [procedures.echo-specific]
 test-affinity = "dune test -- 2>&1 | grep -E 'echo|affin'"

@@ -19,7 +19,7 @@ Oblíbený (Czech for "favorite" or "beloved") is a dual-form programming langua
 
 == Status: Active Development
 
-*CI-gated since 2026-06* -- the language toolchain is functional: OCaml build, the 27-test conformance suite, and the Idris2 ABI proof layer (genuine total proofs since PR #51, no `believe_me`/`postulate`) are all gated in CI (PR #52). Honest open items: the Zig crypto FFI compiles (Zig 0.13, PR #56) but links only where the external `liboqs` library is installed; the `obli-pkg` signature-verify path is an explicit MVP stub (`TODO(security)`); see `.machine_readable/6a2/STATE.a2ml` for the live blocker list.
+*CI-gated since 2026-06* -- the language toolchain is functional: OCaml build, the 27-test conformance suite, and the Idris2 ABI proof layer (genuine total proofs since PR #51, no `believe_me`/`postulate`) are all gated in CI (PR #52). Honest open items: the Zig crypto FFI compiles (Zig 0.13, PR #56) but links only where the external `liboqs` library is installed; the `obli-pkg` signature-verify path is an explicit MVP stub (`TODO(security)`); see `.machine_readable/descriptiles/STATE.a2ml` for the live blocker list.
 
 [cols="1,1,3",options="header"]
 |===
@@ -30,20 +30,20 @@ Oblíbený (Czech for "favorite" or "beloved") is a dual-form programming langua
 |OCaml compiler with lexer, parser, type checker, evaluator, constrained form validator
 
 |*Static Analyzer*
-|✅ 100%
-|Resource bounds tracking, reversibility checking, trace coverage analysis
+|Partial
+|Resource and reversibility analysis exists; call analysis and structure-size accounting remain incomplete.
 
 |*LSP Server*
 |✅ 100%
 |Language Server Protocol with diagnostics, hover, completion (789 LOC)
 
 |*Debugger*
-|✅ 100%
-|Reversible debugger with forward/backward stepping, checkpoint inspection
+|Scaffold / partial
+|Checkpoint and inverse-operation helpers exist. Forward stepping does not execute statements or update variables; continue is unimplemented.
 
 |*Profiler*
-|✅ 100%
-|Performance profiling with resource bounds, efficiency analysis, bottleneck detection
+|Partial
+|Reporting structures exist; call counts and execution time include placeholders and are not runtime measurements.
 
 |*VSCode Extension*
 |✅ 100%
@@ -62,8 +62,8 @@ Oblíbený (Czech for "favorite" or "beloved") is a dual-form programming langua
 |Post-quantum crypto (liboqs + libsodium) via Zig FFI with Idris2 ABI proofs; compiles under Zig 0.13, links only with system liboqs; obli-pkg verify path is an MVP stub (TODO(security))
 
 |*Deployment*
-|✅ 100%
-|Svalinn/Vordr verified container stack with formal verification
+|Configured; validation required
+|Container/deployment configuration exists. This table does not establish a verified deployed compiler/runtime or close the crypto/package verification gaps above.
 |===
 
 == Unique Features
@@ -439,7 +439,7 @@ Libraries: liboqs 0.10.0+ and libsodium 1.0.19+
 |OCaml (20 files), Zig (5 files), Idris2 (3 files)
 
 |Status
-|Active development (see .machine_readable/6a2/STATE.a2ml)
+|Active development (see .machine_readable/descriptiles/STATE.a2ml)
 
 |Test Coverage
 |27-test conformance suite, CI-gated (PR #52)

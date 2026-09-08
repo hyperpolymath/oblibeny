@@ -18,7 +18,7 @@ seambot = "integration"
 finishbot = "task completion"
 
 [branch-policy]
-# Repo convention per 6a2/AGENTIC.a2ml [gitbot-automation].
+# Repo convention per descriptiles/AGENTIC.a2ml [gitbot-automation].
 working-branch-pattern = "claude/<short-description>-<random-id>"
 draft-PRs-only = true
 ci-green-before-merge = true
@@ -43,7 +43,7 @@ deny = ["changing workflow logic while bumping pins"]
 
 [per-bot.echidnabot]
 allow = ["lint/format suggestions as issues"]
-deny = ["any change under lib/ or src/abi/ — language-core and proof changes require the no-rhino review (6a2/META.a2ml constrained-form-no-rhino) and a maintainer-approved task"]
+deny = ["any change under lib/ or src/abi/ — language-core and proof changes require the no-rhino review (descriptiles/META.a2ml constrained-form-no-rhino) and a maintainer-approved task"]
 
 [per-bot.glambot]
 allow = ["docs/", "wiki/", "README.adoc", "EXPLAINME.adoc"]

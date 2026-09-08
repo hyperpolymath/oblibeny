@@ -92,7 +92,7 @@ K9!
         {
           name = "CodeQL",
           # This repo scans GitHub Actions workflows, not JS/TS
-          # (see 6a2/AGENTIC.a2ml codeql-actions-scan).
+          # (see descriptiles/AGENTIC.a2ml codeql-actions-scan).
           languages = ["actions"],
         },
         {

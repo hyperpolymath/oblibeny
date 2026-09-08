@@ -29,6 +29,6 @@ run. Skeleton for issue #79 — each track below becomes its own page.
 == Maintainers — _run the project_
 
 * CI gates (`justfile`, `ci.yml`), and the escape-hatch guard discipline.
-* The contractiles + `.machine_readable/6a2/` governance model.
+* The contractiles + `.machine_readable/descriptiles/` governance model.
 * The `docs/proof-debt.md` ledger discipline; standards reusable workflows;
   the release transition.

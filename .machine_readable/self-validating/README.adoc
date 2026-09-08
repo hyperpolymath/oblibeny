@@ -111,7 +111,7 @@ nickel eval .github/ci.k9.ncl
 
 K9 contractiles integrate with other RSR standards:
 
-**STATE.a2ml**:: K9 components can generate or validate `.machine_readable/6a2/STATE.a2ml`
+**STATE.a2ml**:: K9 components can generate or validate `.machine_readable/descriptiles/STATE.a2ml`
 **ECOSYSTEM.a2ml**:: K9 can automate cross-repo operations
 **META.a2ml**:: K9 can enforce architectural decisions
 
@@ -143,7 +143,7 @@ Use these as starting points for your own K9 components:
 
 The repo-specific validator is `methodology-guard.k9.ncl`, pointed at
 oblibeny's real proof layer (`src/abi/`) and metadata
-(`.machine_readable/6a2/STATE.a2ml`).
+(`.machine_readable/descriptiles/STATE.a2ml`).
 
 == Dependencies
 
