@@ -229,7 +229,7 @@ High-level technical summaries.
 
 == Contributing
 
-See `CONTRIBUTING.adoc` in the repository root.
+See `../../.github/CONTRIBUTING.md` in the repository root.
 
 Academic contributions should:
 
