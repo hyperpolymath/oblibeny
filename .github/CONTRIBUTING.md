@@ -18,7 +18,7 @@ just proofs  # type-check (= prove) the Idris2 ABI layer
 ```
 
 Toolchain installation (OCaml 5.1.1 + dune, Idris2 0.7.0, Zig 0.13) is
-documented in [docs/TOOLCHAIN.adoc](docs/TOOLCHAIN.adoc); the version
+documented in [docs/TOOLCHAIN.adoc](../docs/TOOLCHAIN.adoc); the version
 pins live in `.tool-versions`.
 
 ## Repository Structure
@@ -55,7 +55,7 @@ pins live in `.tool-versions`.
 
 ### Suggesting Features
 
-Check <a href="ROADMAP.adoc" class="adoc">ROADMAP</a> and existing
+Check <a href="../ROADMAP.adoc" class="adoc">ROADMAP</a> and existing
 issues first, then open an issue with a problem statement, proposed
 solution, and alternatives considered.
 
