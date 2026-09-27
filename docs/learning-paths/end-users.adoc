@@ -1,0 +1,157 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+= Learning path — End users: _use the language_
+:toc: preamble
+:toclevels: 2
+:source-highlighter: rouge
+:icons: font
+
+Part of the link:README.adoc[learning paths] for issue #79. This page takes you
+from "can run the compiler" to "can read an accountability trace and reason
+about what the constrained form guarantees". Setup lives in
+link:../TUTORIAL.adoc[the tutorial]; here we go *beyond* setup.
+
+== The deal the constrained form offers you
+
+Oblíbený's constrained form refuses to be Turing-complete. In exchange it
+hands you four *static* guarantees about every program that passes the checker:
+
+[cols="1,2,2",options="header"]
+|===
+|Guarantee |What it means |Enforced by
+
+|Termination
+|Every run ends.
+|No `while`/`loop` keywords (rejected by the parser), no recursion (acyclic call graph), only bounded `for i in 0..N`.
+
+|Static resource bounds
+|Memory/time/trace length are known before deployment.
+|The static analyzer + the resource budget = trace-length theorem (proved over the model, `src/abi/Lang/Resource.idr`).
+
+|Reversibility
+|Every core operation has a well-defined inverse.
+|`incr`/`decr`, `swap` (self-inverse), `^=` (self-inverse); proved as an involution in `src/abi/Lang/Reversible.idr`.
+
+|Accountability
+|Every operation appends to an immutable, hashed audit trail.
+|`checkpoint`/`trace`/`assert_invariant`; `--dump-trace` shows it.
+|===
+
+These are not marketing: the metatheory under `src/abi/Lang/` is
+machine-checked in Idris2 with zero escape hatches (see
+link:developers.adoc[the developer path] for what exactly is proven, and the
+model-fidelity caveat).
+
+== Your first meaningful program
+
+[source,rust]
+----
+fn main() -> () {
+    checkpoint("start");
+    let mut total: i64 = 0;
+    for i in 0..10 {          // static bound required — 10 is a constant
+        incr(total, i);       // reversible add
+        trace("saw", i);
+    }
+    assert_invariant(total >= 0, "total never negative");
+    checkpoint("end");
+}
+----
+
+Run it and read the trace:
+
+[source,bash]
+----
+dune exec -- oblibeny examples/hello.obl --dump-trace
+----
+
+The trace is the product. For the environments this language targets
+(HSMs, smart cards, enclaves — link:../../EXPLAINME.adoc[EXPLAINME] explains
+why), the answer to "what did this program do?" must be an enumerable list,
+not an investigation.
+
+== What you may not write, and why
+
+Try the invalid examples — the *errors* are the lesson:
+
+[source,bash]
+----
+dune exec -- oblibeny examples/invalid_while.obl     # parser rejects `while`
+dune exec -- oblibeny examples/invalid_recursion.obl # call-graph checker rejects recursion
+dune exec -- oblibeny examples/type_error.obl        # type checker rejects
+----
+
+A `for` bound must be statically known: `for i in 0..n` where `n` is a runtime
+value is exactly the halting problem wearing a hat. Generate the *program* with
+the bound baked in — that is what the factory form (link:developers.adoc[])
+is for.
+
+== Reversibility as a programming discipline
+
+Reversible operations come in pairs; destructive-looking ones are the exceptions
+that prove the rule:
+
+[source,rust]
+----
+incr(x, 5);   // inverse: decr(x, 5)
+swap(a, b);   // self-inverse
+x ^= val;     // self-inverse (XOR)
+assign(x, v); // THE irreversible boundary — see below
+----
+
+`assign` (plain overwrite) is the one operation that genuinely destroys
+information. The language does not pretend otherwise: it returns the lost
+information as an **echo**.
+
+== `echo[A, B]` — the structured residue of loss
+
+When a computation collapses distinct states into one, the visible result
+cannot tell you which source it came from — but the *witness* can:
+
+[source,rust]
+----
+// Parity collapse: distinct sources (7, 9) -> same visible (1),
+// but the witness retains the original source value
+fn collapse(n: i64) -> echo[i64, i64] {
+    return echo(n, n % 2);
+}
+
+fn main() -> () {
+    let a: echo[i64, i64] = collapse(7);
+    let b: echo[i64, i64] = collapse(9);
+
+    assert_invariant(echo_visible(a) == echo_visible(b), "same parity");
+    assert_invariant(echo_witness(a) != echo_witness(b), "distinct sources");
+}
+----
+
+Both of those assertions hold, and the second one is the interesting one.
+Echoes are *content-sensitively linear*: a non-copyable echo must be consumed
+exactly once (overwrite/drop discipline, PR #55). Work through
+link:../../examples/echo-types.obl[examples/echo-types.obl] and
+link:../../docs/specs/echo-6a2.adoc[docs/specs/echo-6a2.adoc].
+
+== Packages: `obli-pkg` and the trust model
+
+`.zpkg` packages are signed three ways — Dilithium5 (post-quantum lattice),
+SPHINCS+ (post-quantum hash-based), Ed25519 (classical) — verified against a
+keyring at `~/.obli-pkg/keyring/`. Verification is **fail-closed**: a missing
+key or signature is a refusal, never a downgrade to trust. The canonical
+signed payload is the package with the `SIGNATURE:` envelope stripped
+(`deriveSignedPayload`, `ffi/zig/src/obli-pkg.zig`).
+
+Honest status: the verify path is MVP scope — the payload derivation and
+fail-closed behaviour are real (PR #109), the matching signer and end-to-end
+test vectors are landing under issue #60. Read the format in
+link:../PACKAGE-FORMAT-SPEC.adoc[docs/PACKAGE-FORMAT-SPEC.adoc] before
+trusting a package with anything.
+
+== Where to go next
+
+- link:../TUTORIAL.adoc[The tutorial] — hands-on, part by part.
+- link:../../examples/[examples/] — including `alib/` (arithmetic, comparison,
+  logical operations), `swap.obl`, `struct_demo.obl`, `temperature-monitor.obl`,
+  `xor_cipher.obl`.
+- link:../LANGUAGE-SPEC.adoc[The language specification] — reference.
+- link:developers.adoc[Developer path] — how the compiler and proofs work.
+- link:maintainers.adoc[Maintainer path] — how the project is gated and run.

@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: MPL-2.0
+# SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# rsr-profile.a2ml — oblibeny's declared RSR v2.0 capabilities.
+#
+# Authored in the A2ML record dialect (hyperpolymath/a2ml RECORD-DIALECT-SPEC;
+# grammar superseded by 1-formats/deed/spec/DEED-GRAMMAR-SPEC.adoc in
+# hyperpolymath/standards — do not hand-convert; the estate-wide conversion
+# is estate task #64).
+#
+# The [canon] block is BINDING (hash-pinned); see rsr-template-repo's profile
+# for the full rationale. Reference checker:
+#   bash scripts/... — estate: standards/scripts/check-rsr-profile.sh <repo>
+#
+# Capability declaration discipline (from the template's profile):
+# every declared capability must be grounded in a file/dir that actually
+# exists, and every capability-GATED module present in the tree must have its
+# gating capability declared — otherwise the checker reports MISSING/VESTIGIAL.
+#
+# Deliberately NOT declared here (each would be a MISSING violation, because
+# oblibeny's modules live at pre-template paths the gate table does not know):
+#   abi            — gate paths are src/interface/{abi.ipkg,abi/,Abi/,generated/};
+#                    oblibeny's proof layer lives at src/abi/ (pre-template layout,
+#                    kept deliberately — moving it would break every reference).
+#   ffi            — gate path is src/interface/ffi/; oblibeny's FFI lives at ffi/zig/.
+#   formal-proofs  — gate path is verification/proofs/; oblibeny's proofs live at src/abi/.
+#   container      — gate path requires an exact root "Containerfile"; oblibeny ships
+#                    Containerfile.{bootstrap,liboqs,minimal} (PR #110 consolidation).
+#   reproducible-build — no guix.scm/flake.nix yet (packaging is the container escape
+#                    hatch, accepted by the governance package-policy gate).
+
+[rsr-profile]
+version = "1.0.0"
+spec = "rsr-criteria-v2"
+declares-against = "2.1.1-draft"
+capabilities = [
+  "ocaml",             # lib/, bin/, tests/ — the compiler, LSP, tooling (dune 3.0, OCaml >= 4.14)
+  "idris2",            # src/abi/ — Idris2 0.7.0 ABI proofs + Lang.* metatheory, CI-type-checked
+  "zig",               # ffi/zig/ — Zig 0.13 crypto/package FFI over liboqs/libsodium
+  "bash",              # scripts/, hooks/, CI steps
+  "cli",               # bin/main.ml — the oblibeny CLI (--check, --dump-trace)
+  "library",           # the compiler is consumed as a dune library by bin/ and tests/
+  "governance-tier",   # AUDIT.adoc + AFFIRMATION.adoc + GOVERNANCE.adoc + MAINTAINERS.adoc
+]
+
+[rationale]
+ocaml = "The constrained-form compiler, evaluator, checkers and LSP are OCaml; the conformance suite gates them."
+idris2 = "Machine-checked ABI proofs (PR #51) and constrained-form metatheory (PRs #73-#77); zero escape hatches, CI-enforced."
+zig = "Post-quantum crypto seam: Dilithium5/SPHINCS+ (liboqs) + Ed25519 (libsodium); .zpkg signing."
+bash = "Repository automation: scripts/, hooks/ validators, CI run steps."
+cli = "bin/main.ml compiles .obl programs; --check and --dump-trace are the golden surfaces."
+library = "lib/ is a dune library consumed by bin/ and the conformance tests."
+governance-tier = "The full governance trio plus AUDIT.adoc as the release gate."
+
+[canon]
+# THE BINDING — see rsr-template-repo/.machine_readable/rsr-profile.a2ml for
+# the full rationale. These values name files and hashes published by
+# hyperpolymath/standards; when standards bumps canon.lock, THIS repo updates
+# the hash deliberately (the lock file itself is the release point).
+version = "2.0.0"
+lock = "canon.lock"
+lock-repo = "hyperpolymath/standards"
+# sha256 of hyperpolymath/standards/canon.lock at declaration time
+# (standards main tip 2479cf769ed5, 2026-09-27).
+lock-sha256 = "fb10329e57d4ff05a2a1bf3d0f97ce71a052dcbb69574b855927e7d9df3ce70c"

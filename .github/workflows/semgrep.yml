@@ -29,7 +29,9 @@ jobs:
         run: semgrep scan --sarif --output=semgrep.sarif --config=auto .
 
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v4.38.1
+        # v4.38.0, deliberately — see the estate-wide hold note in codeql.yml
+        # and the `github/codeql-action*` ignore in .github/dependabot.yml.
+        uses: github/codeql-action/upload-sarif@v4.38.0
         with:
           sarif_file: semgrep.sarif
         if: always()

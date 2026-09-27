@@ -1,0 +1,8 @@
+# RFC 9116 security.txt for Oblíbený
+# Signed commits carry provenance; this file is the documented contact point.
+Contact: mailto:j.d.a.jewell@open.ac.uk
+Contact: https://github.com/hyperpolymath/oblibeny/security/advisories/new
+Expires: 2027-09-30T00:00:00.000Z
+Canonical: https://raw.githubusercontent.com/hyperpolymath/oblibeny/main/.well-known/security.txt
+Preferred-Languages: en
+Policy: https://github.com/hyperpolymath/oblibeny/blob/main/SECURITY.adoc

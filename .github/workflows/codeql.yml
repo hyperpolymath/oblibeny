@@ -45,12 +45,17 @@ jobs:
         uses: actions/checkout@v7.0.1
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4.38.1
+        # v4.38.0, deliberately: v4.38.1 is BLOCKED ESTATE-WIDE — it fails
+        # GitHub workflow-startup validation (nexia-list#100; see standards'
+        # dependabot.yml hold). Dependabot is held off this package via the
+        # `github/codeql-action*` ignore in .github/dependabot.yml; do not
+        # bump past 4.38.0 until the estate hold is lifted.
+        uses: github/codeql-action/init@v4.38.0
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4.38.1
+        uses: github/codeql-action/analyze@v4.38.0
         with:
           category: "/language:${{ matrix.language }}"

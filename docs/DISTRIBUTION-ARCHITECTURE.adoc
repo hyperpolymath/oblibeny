@@ -341,4 +341,4 @@ To keep maintenance burden low:
 
 * link:../SPEC.core.scm[Oblibeny Language Specification]
 * link:../README.adoc[Oblibeny Language Overview]
-* link:../.claude/CLAUDE.md[Hyperpolymath Language Policy]
+* link:../CLAUDE.md[Hyperpolymath Language Policy]

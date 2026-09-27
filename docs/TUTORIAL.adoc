@@ -233,7 +233,7 @@ fn main() -> () {
 `+echo_visible(e)+` returns the surviving observation -
 `+echo_witness(e)+` returns the retained source constraint - Echo is
 _not_ reversible — it exists precisely for computations that cannot be
-reversed - See link:LANGUAGE-SPEC.md#_3_4_echo_residue_type[Language
+reversed - See link:LANGUAGE-SPEC.adoc#_3_4_echo_residue_type[Language
 Spec §3.4] for the full type rules
 
 === Part 7: What NOT to Do
@@ -315,7 +315,7 @@ Show variable values - `+t+` or `+trace+` - Show accountability trace -
 === Next Steps
 
 [arabic]
-. Read the link:LANGUAGE-SPEC.md[Language Specification]
+. Read the link:LANGUAGE-SPEC.adoc[Language Specification]
 . Study the link:SECURITY-MODEL.md[Security Model]
 . Check out more link:../examples/[Examples]
 . Try the link:../editors/vscode/[VSCode Extension]

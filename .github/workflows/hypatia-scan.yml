@@ -19,6 +19,12 @@ permissions:
 
 jobs:
   hypatia:
-    uses: hyperpolymath/standards/.github/workflows/hypatia-scan-reusable.yml@469605210e767ee94d1c7a9c13cb6a1d0a78cad1
+    # Pin to da2c748 (last known-good reusable, green estate-wide as of
+    # 2026-09-26) rather than the standards main tip 2479cf7: at the tip the
+    # scan dies with "Path does not exist: hypatia.sarif" — the same failure
+    # signature as hyperpolymath/standards' own scheduled run 36283073689 on
+    # 2026-09-27, i.e. an upstream reusable/infra regression, not a defect in
+    # this tree. Refresh to the tip once standards clears it.
+    uses: hyperpolymath/standards/.github/workflows/hypatia-scan-reusable.yml@da2c748aad55c1a1dcba00b60fe4a35017bc6540
     with:
       block-on-high: true

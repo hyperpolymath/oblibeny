@@ -36,7 +36,7 @@ status = "removed"
 date = "2026-06-04"
 evidence = "PR #56 (commit ae1d91f): .machine_readable/*.scm migrated to descriptiles/*.a2ml, faithful translation, legacy .scm removed"
 replacement = ".machine_readable/descriptiles/{STATE,META,ECOSYSTEM,AGENTIC,NEUROSYM,PLAYBOOK}.a2ml"
-residue = ".claude/CLAUDE.md still references the .scm names (guardrail-blocked; maintainer edit pending). Root SPEC.core.scm and ANCHOR.scope-arrest.2026-01-01.Jewell.scm are NOT deprecated — they are the live formal spec and identity anchor."
+residue = "resolved 2026-09-27: CLAUDE.md (now at repository root, estate-canonical path) references .machine_readable/descriptiles/*.a2ml and explicitly records that root SPEC.core.scm and ANCHOR.scope-arrest.2026-01-01.Jewell.scm are NOT deprecated — they are the live formal spec and identity anchor."
 
 [[deprecations]]
 name = "orphaned-submodule-gitlinks"

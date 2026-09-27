@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+= AUDIT — Oblíbený release audit gate
+:toc: preamble
+:toclevels: 2
+
+_A release is not a feeling. This is the gate._ A release commit is eligible
+only when every row below shows green **for that exact SHA**, run in the
+releasing session — not for "main at some point", not from memory. Attach the
+run URLs. If a row cannot be green, the release does not ship; record why in
+`docs/proof-debt.adoc` or the contractiles, fix, and come back.
+
+This is oblibeny's instantiation of the RSR release `AUDIT` gate (see the
+estate's `rsr-template-repo` for the reference shape).
+
+== How to fill this in
+
+[source,bash]
+----
+git rev-parse HEAD                  # pin the SHA at the top of the table
+just ci                             # rows 1-4
+just proofs                         # row 5 (requires idris2 0.7.0)
+bash scripts/check-root-shape.sh .  # row 8
+just repo-map                       # row 9 (must be a no-op / byte-identical)
+----
+
+== The gate
+
+[cols="1,2,2,1",options="header"]
+|===
+| # | Check | Command / evidence | Status
+
+| 1 | OCaml build | `just build` (`dune build`) exit 0 | ☐
+| 2 | Conformance suite | `just test` (`dune runtest`, 27 cases) exit 0 | ☐
+| 3 | Static analysis | `just lint` | ☐
+| 4 | Zig FFI compile gate | `just zig-ffi-check` (Zig 0.13) | ☐
+| 5 | Idris2 ABI + metatheory proofs | `just proofs`; escape-hatch grep clean | ☐
+| 6 | CI workflow green at this SHA | link:https://github.com/hyperpolymath/oblibeny/actions[Actions run URL] | ☐
+| 7 | Governance suite green at this SHA | governance run URL (staleness, lockfile, licence, docs, well-known, ratchets) | ☐
+| 8 | Root shape conforms | `scripts/check-root-shape.sh .` exit 0 | ☐
+| 9 | Repository map fresh | `just repo-map` produces no diff | ☐
+| 10 | Version consistent | `dune-project` version == intended tag `v<version>` | ☐
+| 11 | Honesty artefacts updated | `descriptiles/STATE.a2ml` + `README.adoc` status table reflect reality at this SHA | ☐
+| 12 | Provenance | Release commit is signed; changelog entry exists | ☐
+|===
+
+== Known boundaries that a release may not overclaim
+
+Stated here because past audits found them papered over (PR #51's false
+proofs; the "100%" claim that predated any CI):
+
+- The Idris2 `Lang.*` metatheory proves the constrained form's guarantees
+  *over a faithful model* of the OCaml implementation — not over the OCaml
+  itself. Translation validation / verified extraction is open (#78).
+- The Zig crypto FFI compiles under Zig 0.13; linking requires system
+  liboqs/libsodium (CI builds liboqs pinned for the package gate —
+  see `ci.yml`). The `obli-pkg` signer/verifier is exercised by the CI
+  gate; the triple-signature scheme's end-to-end vectors are tracked in #60.
+- The debugger and profiler contain documented placeholders; their README
+  status rows say exactly what is real.
+- Static analyzer call analysis and struct-size accounting are incomplete.
+
+A release note that contradicts this section is a defect in the release note.
+
+== History
+
+- *2026-09-27* — gate established as part of the estate-alignment pass
+  (root shape, repo map, learning paths, CI unblock: PR #137). Prior audits
+  were ad-hoc; the 2026-06 recalibration (PR #51/#52) is the precedent this
+  gate institutionalises.

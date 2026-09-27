@@ -41,7 +41,7 @@ never propagate.
 
 == Hard limits (all bots)
 
-* Never modify `.claude/CLAUDE.md` (guardrail-blocked; pending edits go
+* Never modify `CLAUDE.md` at the repository root without a reviewed PR (guardrail; proposed edits go
   through the maintainer).
 * Never modify the language core (`lib/`), the proof layer (`src/abi/`),
   the FFI (`ffi/`), or the conformance gate (`test/`) without an

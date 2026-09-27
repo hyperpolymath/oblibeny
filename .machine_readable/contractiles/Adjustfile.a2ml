@@ -33,7 +33,7 @@ severity = "advisory"
 
 [drift.metadata-path-references]
 description = "No references to the removed .machine_readable/*.scm files"
-tolerance = "0 references outside provenance comments and .claude/CLAUDE.md (guardrail-blocked, pending maintainer)"
+tolerance = "0 references outside provenance comments (CLAUDE.md corrected 2026-09-27, PR-reviewed)"
 corrective = "Point references at .machine_readable/descriptiles/*.a2ml"
 severity = "advisory"
 

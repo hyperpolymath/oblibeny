@@ -1,1 +1,68 @@
-flake.nix
+# SPDX-License-Identifier: MPL-2.0
+# SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# Root allowlist — the canonical root shape of this repository, enforced in
+# BOTH directions by scripts/check-root-shape.sh:
+#   * an entry at root that is not listed          -> drift (extra)
+#   * a listed entry WITHOUT '?' that is missing   -> drift (missing)
+# '?' marks an entry that is legitimately absent in some conforming repo
+# (template-only material, or a capability-gated module).
+#
+# Each entry carries its annotation; the annotations are what
+# scripts/gen-repo-map.sh renders into docs/architecture/REPOSITORY-MAP.adoc,
+# so a rename here must be accompanied by a regeneration (`just repo-map`).
+
+# ── AI & governance front matter ────────────────────────────────────────────
+CLAUDE.md              # AI-agent instructions: orientation, language policy, guardrails (was .claude/CLAUDE.md; moved to the estate-canonical root path 2026-09-27)
+MAINTAINERS.adoc       # Who maintains this repo and how to become one
+AFFIRMATION.adoc       # Dated, SHA-pinned honesty snapshot: what was run-green at that instant
+EXPLAINME.adoc         # The design-why document: what Oblíbený is and why it is shaped this way
+PALIMPSEST.adoc        # Layered-history record of the repository evolution
+README.adoc            # Front door: overview, honest status table, learning paths
+ROADMAP.adoc           # Where the language is heading
+CHANGELOG.adoc         # Dated changes, newest first
+SECURITY.adoc          # Security policy prose (vulnerability reporting, supported versions)
+SECURITY.md            # Pointer policy for the GitHub Security tab surface
+AUDIT.adoc             # Release audit gate: the checks a release commit must show green
+0-AI-MANIFEST.a2ml     # Machine-readable front door for AI agents (estate convention)
+Mustfile               # Deployment contract: MUST-level checks and the release transition
+SPEC.core.scm          # LIVE formal core specification (Scheme) — not legacy metadata
+ANCHOR.scope-arrest.2026-01-01.Jewell.scm   # Identity anchor (scope arrest) — live, load-bearing
+AUTHORITY_STACK.mustfile-nickel.scm         # Governance authority stack for Mustfile/nickel — live, load-bearing
+LICENSE                # MPL-2.0, the GitHub-detected licence
+LICENSES/              # Canonical licence texts (MPL-2.0, CC-BY-SA-4.0, AGPL-3.0)
+
+# ── Machine-readable ────────────────────────────────────────────────────────
+.git/                  # The git directory itself (listed as in the RSR template; enumerated by the root scan)
+.machine_readable/     # Descriptiles, contractiles, bot directives, policies, root allowlist
+.well-known/           # RFC 9116 security.txt and other well-known surfaces
+
+# ── Build & toolchain ───────────────────────────────────────────────────────
+Justfile               # Every task routes through just; recipes mirror the CI gate
+dune-project           # Dune 3.0 project definition (OCaml ≥ 4.14, menhir)
+oblibeny.opam          # Generated opam package (edit dune-project, not this)
+.tool-versions         # Toolchain pins (mise/asdf): OCaml, Zig 0.13, Idris2 0.7
+.editorconfig          # Whitespace/charset discipline (governance-gated)
+.gitattributes         # Line-ending and diff behaviour
+.gitignore             # Build artefacts, _build/, scratch
+
+# ── Packaging & deployment ──────────────────────────────────────────────────
+Containerfile.bootstrap  # Full build image: OCaml + Idris2 + Zig toolchains
+Containerfile.liboqs     # liboqs/libsodium provider layer for the crypto FFI
+Containerfile.minimal    # Minimal runtime image (~50MB) — the distribution proof
+config/                # Nickel configuration (oblibeny.ncl)
+deploy/                # Deployment manifests (svalinn compose, vordr manifest, k8s reference)
+
+# ── Source & tests ──────────────────────────────────────────────────────────
+bin/                   # Entry points: the `oblibeny` CLI and the LSP server
+lib/                   # The compiler: lexer, parser, typecheck, eval, constrained check, LSP support
+src/                   # The Idris2 ABI proof layer and Lang.* metatheory (src/abi/)
+tests/                 # Conformance suite (27 alcotest cases) — renamed from test/ 2026-09-27 (estate root-shape alignment)
+ffi/                   # Zig crypto/package FFI (Zig 0.13, liboqs/libsodium)
+hooks/                 # Local validation hooks (SPDX, SHA pins, permissions, CodeQL config)
+editors/               # VSCode extension: syntax highlighting for .obl
+examples/              # .obl example programs, alib/ samples, .zpkg package example
+docs/                  # Human documentation: specs, tutorial, academic notes, learning paths, history (incl. GOVERNANCE.adoc)
+scripts/               # Repository maintenance scripts (repo-map generator, root-shape checker)
+wiki/                  # Ecosystem integration pages (GitHub wiki mirror)
+.github/               # Workflows, community health files, estate CI configuration

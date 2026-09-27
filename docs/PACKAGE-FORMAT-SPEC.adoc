@@ -400,6 +400,49 @@ repo/
       (dependencies ("zlib" "openssl")))))
 ```
 
+== Implemented signing scheme (2026-09-27)
+
+The spec above is the target architecture. What `obli-pkg` implements today
+(CI-gated end-to-end):
+
+*Envelope format.* Signatures travel as self-describing lines appended to the
+package:
+
+[source,text]
+----
+SIGNATURE:dilithium5.sig:<base64 of 4595-byte signature>
+SIGNATURE:sphincsplus.sig:<base64 of 49856-byte signature>
+SIGNATURE:ed25519.sig:<base64 of 64-byte signature>
+----
+
+*Canonical signed payload.* `deriveSignedPayload` = the package bytes with
+every line beginning `SIGNATURE:` removed (line-start anchored, so a
+mid-line occurrence can never be both envelope and payload). Signers sign
+exactly those bytes; verifiers strip the envelope to recover exactly those
+bytes. Re-signing an already-signed package is therefore idempotent on the
+payload.
+
+*Algorithms.* Dilithium5 (primary PQ), SPHINCS+-SHA2-256f-simple (backup PQ,
+hash-based), Ed25519 (classical). The spec's earlier `ed448` naming is
+historical; the implementation uses Ed25519 via libsodium
+(`crypto_sign_ed25519_detached`).
+
+*Commands.* `obli-pkg keygen` writes the triple keyring to
+`~/.obli-pkg/keyring/` (`<stem>.pub` / `<stem>.secret`, mode 0600, refuses to
+clobber an existing keyring); `obli-pkg sign <in.zpkg> <out.zpkg>` signs the
+canonical payload with all three keys and *self-verifies the output* — a
+sign command that produced anything the verifier would reject exits non-zero.
+
+*Fail-closed rules.* Verification refuses on: missing keyring, a key file
+whose length does not exactly match the algorithm's constant, a missing or
+malformed envelope, or any signature failing. No zeroed test-key fallbacks
+(the pre-#109 stub behaviour) exist anywhere.
+
+*Still open under #60:* deterministic cross-tool test vectors (the CI gate
+uses freshly generated runtime keys — strong against regressions, but not
+yet an interoperability vector set), an index signing tool, and the
+shake3-512 manifest hashes shown in the target layout above.
+
 == Related Documents
 
 * link:SECURITY-ARCHITECTURE.adoc[Security Architecture]

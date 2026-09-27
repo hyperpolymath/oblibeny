@@ -4,31 +4,43 @@
 :toc: preamble
 
 Audience-divided paths for engaging with Oblíbený beyond setup and a basic
-run. Skeleton for issue #79 — each track below becomes its own page.
+run. These close issue #79: each page goes past orientation into genuine
+engagement with the materials, and each is grounded in the tree as it exists
+today (not as the README's vision wishes it were).
 
-== End users — _use the language_
+== Pick your path
 
-* The dual form: Turing-complete factory → Turing-incomplete constrained
-  form, and why.
-* Writing and running `.obl`; the reversible/accountable constrained form;
-  the `echo[A,B]` residue by example.
-* Reading the accountability trace (`--dump-trace`).
-* `obli-pkg` usage and the triple-signature trust model
-  (Dilithium5 + SPHINCS+ + Ed25519).
+[cols="1,2,2",options="header"]
+|===
+|Path |You are here to… |Start at
 
-== Developers — _extend the language_
+|link:end-users.adoc[End users]
+|*use the language* — write `.obl`, read accountability traces, ship packages
+|The four guarantees, then `examples/`
 
-* Architecture walkthrough:
-  `lexer → parse → typecheck → eval → constrained_check → static_analyzer`.
-* The proof layer for newcomers: the Idris2 ABI
-  (`installReversible`/`echoResidueNonTrivial`) and the `Lang.*` metatheory
-  (#78) — what each guarantee means, how to extend a slice, the
-  model-fidelity caveat.
-* The Zig crypto FFI; adding a language feature end-to-end.
+|link:developers.adoc[Developers]
+|*extend the language* — compiler pipeline, proof layers, FFI
+|The pipeline table, then the proof-layer caveat
 
-== Maintainers — _run the project_
+|link:maintainers.adoc[Maintainers]
+|*run the project* — gates, contractiles, release path
+|The gate inventory, then the two failure modes
+|===
 
-* CI gates (`justfile`, `ci.yml`), and the escape-hatch guard discipline.
-* The contractiles + `.machine_readable/descriptiles/` governance model.
-* The `docs/proof-debt.md` ledger discipline; standards reusable workflows;
-  the release transition.
+== The one idea worth having before any of it
+
+Oblíbený splits "write programs" from "run programs on hostile hardware".
+The factory form is Turing-complete and never ships; the constrained form is
+Turing-incomplete, reversible, fully audited, and *provably* so — with the
+emphasis landing differently at each layer of the proof story
+(link:developers.adoc[developer path] explains the model-vs-implementation
+boundary, which is the most commonly overstated claim in this repository).
+
+== Related material
+
+- link:../../EXPLAINME.adoc[EXPLAINME] — the design-why document.
+- link:../TUTORIAL.adoc[Tutorial] — hands-on basics.
+- link:../LANGUAGE-SPEC.adoc[Language specification] — reference grammar.
+- link:../CONTRACTILES.adoc[Contractiles] — the behavioural contracts the
+  checker enforces.
+- link:../../docs/academic/INDEX.adoc[docs/academic/] — research foundations.

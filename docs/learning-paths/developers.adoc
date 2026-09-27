@@ -1,0 +1,162 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+= Learning path — Developers: _extend the language_
+:toc: preamble
+:toclevels: 2
+:source-highlighter: rouge
+:icons: font
+
+Part of the link:README.adoc[learning paths] for issue #79. This page explains
+how the implementation is actually layered, what the proof layer proves (and
+what it deliberately does not), and how to add a language feature end-to-end.
+
+== The pipeline
+
+Every `.obl` program flows through one OCaml pipeline. Read the files in this
+order once and the whole compiler stops being mysterious:
+
+[cols="1,2,3",options="header"]
+|===
+|Stage |File |What to notice
+
+|Lexing
+|`lib/lexer.ml`
+|Token stream; rejects `while`/`loop` keywords at the source — termination is a *parse-level* promise before it is anything else.
+
+|Parsing
+|`lib/parser.mly` (+ `lib/parse.ml`)
+|menhir grammar; builds `lib/ast.ml`.
+
+|Types
+|`lib/typecheck.ml`
+|i64/bool/string/structs, plus the `echo[A, B]` residue type end-to-end.
+
+|Evaluation
+|`lib/eval.ml`
+|The audit trace is produced *here* — every operation appends.
+
+|Constrained-form validation
+|`lib/constrained_check.ml`
+|The gate that makes the four guarantees checkable: bounded loops, acyclic call graph, affinity/linearity for non-copyable echoes.
+
+|Static analysis
+|`lib/static_analyzer.ml`
+|Resource and reversibility analysis; call analysis and struct-size accounting are partial (see the honest table in `README.adoc`).
+
+|Supporting cast
+|`lib/location.ml`, `lib/errors.ml`, `lib/trace.ml`, `lib/debugger.ml`, `lib/profiler.ml`, `lib/lsp_*.ml`
+|Debugger/profiler are scaffold/partial — their README status rows say exactly what is real and what is placeholder.
+|===
+
+Entry points: `bin/main.ml` (the `oblibeny` CLI — `--check`, `--dump-trace`)
+and `bin/oblibeny_lsp.ml` (the LSP server; diagnostics/hover/completion live in
+the `lib/lsp_*.ml` modules).
+
+== The proof layer: two distinct layers, know which you are in
+
+=== Layer 1 — the ABI proofs (`src/abi/`)
+
+Idris2 proofs about the *package ABI*: `installReversible` preserves
+reversibility, installation is idempotent (`doubleInstallIdempotent`), and the
+echo residue is non-trivial (`echoResidueNonTrivial`). History matters here:
+PR #51 found these were non-compiling stubs with a `believe_me`-masked theorem
+that was *false as written*. They are now genuine total proofs, and CI
+type-checks them (`just proofs`) and greps for escape hatches on every push.
+
+=== Layer 2 — the metatheory (`src/abi/Lang/`, issue #78 context in PRs #73–#77)
+
+A faithful Idris2 model of `lib/ast.ml` / `lib/eval.ml` /
+`lib/constrained_check.ml`, with the constrained form's four guarantees proved
+over that model, `%default total`, zero escape hatches:
+
+[cols="1,2,2",options="header"]
+|===
+|Module |Proves |Mechanism
+
+|`Lang.Eval`
+|The evaluator is total (termination)
+|Call-free slice, then rank-stratified `evalLevel` over the acyclic call graph.
+
+|`Lang.Checker`
+|Checker soundness
+|A `Ranking` rules out direct *and* mutual recursion.
+
+|`Lang.Reversible`
+|`inverse` is an involution on `incr`/`decr`/`swap`
+|`assign` is the `echo[A,B]` boundary — the deliberate irreversible edge.
+
+|`Lang.Resource`
+|Static resource budget = accountability-trace length
+|Both sides total; ties the resource story to the audit story.
+|===
+
+**The model-fidelity caveat, stated plainly:** these theorems are about the
+model. The model was written to be faithful and CI keeps the escape hatches
+out, but "the Idris2 model of the checker is sound" and "the OCaml checker is
+sound" are different claims. Closing that gap (translation validation /
+verified extraction) is the open endpoint of issue #78. When you write or read
+claims, keep the two layers separate.
+
+Follow-on slices are enumerated in
+https://github.com/hyperpolymath/oblibeny/issues/78[#78]: checker
+*completeness* (existence of a ranking from acceptance), general semantic
+reversibility over a `DecEq`-keyed store, and a trace-producing evaluator
+faithful to `staticTrace`.
+
+== The Zig FFI
+
+`ffi/zig/` carries the post-quantum crypto seam:
+
+- `ffi/zig/build.zig` — Zig 0.13 build (0.14 renamed `callconv(.C)`; do not
+  "modernise" past 0.13 without a migration plan — `.tool-versions` pins it).
+- `ffi/zig/src/crypto.zig` — liboqs (Dilithium5, SPHINCS+) + libsodium
+  (Ed25519) bindings.
+- `ffi/zig/src/obli-pkg.zig` — the `.zpkg` signer/verifier; canonical payload
+  = package bytes minus `SIGNATURE:` envelope; keyring handling is
+  fail-closed.
+- CI runs `zig ast-check` over every FFI source (link:maintainers.adoc[] has
+  the gate inventory); full linking needs system liboqs and is handled by the
+  CI liboqs job, not assumed locally.
+
+== Adding a feature end-to-end (checklist)
+
+. Define the AST node in `lib/ast.ml` (and its echo/affinity properties if any).
+. Lex it (`lib/lexer.ml`), parse it (`lib/parser.mly`).
+. Type it (`lib/typecheck.ml`) — decide how it interacts with `echo[A,B]`
+  linearity *before* writing code; that decision is the design.
+. Evaluate it (`lib/eval.ml`) — it must append to the trace or have a stated
+  reason not to.
+. Gate it (`lib/constrained_check.ml`) — can it loop? can it recurse? is it
+  reversible? If it is destructive, it should produce an echo.
+. Mirror it in the Idris2 model (`src/abi/Lang/Syntax.idr` → `Eval.idr`) —
+  a feature the model does not know about silently widens the fidelity gap.
+. Extend the conformance suite (`tests/conformance_test.ml`) — a behaviour
+  change without a conformance test is a regression lottery.
+. Update the honest tables (`README.adoc` status rows,
+  `descriptiles/STATE.a2ml`) in the same PR.
+
+== Local workflow
+
+[source,bash]
+----
+just build          # dune build
+just test           # 27-test conformance suite
+just ci             # lint + test + zig-ffi-check + escape-hatch guard
+just proofs         # Idris2 ABI + Lang.* type-check (needs idris2 0.7.0)
+just demo           # golden path with --dump-trace
+----
+
+`idris2`, `zig`, and `liboqs` are *not* required to build the OCaml core —
+the justfile recipes degrade gracefully and tell you what was skipped. Do not
+report a gate green that you did not run (see `CLAUDE.md`, guardrail 2).
+
+== Where to go next
+
+- link:end-users.adoc[End-user path] — the language from the outside.
+- link:maintainers.adoc[Maintainer path] — the gates that protect all this.
+- link:../specs/architecture/compiler-architecture.adoc[Compiler architecture],
+  link:../specs/ir/oir-specification.adoc[OIR spec],
+  link:../specs/frontend/ocaml-frontend.adoc[frontend],
+  link:../specs/backend/rust-backend.adoc[backend notes].
+- link:../../docs/academic/INDEX.adoc[docs/academic/] — the research
+  foundations (type theory, ORAM, formal verification).
