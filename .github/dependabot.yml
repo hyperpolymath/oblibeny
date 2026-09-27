@@ -18,3 +18,18 @@ updates:
       github-actions:
         patterns:
           - "*"
+    ignore:
+      # HOLD: github/codeql-action at v4.38.0. v4.38.1 fails GitHub
+      # workflow-startup validation estate-wide (nexia-list#100) — a merged
+      # bump startup-kills codeql.yml and semgrep.yml with zero jobs. This
+      # exact gap let PR #136 bump 4.38.0 -> 4.38.1 on 2026-09-27 and break
+      # both workflows; #135 had fixed the same breakage five days earlier.
+      #
+      # The trailing * is load-bearing. Workflows reference the SUBPATH
+      # actions (github/codeql-action/init, /analyze, /upload-sarif) and
+      # Dependabot treats each subpath as its own dependency name — a bare
+      # "github/codeql-action" entry matches NONE of them. Mirrors the hold
+      # in hyperpolymath/standards/.github/dependabot.yml; lift BOTH together,
+      # deliberately, when upstream clears 4.38.1 or a newer release verifies
+      # green estate-wide.
+      - dependency-name: "github/codeql-action*"
