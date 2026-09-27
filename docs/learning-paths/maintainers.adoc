@@ -1,0 +1,143 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+= Learning path — Maintainers: _run the project_
+:toc: preamble
+:toclevels: 2
+:source-highlighter: rouge
+:icons: font
+
+Part of the link:README.adoc[learning paths] for issue #79. This page is the
+operating manual: which gates exist, why they are shaped the way they are, and
+what a maintainer actually does in a normal week.
+
+== The gate inventory
+
+[cols="1,2,3",options="header"]
+|===
+|Gate |Where |What it actually checks
+
+|CI
+|`.github/workflows/ci.yml`
+|OCaml build + 27-test conformance suite (`dune runtest`); Zig FFI compile gate; Idris2 0.7.0 proof type-check (`idris2 --build src/abi/oblibeny-abi.ipkg`) + the escape-hatch grep (`believe_me`/`postulate`/`assert_total`/`partial`/holes).
+
+|Governance
+|`governance.yml` → standards reusable
+|Estate policy jobs: workflow staleness, language/package policy (Python etc. banned), licence consistency, docs presence, well-known, workflow lint, actions-lock verify, ratchets. Runs per push/PR.
+
+|Hypatia scan
+|`hypatia-scan.yml` → standards reusable
+|Neurosymbolic security scan (Elixir scanner built from the pinned Hypatia commit); `block-on-high: true`.
+
+|CodeQL / Semgrep
+|`codeql.yml` / `semgrep.yml`
+|SAST + SARIF upload. **`github/codeql-action` is held at v4.38.0 estate-wide** — 4.38.1 fails workflow startup validation; the dependabot hold enforces it.
+
+|Secret scanner
+|`secret-scanner.yml` → standards reusable
+|Secret detection with SARIF.
+
+|Scorecard
+|`scorecard.yml` → standards reusable
+|OpenSSF Scorecard, nightly (schedule-only by design, PR #113).
+
+|Repo-map freshness
+|`ci.yml` repo-map job
+|`docs/architecture/REPOSITORY-MAP.adoc` must regenerate byte-identical; CI fails on drift.
+|===
+
+== The two failure modes that eat this estate (and their cures)
+
+*Unreachable callee pins.* Reusable-workflow pins must be commits **reachable
+from `hyperpolymath/standards` main**. A pin into rewritten history fails at
+workflow creation with *no jobs and no logs* — the run is named by file path
+and dies in 0s. Diagnose with the standards staleness gate or
+`gh api repos/hyperpolymath/standards/compare/<sha>...main --jq .status`
+(`identical`/`ahead` = good, `diverged` = the failure you are looking at).
+Cure: re-point to the current standards main tip (what `apply-workflow-pins`
+does in fix mode).
+
+*actions.lock drift.* Every `uses:` — direct and transitive, SHA-form included
+— must resolve to `.github/workflows/actions.lock`. Dependabot bumps that
+change `uses:` lines break the lock silently at next run. Cure: regenerate the
+lock **in the same PR as the `uses:` change** (or revert the bump). The
+`github/codeql-action*` dependabot hold exists because v4.38.1 is
+estate-blocked; lift it only deliberately, together with standards.
+
+== Contractiles and the 6a2 governance model
+
+The estate tracks obligations as *contractiles* — machine-readable ledgers in
+`.machine_readable/contractiles/`:
+
+[cols="1,3",options="header"]
+|===
+|Ledger |Tracks
+
+|`Mustfile.a2ml` (+ root `Mustfile`)
+|MUSTs — the deployment contract; violations block release.
+
+|`Intentfile.a2ml`
+|INTENDs — committed next actions (each maps to an issue/PR).
+
+|`Trustfile.a2ml`
+|The trusted base and its guardrails.
+
+|`Dustfile.a2ml`
+|Residue — known stale/wrong text awaiting fixes.
+
+|`Adjustfile.a2ml` / `Bustfile.a2ml`
+|Adjustments in flight / deliberately busted expectations.
+
+|`Justfile.a2ml`
+|The just-recipes contract.
+|===
+
+The behavioural contracts for the *language itself* (C/R/E/A/T/S series —
+constrained-form invariants, reversibility, echo, affinity, trace, static
+analysis) are specified in link:../CONTRACTILES.adoc[docs/CONTRACTILES.adoc];
+`lib/constrained_check.ml` enforces them.
+
+== Proof debt and the trusted base
+
+link:../proof-debt.adoc[docs/proof-debt.adoc] is the soundness-relevant
+escape-hatch ledger, per the estate's Trusted-Base Reduction Policy. Rules:
+
+- Discharge, never defer silently: a `believe_me` today is a false theorem
+  tomorrow (this repo has lived it — see the ledger's 2026-06 history).
+- The escape-hatch grep in CI is the ratchet; if you must add a hatch, the
+  ledger and the PR explain why, and the grep gets an explicit, reviewed
+  exception — it never silently shrinks.
+
+== Release path
+
+`Mustfile` defines the transition: `release` requires `build`, `test`, `lint`,
+then `just release <version>` walks the checklist (bump `dune-project`, `just
+ci`, tag `v<version>`, push tags). `AUDIT.adoc` is the release audit gate —
+fill it from the green runs *of the release commit*, not from memory.
+
+== The honesty artefacts (and their update discipline)
+
+- `descriptiles/STATE.a2ml` — completion percentage, blockers, next actions.
+  Update in the same PR that changes reality. The 2026-06 recalibration
+  (85%, after PR #51 found false proofs behind a "100%" claim) is the
+  precedent: downgrade loudly, upgrade only with a run.
+- `AFFIRMATION.adoc` — a dated, SHA-pinned "what I ran and what it did"
+  snapshot. Write a new one at milestones; supersede, never edit history.
+- `README.adoc` status table — the first thing outsiders read; keep its rows
+  honest (the debugger/profiler rows name their own placeholders).
+
+== Maintainer-only actions an agent must never do
+
+- Rotate `FARM_DISPATCH_TOKEN` (`gh secret set FARM_DISPATCH_TOKEN --repo
+  hyperpolymath/oblibeny`) — needed before forge propagation re-enables
+  (issue #61); `instant-sync` is presence-gated until then.
+- Edit `CLAUDE.md` outside a reviewed PR.
+- Delete branches (estate rule GS007) or override required checks.
+
+== Where to go next
+
+- link:end-users.adoc[End-user path] · link:developers.adoc[Developer path].
+- `GOVERNANCE.adoc`, `MAINTAINERS.adoc`, `SECURITY.adoc` — the constitutional
+  documents.
+- Estate references: `hyperpolymath/standards` (policies and reusable
+  workflows) and `hyperpolymath/rsr-template-repo` (the template this repo
+  aligns to).

@@ -32,7 +32,7 @@ A2ML under `descriptiles/` on 2026-06-04.
 
 ### Agent Instructions
 
-- `.claude/CLAUDE.md` - Claude-specific patterns and the language policy
+- `CLAUDE.md` (repository root) - Claude-specific patterns and the language policy
 - `0-AI-MANIFEST.a2ml` - THIS FILE (universal entry point)
 
 ## CORE INVARIANTS
@@ -41,7 +41,7 @@ A2ML under `descriptiles/` on 2026-06-04.
 2. **No metadata duplication** - the root must NOT contain `STATE.*`/`META.*`/etc.; no legacy `.machine_readable/*.scm`.
 3. **Licence consistency** - all code is MPL-2.0; SPDX headers on all files.
 4. **Author attribution** - "Jonathan D.A. Jewell" (contact in `.machine_readable/descriptiles/META.a2ml` / `dune-project`).
-5. **Language policy** - per `.claude/CLAUDE.md` (OCaml compiler, Zig FFI, Idris2 ABI proofs; banned: TypeScript/Node/Go/Python/etc.).
+5. **Language policy** - per `CLAUDE.md` (OCaml compiler, Zig FFI, Idris2 ABI proofs; banned: TypeScript/Node/Go/Python/etc.).
 6. **Proofs stay green** - the Idris2 ABI proofs (`src/abi/oblibeny-abi.ipkg`) carry no escape hatches; the conformance suite (`dune runtest`) must pass.
 
 ## REPOSITORY STRUCTURE
@@ -76,7 +76,7 @@ oblibeny/
 ✅ Know the invariants (single source of truth, MPL-2.0, language policy, proofs green)
 ✅ Read `.machine_readable/descriptiles/STATE.a2ml` for current status, phase, blockers
 ✅ Read `.machine_readable/descriptiles/AGENTIC.a2ml` for interaction patterns
-✅ Read `.claude/CLAUDE.md` for the language policy
+✅ Read `CLAUDE.md` at the repository root for the language policy
 
 ## LIFECYCLE HOOKS
 
@@ -110,18 +110,9 @@ After reading this file, demonstrate understanding by stating:
 - **Protocol:** https://github.com/hyperpolymath/0-ai-gatekeeper-protocol
 
 <!-- BEGIN requires-initialisation -->
-
-## PRIORITY ACTION — this repository is not fully initialised
-
-2 substitution token(s) still have no value. **Read
-`REQUIRES_INITIALISATION.md` in the repository root before doing anything
-else here** — it lists every outstanding token, what it means, and which
-files it belongs in.
-
-Do not fabricate values for them, and do not delete the sections that
-contain them to quiet a gate. They are unfilled because they need a
-decision, not because they were overlooked. Resolve what you legitimately
-can, leave the rest, and delete `REQUIRES_INITIALISATION.md` only when
-nothing outstanding remains.
-
+Initialisation completed 2026-09-27: the two tokens the top-up pass flagged
+(`{{FILE}}`, `{{VERSION}}` in the task runner) were false positives — they are
+`just` recipe *parameters* (`run FILE:`, `release VERSION:`), not substitution
+tokens. `REQUIRES_INITIALISATION.adoc` was retired with that explanation; the
+audit gate now lives in `AUDIT.adoc` / `docs/architecture/REPOSITORY-MAP.adoc`.
 <!-- END requires-initialisation -->

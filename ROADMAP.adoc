@@ -94,7 +94,7 @@ Oblivious computing builds on established cryptographic research:
 
 == Technology Stack
 
-Per the link:.claude/CLAUDE.md[Hyperpolymath Language Policy]:
+Per the link:CLAUDE.md[Hyperpolymath Language Policy]:
 
 |===
 | Component | Primary Language | Notes

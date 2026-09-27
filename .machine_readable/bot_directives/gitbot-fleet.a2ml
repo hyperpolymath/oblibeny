@@ -26,7 +26,7 @@ ci-green-before-merge = true
 # language core in lib/ (OCaml), the FFI in ffi/ (Zig), and the
 # conformance gate in test/. None of these are bot territory.
 never-touch = [
-  ".claude/CLAUDE.md",
+  "CLAUDE.md",
   "src/abi/",
   "lib/",
   "ffi/",

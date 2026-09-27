@@ -53,7 +53,7 @@ ACTIONABLE FRONTIER (the INTENDs an agent CAN take):
 
 DO NOT ATTEMPT (maintainer-only / forbidden for the agent):
 - Rotating `FARM_DISPATCH_TOKEN` (a secret) — maintainer only.
-- Editing `.claude/CLAUDE.md` (guardrail-blocked; still has stale `.scm` refs).
+- Editing `CLAUDE.md` (guardrail; the 2026-06-19 stale `.scm` refs were fixed 2026-09-27 — see `docs/history/` header).
 - Deleting the stale remote branches (GS007) — branch deletion is forbidden.
 
 WORKING RULES:

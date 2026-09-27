@@ -25,7 +25,7 @@ modify-requires-approval = [
   "ffi/ (Zig FFI, security-critical crypto surface)",
   "test/ (the conformance gate itself)",
   ".github/workflows/ (CI gates)",
-  ".claude/CLAUDE.md (guardrail-blocked)",
+  "CLAUDE.md at repository root (PR-review guardrail)",
   "SPEC.core.scm (authoritative formal specification)",
 ]
 

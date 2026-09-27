@@ -176,7 +176,7 @@ fn main() -> () {
 This realises, in a non-dependent constrained language, the echo-types fibre
 `Echo f y := Σ (x : A), f x ≡ y`
 from link:https://github.com/hyperpolymath/echo-types[hyperpolymath/echo-types] (Agda).
-See link:docs/echo-alignment.md[docs/echo-alignment.md] and link:docs/specs/echo-6a2.adoc[docs/specs/echo-6a2.adoc] for the ecosystem alignment decisions.
+See link:docs/echo-alignment.adoc[docs/echo-alignment.adoc] and link:docs/specs/echo-6a2.adoc[docs/specs/echo-6a2.adoc] for the ecosystem alignment decisions.
 
 == Installation
 
@@ -349,20 +349,29 @@ See link:svalinn-compose.yaml[svalinn-compose.yaml] for full configuration.
 
 [source,bash]
 ----
-podman build -f Containerfile -t oblibeny:latest .
+podman build -f Containerfile.minimal -t oblibeny:latest .
 podman run -p 8765:8765 oblibeny:latest
 ----
 
 == Documentation
 
+*Learning paths* (issue #79) — audience-divided entry points beyond setup:
+
+- link:docs/learning-paths/end-users.adoc[End users] — use the language: guarantees, echoes, traces, packages
+- link:docs/learning-paths/developers.adoc[Developers] — extend the language: pipeline, proof layers, FFI
+- link:docs/learning-paths/maintainers.adoc[Maintainers] — run the project: gates, contractiles, release path
+
+Reference:
+
 - link:EXPLAINME.adoc[EXPLAINME] - What Oblíbený is, why it exists, and why it matters (start here)
-- link:docs/LANGUAGE-SPEC.md[Language Specification] - Complete grammar and semantics
-- link:docs/TUTORIAL.md[Tutorial] - Step-by-step guide with examples
+- link:docs/LANGUAGE-SPEC.adoc[Language Specification] - Complete grammar and semantics
+- link:docs/TUTORIAL.adoc[Tutorial] - Step-by-step guide with examples
 - link:examples/[Examples] - 10+ example programs
 - link:SPEC.core.scm[Core Specification] - Formal specification in Scheme
 - link:docs/CONTRACTILES.adoc[Contractiles] - Formal behavioral contracts and invariants
 - link:docs/specs/echo-6a2.adoc[Echo Interface Spec §6.a.2] - Echo-types external interface contract
-- link:docs/echo-alignment.md[Echo Alignment] - Decisions ledger for echo-types ecosystem alignment
+- link:docs/echo-alignment.adoc[Echo Alignment] - Decisions ledger for echo-types ecosystem alignment
+- link:docs/proof-debt.adoc[Proof debt] - soundness escape-hatch ledger (status: cleared)
 
 == Architecture
 
