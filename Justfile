@@ -84,7 +84,7 @@ check FILE:
 
 # Format OCaml code
 fmt:
-    dune fmt 2>/dev/null || ocamlformat --inplace lib/*.ml bin/*.ml test/*.ml 2>/dev/null || echo "ocamlformat not available"
+    dune fmt 2>/dev/null || ocamlformat --inplace lib/*.ml bin/*.ml tests/*.ml 2>/dev/null || echo "ocamlformat not available"
 
 # Run lints and static checks
 lint:
@@ -143,6 +143,50 @@ validate-spec:
 golden-path:
     @echo "Golden path (from ANCHOR):"
     @echo "  dune test && dune exec -- oblibeny examples/hello.obl"
+
+# ============================================================================
+# REPOSITORY SHAPE (estate alignment — RSR template machinery)
+# ============================================================================
+
+# Regenerate docs/architecture/REPOSITORY-MAP.adoc from the tree + allowlist
+repo-map:
+    @bash scripts/gen-repo-map.sh .
+
+# Fail if the generated repository map is stale (CI mirrors this)
+validate-repo-map:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    before=$(mktemp); cp docs/architecture/REPOSITORY-MAP.adoc "$before" 2>/dev/null || true
+    bash scripts/gen-repo-map.sh . >/dev/null
+    if ! diff -q "$before" docs/architecture/REPOSITORY-MAP.adoc >/dev/null 2>&1; then
+        echo "FAIL: docs/architecture/REPOSITORY-MAP.adoc is stale. Run: just repo-map" >&2
+        diff -u "$before" docs/architecture/REPOSITORY-MAP.adoc | head -40 >&2 || true
+        cp "$before" docs/architecture/REPOSITORY-MAP.adoc
+        exit 1
+    fi
+    rm -f "$before"
+    echo "repository map is fresh"
+
+# Enforce the canonical root shape in both directions (extras + missing)
+root-shape:
+    @bash scripts/check-root-shape.sh .
+
+# Full package-crypto gate (requires system liboqs + libsodium; mirrors ci.yml)
+package-crypto-e2e:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd ffi/zig
+    zig build -Doptimize=ReleaseSafe
+    zig build test
+    BIN=zig-out/bin/obli-pkg
+    "$BIN" version
+    rm -rf "$HOME/.obli-pkg"
+    "$BIN" keygen
+    mkdir -p /tmp/obli-e2e
+    tar czf /tmp/obli-e2e/hello-1.0.0.zpkg -C examples/packages hello.zpkg
+    "$BIN" sign /tmp/obli-e2e/hello-1.0.0.zpkg /tmp/obli-e2e/hello-signed.zpkg
+    "$BIN" verify /tmp/obli-e2e/hello-signed.zpkg
+    echo "✓ package-crypto end-to-end green (sign/verify roundtrip + self-check)"
 
 # ============================================================================
 # DISTRIBUTION PROOF-OF-CONCEPT

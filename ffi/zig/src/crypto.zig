@@ -207,6 +207,182 @@ fn verifyEd25519(
     return result == 0;
 }
 
+// ---------------------------------------------------------------------------
+// KEY GENERATION & SIGNING
+//
+// The signing half of the .zpkg scheme (obli-pkg keygen/sign). Sizes are the
+// algorithm constants: Dilithium5 sk=4864, SPHINCS+-SHA2-256f-simple sk=128,
+// Ed25519 sk=64 (libsodium concatenated sk||pk form).
+// ---------------------------------------------------------------------------
+
+extern "c" fn OQS_SIG_keypair(sig: *OQS_SIG, public_key: [*]u8, secret_key: [*]u8) c_int;
+extern "c" fn crypto_sign_ed25519_keypair(pk: [*]u8, sk: [*]u8) c_int;
+
+/// Secret-key size for a scheme (the counterpart of publicKeySize above).
+pub fn secretKeySize(self: SignatureScheme) usize {
+    return switch (self) {
+        .dilithium5 => 4864, // Dilithium5 secret key size
+        .sphincsplus => 128, // SPHINCS+-SHA2-256f-simple secret key size
+        .ed25519 => crypto_sign_ed25519_SECRETKEYBYTES,
+    };
+}
+
+/// A freshly generated key pair; both slices are allocator-owned.
+pub const KeyPair = struct {
+    public_key: []u8,
+    secret_key: []u8,
+};
+
+pub const SigningError = error{
+    SecretKeyWrongLength,
+    SigningFailed,
+    AllocationFailed,
+};
+
+/// Generate a new key pair for `scheme`. Caller frees both slices.
+pub fn generateKeypair(allocator: std.mem.Allocator, scheme: SignatureScheme) SigningError!KeyPair {
+    const pk = allocator.alloc(u8, scheme.publicKeySize()) catch return SigningError.AllocationFailed;
+    errdefer allocator.free(pk);
+    const sk = allocator.alloc(u8, scheme.secretKeySize()) catch return SigningError.AllocationFailed;
+    errdefer allocator.free(sk);
+
+    switch (scheme) {
+        .dilithium5 => {
+            const sig_obj = OQS_SIG_new(OQS_SIG_alg_dilithium_5) orelse return SigningError.SigningFailed;
+            defer OQS_SIG_free(sig_obj);
+            if (OQS_SIG_keypair(sig_obj, pk.ptr, sk.ptr) != OQS_SUCCESS) {
+                return SigningError.SigningFailed;
+            }
+        },
+        .sphincsplus => {
+            const sig_obj = OQS_SIG_new(OQS_SIG_alg_sphincssha2256fsimple) orelse return SigningError.SigningFailed;
+            defer OQS_SIG_free(sig_obj);
+            if (OQS_SIG_keypair(sig_obj, pk.ptr, sk.ptr) != OQS_SUCCESS) {
+                return SigningError.SigningFailed;
+            }
+        },
+        .ed25519 => {
+            if (crypto_sign_ed25519_keypair(pk.ptr, sk.ptr) != 0) {
+                return SigningError.SigningFailed;
+            }
+        },
+    }
+
+    return .{ .public_key = pk, .secret_key = sk };
+}
+
+/// Sign `message` under `scheme` with `secret_key`. Returns an allocator-owned
+/// signature whose length is exactly `scheme.signatureSize()` — the same shape
+/// `verifySignature` expects.
+pub fn signMessage(
+    allocator: std.mem.Allocator,
+    scheme: SignatureScheme,
+    message: []const u8,
+    secret_key: []const u8,
+) SigningError![]u8 {
+    if (secret_key.len != scheme.secretKeySize()) {
+        return SigningError.SecretKeyWrongLength;
+    }
+
+    const sig = allocator.alloc(u8, scheme.signatureSize()) catch return SigningError.AllocationFailed;
+    errdefer allocator.free(sig);
+
+    switch (scheme) {
+        .dilithium5 => {
+            const sig_obj = OQS_SIG_new(OQS_SIG_alg_dilithium_5) orelse return SigningError.SigningFailed;
+            defer OQS_SIG_free(sig_obj);
+            var sig_len: usize = 0;
+            if (OQS_SIG_sign(sig_obj, sig.ptr, &sig_len, message.ptr, message.len, secret_key.ptr) != OQS_SUCCESS) {
+                return SigningError.SigningFailed;
+            }
+            if (sig_len != scheme.signatureSize()) {
+                return SigningError.SigningFailed;
+            }
+        },
+        .sphincsplus => {
+            const sig_obj = OQS_SIG_new(OQS_SIG_alg_sphincssha2256fsimple) orelse return SigningError.SigningFailed;
+            defer OQS_SIG_free(sig_obj);
+            var sig_len: usize = 0;
+            if (OQS_SIG_sign(sig_obj, sig.ptr, &sig_len, message.ptr, message.len, secret_key.ptr) != OQS_SUCCESS) {
+                return SigningError.SigningFailed;
+            }
+            if (sig_len != scheme.signatureSize()) {
+                return SigningError.SigningFailed;
+            }
+        },
+        .ed25519 => {
+            var sig_len: c_ulonglong = 0;
+            if (crypto_sign_ed25519_detached(sig.ptr, &sig_len, message.ptr, message.len, secret_key.ptr) != 0) {
+                return SigningError.SigningFailed;
+            }
+            if (sig_len != sig.len) {
+                return SigningError.SigningFailed;
+            }
+        },
+    }
+
+    return sig;
+}
+
+// ---------------------------------------------------------------------------
+// TESTS — sign/verify roundtrips over freshly generated keys. These run under
+// `zig build test` (CI's liboqs job); they are the reason the verify path can
+// claim a matching signer exists rather than an MVP stub.
+// ---------------------------------------------------------------------------
+
+const testing = std.testing;
+
+fn expectSignVerifyRoundtrip(scheme: SignatureScheme) !void {
+    const kp = try generateKeypair(testing.allocator, scheme);
+    defer testing.allocator.free(kp.public_key);
+    defer testing.allocator.free(kp.secret_key);
+
+    try testing.expectEqual(scheme.publicKeySize(), kp.public_key.len);
+    try testing.expectEqual(scheme.secretKeySize(), kp.secret_key.len);
+
+    const msg = "oblibeny roundtrip vector: termination, reversibility, accountability.";
+
+    const sig = try signMessage(testing.allocator, scheme, msg, kp.secret_key);
+    defer testing.allocator.free(sig);
+    try testing.expectEqual(scheme.signatureSize(), sig.len);
+    try testing.expect(try verifySignature(scheme, msg, sig, kp.public_key));
+
+    // A flipped payload byte must invalidate the signature...
+    const bad_msg = try testing.allocator.dupe(u8, msg);
+    defer testing.allocator.free(bad_msg);
+    bad_msg[0] ^= 0x01;
+    try testing.expect(!try verifySignature(scheme, bad_msg, sig, kp.public_key));
+
+    // ...and so must a flipped signature byte.
+    const bad_sig = try testing.allocator.dupe(u8, sig);
+    defer testing.allocator.free(bad_sig);
+    bad_sig[bad_sig.len - 1] ^= 0x01;
+    try testing.expect(!try verifySignature(scheme, msg, bad_sig, kp.public_key));
+}
+
+test "dilithium5 sign/verify roundtrip" {
+    try init();
+    try expectSignVerifyRoundtrip(.dilithium5);
+}
+
+test "sphincsplus sign/verify roundtrip" {
+    try init();
+    try expectSignVerifyRoundtrip(.sphincsplus);
+}
+
+test "ed25519 sign/verify roundtrip" {
+    try init();
+    try expectSignVerifyRoundtrip(.ed25519);
+}
+
+test "wrong-length secret key is rejected before any crypto runs" {
+    try init();
+    try testing.expectError(
+        SigningError.SecretKeyWrongLength,
+        signMessage(testing.allocator, .ed25519, "m", "short"),
+    );
+}
+
 /// Verify triple signature (all three schemes must pass)
 pub fn verifyTripleSignature(
     message: []const u8,

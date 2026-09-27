@@ -38,7 +38,7 @@ pins live in `.tool-versions`.
     ├── .github/workflows/   # CI gates (see ci.yml root-cause note)
     ├── justfile             # Task runner — all operations go through this
     ├── README.adoc
-    ├── GOVERNANCE.adoc      # Sole-maintainer governance model
+    ├── docs/GOVERNANCE.adoc # Sole-maintainer governance model (docs/ since 2026-09-27)
     ├── MAINTAINERS.adoc
     ├── ROADMAP.adoc
     └── SECURITY.md

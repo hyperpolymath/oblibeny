@@ -40,9 +40,9 @@ what a maintainer actually does in a normal week.
 |`scorecard.yml` → standards reusable
 |OpenSSF Scorecard, nightly (schedule-only by design, PR #113).
 
-|Repo-map freshness
-|`ci.yml` repo-map job
-|`docs/architecture/REPOSITORY-MAP.adoc` must regenerate byte-identical; CI fails on drift.
+|Repo-map + root shape
+|`ci.yml` repo-shape job
+|`docs/architecture/REPOSITORY-MAP.adoc` must regenerate byte-identical, and the root must match `.machine_readable/root-allow.txt` in both directions; CI fails on drift.
 |===
 
 == The two failure modes that eat this estate (and their cures)
@@ -136,7 +136,7 @@ fill it from the green runs *of the release commit*, not from memory.
 == Where to go next
 
 - link:end-users.adoc[End-user path] · link:developers.adoc[Developer path].
-- `GOVERNANCE.adoc`, `MAINTAINERS.adoc`, `SECURITY.adoc` — the constitutional
+- `docs/GOVERNANCE.adoc`, `MAINTAINERS.adoc`, `SECURITY.adoc` — the constitutional
   documents.
 - Estate references: `hyperpolymath/standards` (policies and reusable
   workflows) and `hyperpolymath/rsr-template-repo` (the template this repo

@@ -40,7 +40,7 @@ anchor, reproduction commands, and epistemic contract.
 | Check | Command | Status | Where we are (this session)
 
 | `build`             | `dune build`                           | ✅ | exit 0
-| `test`              | `dune test`                            | ✅ | exit 0; `test/conformance_test.ml` = *27 `test_case`s* (the documented suite)
+| `test`              | `dune test`                            | ✅ | exit 0; `tests/conformance_test.ml` = *27 `test_case`s* (the documented suite)
 | `golden-path`       | `oblibeny examples/hello.obl --dump-trace` | ✅ | exit 0; real *26-entry* accountability trace, hash `260943924`
 | `lint`              | `dune build @check` ⟶ `dune build`     | ✅ | covered by the green build
 | `fmt` (warning)     | `dune fmt`                             | ✅ | non-blocking (severity *warning*)
@@ -48,7 +48,7 @@ anchor, reproduction commands, and epistemic contract.
 | `license-present`   | `test -f LICENSE`                      | ✅ | present (MPL-2.0)
 | `readme-present`    | `test -f README.adoc`                  | ✅ | present
 | `security-policy`   | `test -f SECURITY.md`                  | ✅ | present
-| `governance-docs`   | `GOVERNANCE.adoc` + `MAINTAINERS.adoc` + `.github/CODEOWNERS` | ✅ | all present
+| `governance-docs`   | `docs/GOVERNANCE.adoc` + `MAINTAINERS.adoc` + `.github/CODEOWNERS` | ✅ | all present
 | `six-a2-present`    | the six `.machine_readable/descriptiles/*.a2ml` | ✅ | STATE/META/ECOSYSTEM/AGENTIC/NEUROSYM/PLAYBOOK all present
 | `spdx-headers` (warning) | SPDX on `lib/*.ml` + `bin/*.ml`   | ✅ | *0* missing
 | *`proofs`*          | `idris2 --build src/abi/oblibeny-abi.ipkg` | 📄 | *NOT run — `idris2` absent.* Documented: genuine total proofs since PR #51, no `believe_me`/`postulate`, CI-gated since PR #52. Re-run to upgrade to live.

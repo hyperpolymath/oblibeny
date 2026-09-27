@@ -130,7 +130,7 @@ faithful to `staticTrace`.
   reversible? If it is destructive, it should produce an echo.
 . Mirror it in the Idris2 model (`src/abi/Lang/Syntax.idr` → `Eval.idr`) —
   a feature the model does not know about silently widens the fidelity gap.
-. Extend the conformance suite (`test/conformance_test.ml`) — a behaviour
+. Extend the conformance suite (`tests/conformance_test.ml`) — a behaviour
   change without a conformance test is a regression lottery.
 . Update the honest tables (`README.adoc` status rows,
   `descriptiles/STATE.a2ml`) in the same PR.

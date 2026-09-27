@@ -53,6 +53,14 @@ pub fn main() !void {
             return;
         }
         try verifyPackage(allocator, args[2]);
+    } else if (std.mem.eql(u8, command, "keygen")) {
+        try keygen(allocator);
+    } else if (std.mem.eql(u8, command, "sign")) {
+        if (args.len < 4) {
+            try printError("sign requires an input package path and an output path");
+            return;
+        }
+        try signPackage(allocator, args[2], args[3]);
     } else {
         try printError("unknown command");
         try printUsage();
@@ -87,12 +95,17 @@ fn printUsage() !void {
         \\  remove <name>        Remove an installed package
         \\  list                 List installed packages
         \\  verify <pkg.zpkg>    Verify package signatures
+        \\  keygen               Generate the triple keyring (~/.obli-pkg/keyring/)
+        \\  sign <in.zpkg> <out.zpkg>
+        \\                       Sign a package with the keyring (all three schemes)
         \\
         \\Examples:
         \\  obli-pkg install hello-1.0.0.zpkg
         \\  obli-pkg list
         \\  obli-pkg remove hello
         \\  obli-pkg verify hello-1.0.0.zpkg
+        \\  obli-pkg keygen
+        \\  obli-pkg sign hello-1.0.0.zpkg hello-1.0.0.signed.zpkg
         \\
     ;
     _ = try posix.write(posix.STDOUT_FILENO, msg);
@@ -271,6 +284,202 @@ fn listPackages() !void {
         const summary = try std.fmt.bufPrint(&summary_buf, "\nTotal: {d} package(s)\n", .{count});
         _ = try posix.write(posix.STDOUT_FILENO, summary);
     }
+}
+
+/// Locate the keyring directory the same way verify does: fail-closed on a
+/// missing HOME rather than ever falling back to a world-writable path.
+fn keyringDir(allocator: std.mem.Allocator) ![]u8 {
+    const home = std.process.getEnvVarOwned(allocator, "HOME") catch {
+        return error.NoHomeDirectory;
+    };
+    errdefer allocator.free(home);
+    var path_buf: [512]u8 = undefined;
+    const path = try std.fmt.bufPrint(&path_buf, "{s}/.obli-pkg/keyring/", .{home});
+    return allocator.dupe(u8, path);
+}
+
+/// `obli-pkg keygen` — generate the triple keyring. Existing key files are
+/// never silently overwritten: keygen refuses unless the keyring directory
+/// does not yet exist (fresh install) or is empty.
+fn keygen(allocator: std.mem.Allocator) !void {
+    _ = try posix.write(posix.STDOUT_FILENO, "[obli-pkg] Generating triple keyring...\n");
+
+    const keyring_path = try keyringDir(allocator);
+    defer allocator.free(keyring_path);
+
+    // Refuse to clobber: if any key file already exists, stop.
+    std.fs.cwd().access(keyring_path, .{}) catch |_| {
+        std.fs.cwd().makePath(keyring_path) catch |err| {
+            var buf: [256]u8 = undefined;
+            const msg = try std.fmt.bufPrint(&buf, "  ✗ Cannot create keyring directory: {}\n", .{err});
+            _ = try posix.write(posix.STDERR_FILENO, msg);
+            return err;
+        };
+        return; // freshly created; nothing to clobber
+    };
+
+    var dir = std.fs.cwd().openDir(keyring_path, .{ .iterate = true }) catch |err| {
+        var buf: [256]u8 = undefined;
+        const msg = try std.fmt.bufPrint(&buf, "  ✗ Cannot read keyring directory: {}\n", .{err});
+        _ = try posix.write(posix.STDERR_FILENO, msg);
+        return err;
+    };
+    defer dir.close();
+    var it = dir.iterate();
+    while (try it.next()) |existing| {
+        if (existing.kind == .file) {
+            _ = try posix.write(posix.STDERR_FILENO, "  ✗ Keyring already populated; refusing to overwrite existing keys (delete the directory to rekey)\n");
+            return error.KeyringAlreadyExists;
+        }
+    }
+
+    const schemes = [_]struct { scheme: crypto.SignatureScheme, stem: []const u8 }{
+        .{ .scheme = .dilithium5, .stem = "dilithium5" },
+        .{ .scheme = .sphincsplus, .stem = "sphincsplus" },
+        .{ .scheme = .ed25519, .stem = "ed25519" },
+    };
+
+    for (schemes) |entry| {
+        const kp = try crypto.generateKeypair(allocator, entry.scheme);
+        defer allocator.free(kp.public_key);
+        defer allocator.free(kp.secret_key);
+
+        var pub_buf: [512]u8 = undefined;
+        const pub_path = try std.fmt.bufPrint(&pub_buf, "{s}{s}.pub", .{ keyring_path, entry.stem });
+        try writeKeyFile(pub_path, kp.public_key);
+
+        var sec_buf: [512]u8 = undefined;
+        const sec_path = try std.fmt.bufPrint(&sec_buf, "{s}{s}.secret", .{ keyring_path, entry.stem });
+        try writeKeyFile(sec_path, kp.secret_key);
+
+        // Print a public fingerprint (SHA-256 over the public key) so a human
+        // can compare keyrings without ever printing key material.
+        var digest: [32]u8 = undefined;
+        std.crypto.hash.sha2.Sha256.hash(kp.public_key, &digest, .{});
+        var hex_buf: [64]u8 = undefined;
+        _ = std.fmt.bufPrint(&hex_buf, "{s}", .{std.fmt.fmtSliceHexLower(&digest)}) catch unreachable;
+        var line_buf: [256]u8 = undefined;
+        const line = try std.fmt.bufPrint(&line_buf, "  ✓ {s}: public key fingerprint sha256:{s}\n", .{ entry.scheme.name(), hex_buf });
+        _ = try posix.write(posix.STDOUT_FILENO, line);
+    }
+
+    _ = try posix.write(posix.STDOUT_FILENO, "  Keyring written (secret keys are 0600). Back it up; there is no recovery.\n");
+}
+
+/// Write a key file with 0600 permissions (secret AND public: the keyring is
+/// nobody else's business).
+fn writeKeyFile(path: []const u8, key: []const u8) !void {
+    const file = try std.fs.cwd().createFile(path, .{ .mode = 0o600 });
+    defer file.close();
+    try file.writeAll(key);
+}
+
+/// `obli-pkg sign <in.zpkg> <out.zpkg>` — produce the canonical signed payload
+/// (package bytes minus any SIGNATURE: envelope lines) and append a fresh
+/// triple-signature envelope. The output is then verified in-process: a sign
+/// command that produced something the verify path would reject is a hard
+/// failure, never a warning.
+fn signPackage(allocator: std.mem.Allocator, in_path: []const u8, out_path: []const u8) !void {
+    var buf: [512]u8 = undefined;
+    const msg = try std.fmt.bufPrint(&buf,
+        \\[obli-pkg] Signing package: {s}
+        \\
+    , .{in_path});
+    _ = try posix.write(posix.STDOUT_FILENO, msg);
+
+    // Read the input package.
+    const file = std.fs.cwd().openFile(in_path, .{}) catch |err| {
+        var ebuf: [256]u8 = undefined;
+        const emsg = try std.fmt.bufPrint(&ebuf, "  ✗ Failed to open package: {}\n", .{err});
+        _ = try posix.write(posix.STDERR_FILENO, emsg);
+        return err;
+    };
+    defer file.close();
+    const pkg_content = try file.readToEndAlloc(allocator, 100 * 1024 * 1024);
+    defer allocator.free(pkg_content);
+
+    // Canonical payload: identical derivation to the verifier.
+    _ = try posix.write(posix.STDOUT_FILENO, "  → Deriving canonical payload...\n");
+    const signed_payload = try deriveSignedPayload(allocator, pkg_content);
+    defer allocator.free(signed_payload);
+
+    // Load the signing keyring (fail-closed, same rules as verify).
+    _ = try posix.write(posix.STDOUT_FILENO, "  → Loading signing keys...\n");
+    const keyring_path = try keyringDir(allocator);
+    defer allocator.free(keyring_path);
+
+    var d5_sk: [4864]u8 = undefined;
+    var sp_sk: [128]u8 = undefined;
+    var ed_sk: [64]u8 = undefined;
+
+    readKey(keyring_path, "dilithium5.secret", &d5_sk) catch |err| {
+        _ = try posix.write(posix.STDERR_FILENO, "  ✗ Dilithium5 secret key missing or wrong length; refusing to sign (fail-closed; run: obli-pkg keygen)\n");
+        return err;
+    };
+    readKey(keyring_path, "sphincsplus.secret", &sp_sk) catch |err| {
+        _ = try posix.write(posix.STDERR_FILENO, "  ✗ SPHINCS+ secret key missing or wrong length; refusing to sign (fail-closed; run: obli-pkg keygen)\n");
+        return err;
+    };
+    readKey(keyring_path, "ed25519.secret", &ed_sk) catch |err| {
+        _ = try posix.write(posix.STDERR_FILENO, "  ✗ Ed25519 secret key missing or wrong length; refusing to sign (fail-closed; run: obli-pkg keygen)\n");
+        return err;
+    };
+
+    // Sign the canonical payload with all three schemes.
+    const schemes = [_]struct { scheme: crypto.SignatureScheme, sk: []const u8, name: []const u8 }{
+        .{ .scheme = .dilithium5, .sk = &d5_sk, .name = "dilithium5" },
+        .{ .scheme = .sphincsplus, .sk = &sp_sk, .name = "sphincsplus" },
+        .{ .scheme = .ed25519, .sk = &ed_sk, .name = "ed25519" },
+    };
+
+    var out = std.ArrayList(u8).init(allocator);
+    defer out.deinit();
+    try out.appendSlice(signed_payload);
+
+    const encoder = std.base64.standard.Encoder;
+    for (schemes) |entry| {
+        _ = try posix.write(posix.STDOUT_FILENO, "  → Signing (");
+        _ = try posix.write(posix.STDOUT_FILENO, entry.name);
+        _ = try posix.write(posix.STDOUT_FILENO, ")...\n");
+        const sig = try crypto.signMessage(allocator, entry.scheme, signed_payload, entry.sk);
+        defer allocator.free(sig);
+
+        const b64_len = encoder.calcSize(sig.len);
+        const b64 = try allocator.alloc(u8, b64_len);
+        defer allocator.free(b64);
+        _ = encoder.encode(b64, sig);
+
+        var line_buf: [96]u8 = undefined;
+        const header = try std.fmt.bufPrint(&line_buf, "SIGNATURE:{s}.sig:", .{entry.name});
+        try out.appendSlice(header);
+        try out.appendSlice(b64);
+        try out.append('\n');
+    }
+
+    // Write the signed package.
+    const out_file = std.fs.cwd().createFile(out_path, .{}) catch |err| {
+        var ebuf: [256]u8 = undefined;
+        const emsg = try std.fmt.bufPrint(&ebuf, "  ✗ Failed to create output package: {}\n", .{err});
+        _ = try posix.write(posix.STDERR_FILENO, emsg);
+        return err;
+    };
+    defer out_file.close();
+    try out_file.writeAll(out.items);
+
+    _ = try posix.write(posix.STDOUT_FILENO, "  → Self-check: verifying the signed output...\n");
+    const ok = verifyPackageInternal(allocator, out_path) catch |err| {
+        var ebuf: [256]u8 = undefined;
+        const emsg = try std.fmt.bufPrint(&ebuf, "  ✗ Self-verify crashed ({}); the output MUST NOT be distributed\n", .{err});
+        _ = try posix.write(posix.STDERR_FILENO, emsg);
+        return err;
+    };
+    if (!ok) {
+        _ = try posix.write(posix.STDERR_FILENO, "  ✗ SELF-CHECK FAILED: signed output does not verify; it MUST NOT be distributed\n");
+        return error.SignSelfCheckFailed;
+    }
+
+    const done = try std.fmt.bufPrint(&buf, "  ✓ Signed package written and self-verified: {s}\n", .{out_path});
+    _ = try posix.write(posix.STDOUT_FILENO, done);
 }
 
 fn verifyPackage(allocator: std.mem.Allocator, pkg_path: []const u8) !void {

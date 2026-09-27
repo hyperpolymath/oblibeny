@@ -19,7 +19,7 @@ Oblíbený (Czech for "favorite" or "beloved") is a dual-form programming langua
 
 == Status: Active Development
 
-*CI-gated since 2026-06* -- the language toolchain is functional: OCaml build, the 27-test conformance suite, and the Idris2 ABI proof layer (genuine total proofs since PR #51, no `believe_me`/`postulate`) are all gated in CI (PR #52). Honest open items: the Zig crypto FFI compiles (Zig 0.13, PR #56) but links only where the external `liboqs` library is installed; the `obli-pkg` signature-verify path is an explicit MVP stub (`TODO(security)`); see `.machine_readable/descriptiles/STATE.a2ml` for the live blocker list.
+*CI-gated since 2026-06; full estate gate since 2026-09-27 (PR #137)* -- the language toolchain is functional: OCaml build, the 27-test conformance suite, the Idris2 ABI proof layer (genuine total proofs since PR #51, no `believe_me`/`postulate`), the Zig FFI build against a commit-pinned liboqs, and an end-to-end package-crypto gate (`obli-pkg keygen → sign → verify → tamper-reject`) are all gated in CI. The `obli-pkg` triple-signature scheme now has a real signer (self-verifying output); residual #60 work is deterministic test vectors and audit tooling. See `.machine_readable/descriptiles/STATE.a2ml` for the live blocker list.
 
 [cols="1,1,3",options="header"]
 |===
@@ -58,12 +58,12 @@ Oblíbený (Czech for "favorite" or "beloved") is a dual-form programming langua
 |Language specification, tutorial, security model, API reference, EXPLAINME, contractiles, echo-6a2 spec
 
 |*Crypto FFI*
-|⚠️ Compiles
-|Post-quantum crypto (liboqs + libsodium) via Zig FFI with Idris2 ABI proofs; compiles under Zig 0.13, links only with system liboqs; obli-pkg verify path is an MVP stub (TODO(security))
+|✅ Builds + e2e-gated
+|Post-quantum crypto (liboqs + libsodium) via Zig FFI with Idris2 ABI proofs; CI builds liboqs pinned by commit (0.12.0) and runs `obli-pkg keygen → sign → verify → tamper-reject` end-to-end (PR #137; closes the #60 signer gap). obli-pkg's triple-signature scheme has a real signer and self-verifying output
 
 |*Deployment*
-|Configured; validation required
-|Container/deployment configuration exists. This table does not establish a verified deployed compiler/runtime or close the crypto/package verification gaps above.
+|Configured; container build not CI-gated
+|Container/deployment configuration exists (three layered Containerfiles). The CI gate covers compiler, proofs and package crypto; a deployed runtime is still not asserted by this table.
 |===
 
 == Unique Features

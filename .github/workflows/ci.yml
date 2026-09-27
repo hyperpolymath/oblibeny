@@ -51,9 +51,11 @@ jobs:
         run: dune runtest
 
   zig-ffi:
-    name: Zig FFI compile check
+    name: Zig FFI build + package-crypto end-to-end
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
+    env:
+      DEBIAN_FRONTEND: noninteractive
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
@@ -71,15 +73,95 @@ jobs:
           tar -xJf /tmp/zig.tar.xz -C "$HOME/zig" --strip-components=1
           echo "$HOME/zig" >> "$GITHUB_PATH"
 
-      # ast-check compiles-checks every FFI source without linking — a full
-      # `zig build` link needs system liboqs/libsodium (see ffi/zig/build.zig
-      # and Containerfile.liboqs; deferred until a liboqs image gates CI).
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build libsodium-dev
+
+      # liboqs pinned BY COMMIT (the 0.12.0 release tag) — a git-sha pin, not
+      # a floating tarball. This closes the STATE.a2ml n03 decision: build
+      # liboqs from source in CI at a pinned revision.
+      - name: Build liboqs 0.12.0 (pinned commit f4b96220)
+        run: |
+          git clone https://github.com/open-quantum-safe/liboqs /tmp/liboqs
+          git -C /tmp/liboqs checkout --detach f4b96220e4bd208895172acc4fedb5a191d9f5b1  # tag 0.12.0
+          cmake -S /tmp/liboqs -B /tmp/liboqs/build -GNinja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DOQS_BUILD_ONLY_LIB=ON \
+            -DOQS_USE_OPENSSL=OFF
+          cmake --build /tmp/liboqs/build
+          sudo cmake --install /tmp/liboqs/build
+          sudo ldconfig
+
+      # Cheap syntax/AstGen gate first (catches shadowing, syntax) so a
+      # broken source fails fast before the slower links below.
       - name: Compile-check FFI sources (zig ast-check)
         run: |
           for f in ffi/zig/src/*.zig ffi/zig/src/packages/*.zig; do
             echo "ast-check $f"
             zig ast-check "$f"
           done
+
+      - name: Build FFI (zig build, ReleaseSafe)
+        run: |
+          cd ffi/zig
+          zig build -Doptimize=ReleaseSafe
+
+      # Sign/verify roundtrips over freshly generated keys, all three schemes,
+      # including tamper-rejection — the proof layer that the verify path has
+      # a real, matching signer (issue #60).
+      - name: Crypto roundtrip tests (zig build test)
+        run: |
+          cd ffi/zig
+          zig build test
+
+      # Full .zpkg pipeline on a real tarball: generate keyring, sign, verify,
+      # then prove the check bites (payload tamper AND signature tamper are
+      # both rejected).
+      - name: Package signing end-to-end (keygen, sign, verify, tamper-reject)
+        run: |
+          set -euo pipefail
+          BIN=ffi/zig/zig-out/bin/obli-pkg
+          "$BIN" version
+          rm -rf "$HOME/.obli-pkg"
+          "$BIN" keygen
+          mkdir -p /tmp/e2e
+          tar czf /tmp/e2e/hello-1.0.0.zpkg -C examples/packages hello.zpkg
+          "$BIN" sign /tmp/e2e/hello-1.0.0.zpkg /tmp/e2e/hello-signed.zpkg
+          "$BIN" verify /tmp/e2e/hello-signed.zpkg
+          # Payload tamper: every signature must be rejected.
+          printf '\x00' | dd of=/tmp/e2e/hello-signed.zpkg bs=1 seek=3 count=1 conv=notrunc status=none
+          if "$BIN" verify /tmp/e2e/hello-signed.zpkg; then
+            echo "::error::tampered package verified — signature check is not real"
+            exit 1
+          fi
+          # Re-sign, then tamper with the final signature envelope: rejected.
+          "$BIN" sign /tmp/e2e/hello-1.0.0.zpkg /tmp/e2e/hello-signed2.zpkg
+          size=$(stat -c%s /tmp/e2e/hello-signed2.zpkg)
+          printf 'X' | dd of=/tmp/e2e/hello-signed2.zpkg bs=1 seek=$((size-1)) conv=notrunc status=none
+          if "$BIN" verify /tmp/e2e/hello-signed2.zpkg; then
+            echo "::error::package with tampered signature verified"
+            exit 1
+          fi
+          echo "package-crypto end-to-end: keygen, sign, verify, tamper-reject all pass"
+
+  # Estate alignment (RSR template machinery): the generated repository map
+  # must regenerate byte-identically, and the root must match its allowlist.
+  # Both directions matter — a stale map rots exactly like the hand-written
+  # ones this replaces; a root extra/missing entry is drift by definition.
+  repo-shape:
+    name: Repository map + root shape
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Root shape matches allowlist
+        run: bash scripts/check-root-shape.sh .
+
+      - name: Repository map is fresh
+        run: bash scripts/gen-repo-map.sh . && git diff --exit-code docs/architecture/REPOSITORY-MAP.adoc
 
   idris-proofs:
     name: Idris2 ABI proofs

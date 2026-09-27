@@ -17,6 +17,29 @@ https://semver.org/spec/v2.0.0.html[Semantic Versioning].
 
 ==== Added
 
+* feat(pkg): real `+obli-pkg+` signing scheme — `+keygen+` (triple keyring,
+0600, clobber-proof) and `+sign+` (canonical payload via
+`+deriveSignedPayload+`, Dilithium5 + SPHINCS+ + Ed25519 over the envelope-stripped
+bytes, self-verifying output). Closes the signer side of #60
+* feat(crypto): Zig signing API — `+generateKeypair+` / `+signMessage+` for
+all three schemes; sign/verify roundtrip tests with tamper-rejection
+* ci: Zig FFI job upgraded from compile-check to a full gate — liboqs built
+from source pinned by commit (0.12.0 = f4b96220), `+zig build+` ReleaseSafe,
+`+zig build test+` roundtrips, and a package end-to-end (keygen → sign →
+verify → tamper-reject ×2). Closes the STATE n03 CI-strategy decision
+* docs: audience-divided learning paths (end users / developers /
+maintainers) — issue #79
+* docs: `+AUDIT.adoc+` release audit gate; generated
+`+docs/architecture/REPOSITORY-MAP.adoc+` (CI-freshness-gated); root-shape
+allowlist (`+scripts/check-root-shape.sh+`); `+.well-known/security.txt+`
+(RFC 9116); `+.machine_readable/rsr-profile.a2ml+` capability declaration
+* docs: `+CLAUDE.md+` rewritten for this repository and moved to the
+estate-canonical root path (was `+.claude/CLAUDE.md+` with stale `.scm`
+references and another repo's language policy) — issue #63
+* chore: session-narrative logs moved to `+docs/history/+`;
+`+REQUIRES_INITIALISATION.adoc+` retired (its two "tokens" were just recipe
+parameters, not unfilled substitutions)
+
 * feat(types): add first-class `+echo[A, B]+` residue type to
 constrained form — structured, proof-relevant residue of irreversible
 collapse; content-sensitive affinity (affine iff A or B is
@@ -52,6 +75,15 @@ integration
 * feat(ci): enable Hypatia scanning
 
 ==== Fixed
+
+* fix(ci): all five startup-failed workflows unblocked — codeql-action held
+at the estate-approved v4.38.0 with a Dependabot ignore (4.38.1 is
+estate-blocked, nexia-list#100; PRs #136/#135 recurrence), governance +
+hypatia re-pointed from a history-rewritten standards SHA (4696052,
+unreachable) to the published main tip, stale-but-reachable callers
+converged, actions.lock completed with the new SHA-form transitive deps
+* fix(docs): dead `.md` links (LANGUAGE-SPEC, TUTORIAL, echo-alignment) and
+the nonexistent plain `+Containerfile+` reference in README
 
 * fix(ci): sync hypatia-scan.yml to canonical (kill cd-scanner build
 drift) (#34)

@@ -7,7 +7,7 @@ project = "oblibeny"
 version = "0.0.1"
 schema-version = "1.0"
 created = "2026-01-03"
-last-updated = "2026-06-12"
+last-updated = "2026-09-27"
 repo = "github.com/hyperpolymath/oblibeny"
 status = "active-development"
 
@@ -46,7 +46,7 @@ ocaml-files = 20
 zig-files = 5
 idris-files = 3
 vscode-extension = true
-ci-gate = "build + 27-test conformance suite + Idris2 ABI proof type-check + escape-hatch guard (ci.yml, since PR #52)"
+ci-gate = "build + 27-test conformance suite + Idris2 ABI proof type-check + escape-hatch guard + Zig FFI build against commit-pinned liboqs + package-crypto end-to-end + repo-map/root-shape (ci.yml, PR #52 era + PR #137)"
 
 # ---------------------------------------------------------------------------
 # Recent work landed on main since the previous STATE checkpoint
@@ -62,26 +62,33 @@ pr-54 = "Removed 6 orphaned submodule gitlinks (no .gitmodules, no upstream repo
 pr-55 = "Echo-reversibility linear discipline: non-copyable echoes must be consumed exactly once (overwrite/drop discipline); conformance suite grew to 27 tests"
 pr-56 = "Metadata migrated .machine_readable/*.scm to .machine_readable/descriptiles/*.a2ml (estate convention); Zig FFI compile-fixes for Zig 0.13 (build.zig LazyPath idiom, obli-pkg.zig fixes); CodeQL cron weekly to monthly"
 pr-57-58 = "Dependabot: codeql-action 4.36.0->4.36.2, actions/checkout 6.0.2->6.0.3"
+pr-109 = "Zig FFI CI gate (pinned 0.13.0) + obli-pkg verification hardening (canonical payload derivation, fail-closed keyring)"
+pr-110-to-135 = "Root/container consolidation (3 Containerfiles), AsciiDoc canonicalisation, contributing guide relocation, estate label tooling, actions.lock reconciliation (#135), permissions repairs (#133/#134)"
+pr-136-plus-137 = "Dependabot merged estate-blocked codeql-action 4.38.1 (startup-failure regression, second occurrence in 5 days); PR #137: estate-shaped dependabot hold, codeql/semgrep reverted to v4.38.0, standards reusable pins re-pointed from unreachable 4696052 to published tip 2479cf7, actions.lock completed, hypatia pinned to last-known-good da2c748 pending standards#1050"
+pr-137-alignment = "PR #137 estate-alignment pass: CLAUDE.md rewrite+move (#63), learning paths (#79), .well-known/security.txt, AUDIT.adoc, generated REPOSITORY-MAP (CI-freshness-gated), root-shape allowlist + checker, rsr-profile.a2ml, session logs to docs/history/, REQUIRES_INITIALISATION retired, test/ -> tests/, GOVERNANCE.adoc -> docs/, obli-pkg keygen/sign + crypto signing API + liboqs CI gate (#60 signer half)"
 pr-73-77 = "Language-soundness metatheory (src/abi/Lang/*): machine-checked Idris2 proofs of the constrained form's four guarantees — termination (call-free + full-language via the acyclic-call-graph rank), checker soundness (a ranking rules out direct/mutual recursion), reversibility (inverse involution + the echo[A,B] boundary), and resource-bound = accountability-trace-length. Faithful model of lib/ast.ml/eval.ml/constrained_check.ml; %default total; zero escape hatches; idris2 --build green (Idris2 0.7.0). Modules Lang.{Syntax,Eval,Checker,Reversible,Resource} + src/abi/Lang/README.adoc. Follow-ons (3b/4b/5b/verified-extraction) tracked in #78. (2026-06-21)"
 
 # ---------------------------------------------------------------------------
-# Current blockers (live list, 2026-06-12). The [blockers.*] tables further
-# down are the HISTORICAL 60%-checkpoint list, retained for provenance.
+# Current blockers (live list, 2026-09-27, updated by PR #137). The
+# [blockers.*] tables further down are the HISTORICAL 60%-checkpoint list,
+# retained for provenance.
 # ---------------------------------------------------------------------------
 
 [blockers-current]
-liboqs-link-dep = "Zig FFI compiles under Zig 0.13 but the link step fails on the absent liboqs system library (external dependency; ffi/zig/build.zig linkSystemLibrary(\"oqs\")). CI does not build the Zig FFI."
-obli-pkg-verify-stub = "obli-pkg signature-verify path is an explicit MVP stub with a placeholder payload — TODO(security) at ffi/zig/src/obli-pkg.zig:377; the canonical signed payload still needs deriving"
-farm-dispatch-token = "FARM_DISPATCH_TOKEN secret expired/invalid (found in PR #52); instant-sync is presence-gated since #53, but propagation stays off until the maintainer rotates the secret"
-claude-md-stale-refs = ".claude/CLAUDE.md still references .machine_readable/*.scm files removed by the #56 migration; file is guardrail-blocked, needs a maintainer edit"
+farm-dispatch-token = "FARM_DISPATCH_TOKEN secret expired/invalid (found in PR #52); instant-sync is presence-gated since #53, but propagation stays off until the maintainer rotates the secret (issue #61, maintainer-only)"
+obli-pkg-vector-residue = "obli-pkg has a real signer + CI end-to-end gate (PR #137); #60 remains open for deterministic cross-tool test vectors, index signing, and the shake3-512 manifest layer described in docs/PACKAGE-FORMAT-SPEC.adoc"
+debugger-profiler-placeholders = "Documented, not hidden: forward stepping / continue (lib/debugger.ml) and real call counts / timing (lib/profiler.ml) are placeholders — see README status rows"
+static-analyzer-partial = "Call analysis and struct-size accounting incomplete (README status row)"
+model-fidelity-gap = "Lang.* metatheory proves the constrained form's guarantees over a faithful Idris2 MODEL of the OCaml implementation, not the implementation itself — closing that is the open endpoint of #78"
 
 [next-actions]
-n01 = "Rotate FARM_DISPATCH_TOKEN (maintainer; gh secret set FARM_DISPATCH_TOKEN)"
-n02 = "Derive the real signed payload for obli-pkg verify (closes TODO(security))"
-n03 = "Decide CI strategy for the Zig FFI: build liboqs from source in CI or vendor a pinned build"
-n04 = "Maintainer edit of .claude/CLAUDE.md: .scm references -> .machine_readable/descriptiles/*.a2ml"
+n01 = "Rotate FARM_DISPATCH_TOKEN (maintainer; gh secret set FARM_DISPATCH_TOKEN --repo hyperpolymath/oblibeny) — issue #61"
+n02 = "#60 residue: deterministic obli-pkg test vectors + index signing tool"
+n03 = "DONE 2026-09-27 (PR #137): CI builds liboqs from source pinned by commit (0.12.0 = f4b96220) and runs the package-crypto end-to-end gate"
+n04 = "DONE 2026-09-27 (PR #137): CLAUDE.md rewritten + moved to repository root (closes #63)"
 n05 = "Language-metatheory follow-ons toward verified extraction (#78): 3b checker completeness, 4b general reversibility, 5b runtime-trace faithfulness"
-n06 = "Educational docs: developer/maintainer/end-user learning paths beyond setup (#79)"
+n06 = "DONE 2026-09-27 (PR #137): audience-divided learning paths at docs/learning-paths/ (closes #79)"
+n07 = "Refresh hypatia-scan.yml pin from da2c748 to the standards tip once standards#1050 (hypatia.sarif regression) is cleared"
 
 # ---------------------------------------------------------------------------
 # Components — each is complete (status complete, 100% where a completion
@@ -113,11 +120,12 @@ status = "complete"
 file = "lib/ast.ml"
 
 [components.crypto-ffi]
-# Recalibrated 2026-06-12: PR #56 made every Zig source compile under
-# Zig 0.13 (verified zig ast-check + zig build-obj), but the link step
-# fails on the absent liboqs system library and CI does not build it.
-status = "compiles-not-linked"
-completion = 90
+# Recalibrated 2026-09-27: CI builds liboqs from source (pinned 0.12.0),
+# so zig build + zig build test + the package end-to-end (keygen, sign,
+# verify, tamper-reject) all run green in CI (PR #137). Residual #60:
+# deterministic cross-tool vectors, index signing, manifest hashes.
+status = "built-and-e2e-gated-in-ci"
+completion = 95
 loc = 1047
 files = "ffi/zig/src/crypto.zig, ffi/zig/src/obli-pkg.zig, src/abi/Crypto.idr, ffi/zig/build.zig, Containerfile.crypto"
 description = "Post-quantum crypto with liboqs + libsodium; links only where liboqs is installed"
