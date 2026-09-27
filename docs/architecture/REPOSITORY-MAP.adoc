@@ -57,6 +57,10 @@ predecessors did.
 | yes
 | Identity anchor (scope arrest) — live, load-bearing
 
+| `AUDIT.adoc`
+| yes
+| Release audit gate: the checks a release commit must show green
+
 | `AUTHORITY_STACK.mustfile-nickel.scm`
 | yes
 | Governance authority stack for Mustfile/nickel — live, load-bearing
@@ -172,6 +176,10 @@ predecessors did.
 | `oblibeny.opam`
 | yes
 | Generated opam package (edit dune-project, not this)
+
+| `scripts/`
+| yes
+| Repository maintenance scripts (repo-map generator, root-shape checker)
 
 | `src/`
 | yes

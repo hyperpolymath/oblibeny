@@ -307,16 +307,20 @@ fn keygen(allocator: std.mem.Allocator) !void {
     const keyring_path = try keyringDir(allocator);
     defer allocator.free(keyring_path);
 
-    // Refuse to clobber: if any key file already exists, stop.
-    std.fs.cwd().access(keyring_path, .{}) catch |_| {
-        std.fs.cwd().makePath(keyring_path) catch |err| {
-            var buf: [256]u8 = undefined;
-            const msg = try std.fmt.bufPrint(&buf, "  ✗ Cannot create keyring directory: {}\n", .{err});
-            _ = try posix.write(posix.STDERR_FILENO, msg);
-            return err;
-        };
-        return; // freshly created; nothing to clobber
-    };
+    // Create the keyring directory if absent (fresh install). The
+    // clobber-refusal below is what protects existing keys: an existing,
+    // populated keyring stops keygen even though the directory check passed.
+    if (std.fs.cwd().access(keyring_path, .{})) |_| {} else |err| switch (err) {
+        error.FileNotFound => {
+            std.fs.cwd().makePath(keyring_path) catch |mk_err| {
+                var buf: [256]u8 = undefined;
+                const msg = try std.fmt.bufPrint(&buf, "  ✗ Cannot create keyring directory: {}\n", .{mk_err});
+                _ = try posix.write(posix.STDERR_FILENO, msg);
+                return mk_err;
+            };
+        },
+        else => return err,
+    }
 
     var dir = std.fs.cwd().openDir(keyring_path, .{ .iterate = true }) catch |err| {
         var buf: [256]u8 = undefined;
@@ -398,9 +402,10 @@ fn signPackage(allocator: std.mem.Allocator, in_path: []const u8, out_path: []co
     const pkg_content = try file.readToEndAlloc(allocator, 100 * 1024 * 1024);
     defer allocator.free(pkg_content);
 
-    // Canonical payload: identical derivation to the verifier.
+    // Canonical payload: identical derivation to the verifier (shared
+    // canonicalPayload — envelope-stripped AND newline-terminated).
     _ = try posix.write(posix.STDOUT_FILENO, "  → Deriving canonical payload...\n");
-    const signed_payload = try deriveSignedPayload(allocator, pkg_content);
+    const signed_payload = try canonicalPayload(allocator, pkg_content);
     defer allocator.free(signed_payload);
 
     // Load the signing keyring (fail-closed, same rules as verify).
@@ -435,6 +440,7 @@ fn signPackage(allocator: std.mem.Allocator, in_path: []const u8, out_path: []co
     var out = std.ArrayList(u8).init(allocator);
     defer out.deinit();
     try out.appendSlice(signed_payload);
+    std.debug.assert(signed_payload.len == 0 or signed_payload[signed_payload.len - 1] == '\n');
 
     const encoder = std.base64.standard.Encoder;
     for (schemes) |entry| {
@@ -523,6 +529,25 @@ fn deriveSignedPayload(allocator: std.mem.Allocator, pkg_content: []const u8) ![
     }
 
     return out.toOwnedSlice();
+}
+
+/// The canonical payload BOTH sides must agree on: deriveSignedPayload's
+/// envelope-stripped bytes, NORMALISED to be newline-terminated. Without the
+/// normalisation a package whose last byte is not a newline (gzip streams
+/// typically end in zero padding) would glue the first SIGNATURE: envelope
+/// onto a partial line — invisible to a line-start extractor — and any naive
+/// "add a separator" fix would make the verifier derive one byte more than
+/// the signer signed. Normalising in one shared function, used by sign AND
+/// verify, closes both failure modes by construction.
+fn canonicalPayload(allocator: std.mem.Allocator, pkg_content: []const u8) ![]u8 {
+    const stripped = try deriveSignedPayload(allocator, pkg_content);
+    errdefer allocator.free(stripped);
+    if (stripped.len == 0 or stripped[stripped.len - 1] == '\n') {
+        return stripped;
+    }
+    var out = try allocator.realloc(stripped, stripped.len + 1);
+    out[stripped.len] = '\n';
+    return out;
 }
 
 fn verifyPackageInternal(allocator: std.mem.Allocator, pkg_path: []const u8) !bool {
@@ -619,7 +644,7 @@ fn verifyPackageInternal(allocator: std.mem.Allocator, pkg_path: []const u8) !bo
     // behaviour. A matching SIGNER (producing real SIGNATURE: blocks over this
     // payload) and end-to-end test vectors remain follow-on work
     // (derive-obli-pkg-signed-payload, full scheme).
-    const signed_payload = deriveSignedPayload(allocator, pkg_content) catch {
+    const signed_payload = canonicalPayload(allocator, pkg_content) catch {
         _ = try posix.write(posix.STDERR_FILENO, "  ✗ Failed to derive signed payload\n");
         return false;
     };

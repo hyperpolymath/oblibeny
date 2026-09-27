@@ -74,12 +74,16 @@ signer.  Solid, honestly-scoped foundational work.*
   'believe_me|assert_total|idris_crash' src/abi/Crypto.idr src/abi/Packages
   src/abi/Lang` finds *nothing*.
 * *The compiler builds; the suite passes.* `dune build` and `dune test` *exit 0*;
-  `test/conformance_test.ml` defines *27 `test_case`s*.
+  `tests/conformance_test.ml` defines *27 `test_case`s*.
 * *The golden path runs and is accountable.* `dune exec -- oblibeny
   examples/hello.obl --dump-trace` *exits 0*, emitting *26* trace entries with
   *trace hash `260943924`*.
-* *The Zig FFI sources compile-check.* `zig ast-check` passes on every
-  `ffi/zig/src/*.zig` (zig 0.13.0) — ast-check only, not a link.
+* *The Zig FFI builds, tests, and runs end-to-end.* Since the obli-pkg
+  signing scheme (PRs #137/#138): `zig build -Doptimize=ReleaseSafe`,
+  `zig build test` (4/4 — real Dilithium5/SPHINCS+/Ed25519 roundtrips with
+  tamper rejection), and the package-crypto e2e (keygen → sign → verify →
+  payload- and signature-tamper rejected) are CI-gated, not just
+  `zig ast-check`.
 
 === The new layer: constrained-form metatheory (`src/abi/Lang/*`)
 
