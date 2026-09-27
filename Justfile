@@ -186,7 +186,13 @@ package-crypto-e2e:
     tar czf /tmp/obli-e2e/hello-1.0.0.zpkg -C examples/packages hello.zpkg
     "$BIN" sign /tmp/obli-e2e/hello-1.0.0.zpkg /tmp/obli-e2e/hello-signed.zpkg
     "$BIN" verify /tmp/obli-e2e/hello-signed.zpkg
-    echo "✓ package-crypto end-to-end green (sign/verify roundtrip + self-check)"
+    # Flip the first byte (gzip magic 0x1f -> 0xff): a guaranteed change that
+    # lands in the canonical payload, so all three signatures must fail.
+    printf '\377' | dd of=/tmp/obli-e2e/hello-signed.zpkg bs=1 seek=0 count=1 conv=notrunc status=none
+    if "$BIN" verify /tmp/obli-e2e/hello-signed.zpkg >/dev/null 2>&1; then
+        echo "FAIL: tampered package verified" >&2; exit 1
+    fi
+    echo "✓ package-crypto end-to-end green (sign/verify roundtrip + self-check + tamper-reject)"
 
 # ============================================================================
 # DISTRIBUTION PROOF-OF-CONCEPT

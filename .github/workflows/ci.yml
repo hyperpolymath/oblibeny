@@ -130,7 +130,7 @@ jobs:
           "$BIN" sign /tmp/e2e/hello-1.0.0.zpkg /tmp/e2e/hello-signed.zpkg
           "$BIN" verify /tmp/e2e/hello-signed.zpkg
           # Payload tamper: every signature must be rejected.
-          printf '\x00' | dd of=/tmp/e2e/hello-signed.zpkg bs=1 seek=3 count=1 conv=notrunc status=none
+          printf '\377' | dd of=/tmp/e2e/hello-signed.zpkg bs=1 seek=0 count=1 conv=notrunc status=none
           if "$BIN" verify /tmp/e2e/hello-signed.zpkg; then
             echo "::error::tampered package verified — signature check is not real"
             exit 1

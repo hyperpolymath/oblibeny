@@ -122,6 +122,17 @@ pub const SignatureScheme = enum {
             .ed25519 => crypto_sign_ed25519_BYTES,
         };
     }
+
+    /// Secret-key size for a scheme (the counterpart of publicKeySize above).
+    /// Algorithm constants: Dilithium5 sk=4864, SPHINCS+-SHA2-256f-simple
+    /// sk=128, Ed25519 sk=64 (libsodium concatenated sk||pk form).
+    pub fn secretKeySize(self: SignatureScheme) usize {
+        return switch (self) {
+            .dilithium5 => 4864,
+            .sphincsplus => 128,
+            .ed25519 => crypto_sign_ed25519_SECRETKEYBYTES,
+        };
+    }
 };
 
 /// Verify a signature using the specified scheme
@@ -217,15 +228,6 @@ fn verifyEd25519(
 
 extern "c" fn OQS_SIG_keypair(sig: *OQS_SIG, public_key: [*]u8, secret_key: [*]u8) c_int;
 extern "c" fn crypto_sign_ed25519_keypair(pk: [*]u8, sk: [*]u8) c_int;
-
-/// Secret-key size for a scheme (the counterpart of publicKeySize above).
-pub fn secretKeySize(self: SignatureScheme) usize {
-    return switch (self) {
-        .dilithium5 => 4864, // Dilithium5 secret key size
-        .sphincsplus => 128, // SPHINCS+-SHA2-256f-simple secret key size
-        .ed25519 => crypto_sign_ed25519_SECRETKEYBYTES,
-    };
-}
 
 /// A freshly generated key pair; both slices are allocator-owned.
 pub const KeyPair = struct {
