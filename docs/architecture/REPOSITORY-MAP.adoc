@@ -69,6 +69,10 @@ predecessors did.
 | yes
 | Dated changes, newest first
 
+| `CITATION.cff`
+| yes
+| Citation File Format metadata (author ORCID); GitHub reads it only at root for Cite this repository
+
 | `CLAUDE.md`
 | yes
 | AI-agent instructions: orientation, language policy, guardrails (was .claude/CLAUDE.md; moved to the estate-canonical root path 2026-09-27)

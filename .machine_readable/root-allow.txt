@@ -15,6 +15,7 @@
 # ── AI & governance front matter ────────────────────────────────────────────
 CLAUDE.md              # AI-agent instructions: orientation, language policy, guardrails (was .claude/CLAUDE.md; moved to the estate-canonical root path 2026-09-27)
 MAINTAINERS.adoc       # Who maintains this repo and how to become one
+CITATION.cff           # Citation File Format metadata (author ORCID); GitHub reads it only at root for "Cite this repository"
 AFFIRMATION.adoc       # Dated, SHA-pinned honesty snapshot: what was run-green at that instant
 EXPLAINME.adoc         # The design-why document: what Oblíbený is and why it is shaped this way
 PALIMPSEST.adoc        # Layered-history record of the repository evolution
