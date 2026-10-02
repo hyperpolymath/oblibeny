@@ -10,6 +10,7 @@
 const std = @import("std");
 const posix = std.posix;
 const crypto = @import("crypto.zig");
+const installed_set = @import("installed_set.zig");
 
 const VERSION = "0.1.0";
 
@@ -38,15 +39,15 @@ pub fn main() !void {
             try printError("install requires a package path");
             return;
         }
-        try installPackage(allocator, args[2]);
+        try installPackage(allocator, args[2], dbPath());
     } else if (std.mem.eql(u8, command, "list")) {
-        try listPackages();
+        try listPackages(dbPath());
     } else if (std.mem.eql(u8, command, "remove")) {
         if (args.len < 3) {
             try printError("remove requires a package name");
             return;
         }
-        try removePackage(args[2]);
+        try removePackage(allocator, args[2], dbPath());
     } else if (std.mem.eql(u8, command, "verify")) {
         if (args.len < 3) {
             try printError("verify requires a package path");
@@ -125,13 +126,50 @@ const PackageMetadata = struct {
     dependencies: []const u8,
 };
 
-fn installPackage(allocator: std.mem.Allocator, pkg_path: []const u8) !void {
+/// Package database path: `$OBLI_PKG_DB` when set and non-empty, otherwise
+/// `/var/lib/obli-pkg/installed.db`. Used by install, remove and list alike.
+fn dbPath() []const u8 {
+    if (posix.getenv(installed_set.db_path_env)) |p| {
+        if (p.len > 0) return p;
+    }
+    return installed_set.default_db_path;
+}
+
+/// Create the parent directory of the database file if it does not exist.
+fn ensureDbDir(db_path: []const u8) !void {
+    if (std.fs.path.dirname(db_path)) |dir| {
+        try std.fs.cwd().makePath(dir);
+    }
+}
+
+/// Run a child process and fail unless it exits 0.
+fn runChecked(allocator: std.mem.Allocator, argv: []const []const u8) !void {
+    var child = std.process.Child.init(argv, allocator);
+    const term = try child.spawnAndWait();
+    switch (term) {
+        .Exited => |code| if (code != 0) return error.ChildProcessFailed,
+        else => return error.ChildProcessFailed,
+    }
+}
+
+/// `obli-pkg install <pkg.zpkg>` — verify, extract, copy, then register the
+/// package NAME in the database with set semantics (Idris `install`, the
+/// `installedPackages` half: `addUnique pkg.name`). Installing a name that is
+/// already registered is a no-op (Idris `doubleInstallIdempotent`): nothing
+/// is extracted, copied or rewritten.
+fn installPackage(allocator: std.mem.Allocator, pkg_path: []const u8, db_path: []const u8) !void {
     var buf: [512]u8 = undefined;
     const msg = try std.fmt.bufPrint(&buf,
         \\[obli-pkg] Installing package: {s}
         \\
     , .{pkg_path});
     _ = try posix.write(posix.STDOUT_FILENO, msg);
+
+    // The database key: the package name derived from the archive file name
+    // (`hello-1.0.0.zpkg` -> `hello`), so `obli-pkg remove hello` matches.
+    const pkg_name = installed_set.packageNameFromPath(pkg_path);
+    const row = try installed_set.formatRow(allocator, pkg_name, std.time.timestamp());
+    defer allocator.free(row);
 
     // Step 1: Verify signatures
     const verified = try verifyPackageInternal(allocator, pkg_path);
@@ -141,21 +179,40 @@ fn installPackage(allocator: std.mem.Allocator, pkg_path: []const u8) !void {
 
     _ = try posix.write(posix.STDOUT_FILENO, "  ✓ Signatures verified\n");
 
+    // Idempotence: a name already in the set is left exactly as it is.
+    {
+        var existing = try installed_set.InstalledSet.load(allocator, std.fs.cwd(), db_path);
+        defer existing.deinit();
+        if (existing.contains(pkg_name)) {
+            const m = try std.fmt.bufPrint(&buf,
+                \\  ✓ '{s}' is already installed; keeping the existing record (database unchanged).
+                \\    To install a different version, run `obli-pkg remove {s}` first.
+                \\
+            , .{ pkg_name, pkg_name });
+            _ = try posix.write(posix.STDOUT_FILENO, m);
+            return;
+        }
+    }
+
     // Step 2: Extract .zpkg archive
     _ = try posix.write(posix.STDOUT_FILENO, "  → Extracting archive...\n");
 
-    // Create extraction directory
+    // Start from an empty extraction directory so no file (in particular a
+    // manifest) from a previous install can leak into this one.
     const extract_dir = "/tmp/obli-pkg-extract";
-    std.fs.cwd().makeDir(extract_dir) catch |err| switch (err) {
-        error.PathAlreadyExists => {},
-        else => return err,
-    };
+    try std.fs.cwd().deleteTree(extract_dir);
+    try std.fs.cwd().makeDir(extract_dir);
 
     // For MVP: assume .zpkg is a tar.gz file
     // Full implementation would use libarchive or std.tar
-    var argv = [_][]const u8{ "tar", "-xzf", pkg_path, "-C", extract_dir };
-    var child = std.process.Child.init(&argv, allocator);
-    _ = try child.spawnAndWait();
+    // tar's exit status is deliberately NOT checked (unchanged behaviour): a
+    // signed .zpkg is the tar.gz payload followed by the signature envelope,
+    // so gzip reports "trailing garbage" and tar exits 2 after extracting the
+    // payload in full. Splitting payload from envelope before extraction is
+    // separate work.
+    var tar_argv = [_][]const u8{ "tar", "-xzf", pkg_path, "-C", extract_dir };
+    var tar_child = std.process.Child.init(&tar_argv, allocator);
+    _ = try tar_child.spawnAndWait();
 
     _ = try posix.write(posix.STDOUT_FILENO, "  ✓ Archive extracted\n");
 
@@ -166,22 +223,25 @@ fn installPackage(allocator: std.mem.Allocator, pkg_path: []const u8) !void {
     var manifest_path_buf: [512]u8 = undefined;
     const manifest_path = try std.fmt.bufPrint(&manifest_path_buf, "{s}/manifest.json", .{extract_dir});
 
-    const manifest_file = std.fs.cwd().openFile(manifest_path, .{}) catch |err| {
+    // A missing manifest means "no dependencies"; installation continues.
+    // (Previously this branch returned early, so a package without a
+    // root-level manifest.json was never copied or registered.)
+    if (std.fs.cwd().openFile(manifest_path, .{})) |manifest_file| {
+        defer manifest_file.close();
+
+        // For MVP: just check if dependencies field exists
+        const manifest_content = try manifest_file.readToEndAlloc(allocator, 1024 * 1024);
+        defer allocator.free(manifest_content);
+
+        if (std.mem.indexOf(u8, manifest_content, "\"dependencies\"")) |_| {
+            _ = try posix.write(posix.STDOUT_FILENO, "  ✓ Dependencies satisfied (stub)\n");
+        } else {
+            _ = try posix.write(posix.STDOUT_FILENO, "  ✓ No dependencies\n");
+        }
+    } else |err| {
         var errbuf: [256]u8 = undefined;
         const errmsg = try std.fmt.bufPrint(&errbuf, "  ⚠ No manifest found ({}), assuming no dependencies\n", .{err});
         _ = try posix.write(posix.STDOUT_FILENO, errmsg);
-        return;
-    };
-    defer manifest_file.close();
-
-    // For MVP: just check if dependencies field exists
-    const manifest_content = try manifest_file.readToEndAlloc(allocator, 1024 * 1024);
-    defer allocator.free(manifest_content);
-
-    if (std.mem.indexOf(u8, manifest_content, "\"dependencies\"")) |_| {
-        _ = try posix.write(posix.STDOUT_FILENO, "  ✓ Dependencies satisfied (stub)\n");
-    } else {
-        _ = try posix.write(posix.STDOUT_FILENO, "  ✓ No dependencies\n");
     }
 
     // Step 4: Install files with accountability trace
@@ -196,61 +256,53 @@ fn installPackage(allocator: std.mem.Allocator, pkg_path: []const u8) !void {
 
     // Copy files from extract_dir to install_base
     // For MVP: use cp command
-    var cp_argv = [_][]const u8{ "cp", "-r", extract_dir, install_base };
-    var cp_child = std.process.Child.init(&cp_argv, allocator);
-    _ = try cp_child.spawnAndWait();
+    try runChecked(allocator, &[_][]const u8{ "cp", "-r", extract_dir, install_base });
 
     _ = try posix.write(posix.STDOUT_FILENO, "  ✓ Files installed\n");
 
-    // Step 5: Register in package database
+    // Step 5: Register in package database (Idris `addUnique pkg.name`)
     _ = try posix.write(posix.STDOUT_FILENO, "  → Registering package...\n");
 
-    // Create package database directory
-    const db_dir = "/var/lib/obli-pkg";
-    std.fs.cwd().makePath(db_dir) catch |err| switch (err) {
-        error.PathAlreadyExists => {},
-        else => return err,
-    };
+    try ensureDbDir(db_path);
+    _ = try installed_set.registerInstall(allocator, std.fs.cwd(), db_path, row);
 
-    // Append to installed packages list
-    var db_path_buf: [256]u8 = undefined;
-    const db_path = try std.fmt.bufPrint(&db_path_buf, "{s}/installed.db", .{db_dir});
-
-    const db_file = std.fs.cwd().openFile(db_path, .{ .mode = .read_write }) catch blk: {
-        // Create if doesn't exist
-        try std.fs.cwd().writeFile(.{ .sub_path = db_path, .data = "" });
-        break :blk try std.fs.cwd().openFile(db_path, .{ .mode = .read_write });
-    };
-    defer db_file.close();
-
-    try db_file.seekFromEnd(0);
-
-    var entry_buf: [512]u8 = undefined;
-    const entry = try std.fmt.bufPrint(&entry_buf, "{s}\tinstalled\t{}\n", .{ pkg_path, std.time.timestamp() });
-    _ = try db_file.writeAll(entry);
-
-    _ = try posix.write(posix.STDOUT_FILENO, "  ✓ Package registered\n");
+    const reg = try std.fmt.bufPrint(&buf, "  ✓ Package '{s}' registered in {s}\n", .{ pkg_name, db_path });
+    _ = try posix.write(posix.STDOUT_FILENO, reg);
 
     _ = try posix.write(posix.STDOUT_FILENO, "  ✓ Installation complete\n");
 }
 
-fn removePackage(pkg_name: []const u8) !void {
-    var buf: [256]u8 = undefined;
-    const msg = try std.fmt.bufPrint(&buf,
-        \\[obli-pkg] Removing package: {s}
-        \\  → Checking for dependent packages
-        \\  → Creating rollback trace
-        \\  → Removing files
-        \\  → Updating package database
-        \\
-    , .{pkg_name});
+/// `obli-pkg remove <name>` — drop every database row for `pkg_name`
+/// (Idris `uninstall`, the `installedPackages` half: `remove pkg.name`).
+/// Removing a name that is not installed is a no-op (Idris `removeNotElem`).
+/// Installed FILES are not deleted: install records no per-package file list,
+/// so there is nothing sound to delete from; this is reported on every run.
+fn removePackage(allocator: std.mem.Allocator, pkg_name: []const u8, db_path: []const u8) !void {
+    var buf: [512]u8 = undefined;
+    const msg = try std.fmt.bufPrint(&buf, "[obli-pkg] Removing package: {s}\n", .{pkg_name});
     _ = try posix.write(posix.STDOUT_FILENO, msg);
+
+    const dropped = try installed_set.unregister(allocator, std.fs.cwd(), db_path, pkg_name);
+    if (dropped == 0) {
+        const m = try std.fmt.bufPrint(&buf, "  ✓ '{s}' is not installed; nothing to do (database unchanged)\n", .{pkg_name});
+        _ = try posix.write(posix.STDOUT_FILENO, m);
+        return;
+    }
+
+    const m = try std.fmt.bufPrint(&buf, "  ✓ Removed {d} database record(s) for '{s}' from {s}\n", .{ dropped, pkg_name, db_path });
+    _ = try posix.write(posix.STDOUT_FILENO, m);
+    _ = try posix.write(posix.STDERR_FILENO,
+        \\  ⚠ WARNING: installed FILES were NOT removed. obli-pkg does not yet record
+        \\    which files a package installed (they live under /usr/local/obli-pkg/),
+        \\    so only the database entry was deleted. Remove the files by hand.
+        \\
+    );
 }
 
-fn listPackages() !void {
+/// `obli-pkg list` — print every row of the database at `db_path`.
+fn listPackages(db_path: []const u8) !void {
     _ = try posix.write(posix.STDOUT_FILENO, "[obli-pkg] Installed packages:\n");
 
-    const db_path = "/var/lib/obli-pkg/installed.db";
     const db_file = std.fs.cwd().openFile(db_path, .{}) catch |err| {
         var buf: [256]u8 = undefined;
         const msg = try std.fmt.bufPrint(&buf, "  No packages installed (database not found: {})\n", .{err});

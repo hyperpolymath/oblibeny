@@ -68,6 +68,21 @@ pub fn build(b: *std.Build) void {
     crypto_tests.addLibraryPath(.{ .cwd_relative = "/usr/local/lib" });
     crypto_tests.addIncludePath(.{ .cwd_relative = "/usr/local/include" });
 
-    const test_step = b.step("test", "Run crypto tests");
+    // Package-database laws (installReversible, doubleInstallIdempotent from
+    // src/abi/Packages/Hello/Interface.idr). installed_set.zig imports only
+    // std, so this test links neither liboqs nor libsodium and can run alone
+    // via `zig build test-db` on a machine without the crypto libraries.
+    const db_tests = b.addTest(.{
+        .root_source_file = b.path("src/installed_set.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const run_db_tests = b.addRunArtifact(db_tests);
+
+    const db_test_step = b.step("test-db", "Run package-database law tests (no liboqs)");
+    db_test_step.dependOn(&run_db_tests.step);
+
+    const test_step = b.step("test", "Run crypto and package-database tests");
     test_step.dependOn(&b.addRunArtifact(crypto_tests).step);
+    test_step.dependOn(&run_db_tests.step);
 }
