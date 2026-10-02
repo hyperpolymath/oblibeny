@@ -266,8 +266,9 @@ fn installPackage(allocator: std.mem.Allocator, pkg_path: []const u8, db_path: [
     try ensureDbDir(db_path);
     _ = try installed_set.registerInstall(allocator, std.fs.cwd(), db_path, row);
 
-    const reg = try std.fmt.bufPrint(&buf, "  ✓ Package '{s}' registered in {s}\n", .{ pkg_name, db_path });
-    _ = try posix.write(posix.STDOUT_FILENO, reg);
+    // Unbuffered print: db_path comes from $OBLI_PKG_DB and may be long; a
+    // fixed buffer would turn a successful write into a NoSpaceLeft exit.
+    try std.io.getStdOut().writer().print("  ✓ Package '{s}' registered in {s}\n", .{ pkg_name, db_path });
 
     _ = try posix.write(posix.STDOUT_FILENO, "  ✓ Installation complete\n");
 }
@@ -284,13 +285,12 @@ fn removePackage(allocator: std.mem.Allocator, pkg_name: []const u8, db_path: []
 
     const dropped = try installed_set.unregister(allocator, std.fs.cwd(), db_path, pkg_name);
     if (dropped == 0) {
-        const m = try std.fmt.bufPrint(&buf, "  ✓ '{s}' is not installed; nothing to do (database unchanged)\n", .{pkg_name});
-        _ = try posix.write(posix.STDOUT_FILENO, m);
+        try std.io.getStdOut().writer().print("  ✓ '{s}' is not installed; nothing to do (database unchanged)\n", .{pkg_name});
         return;
     }
 
-    const m = try std.fmt.bufPrint(&buf, "  ✓ Removed {d} database record(s) for '{s}' from {s}\n", .{ dropped, pkg_name, db_path });
-    _ = try posix.write(posix.STDOUT_FILENO, m);
+    // Unbuffered print (see installPackage): the rows are already gone here.
+    try std.io.getStdOut().writer().print("  ✓ Removed {d} database record(s) for '{s}' from {s}\n", .{ dropped, pkg_name, db_path });
     _ = try posix.write(posix.STDERR_FILENO,
         \\  ⚠ WARNING: installed FILES were NOT removed. obli-pkg does not yet record
         \\    which files a package installed (they live under /usr/local/obli-pkg/),
