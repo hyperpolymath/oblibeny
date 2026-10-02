@@ -5,7 +5,9 @@
 # deferred full-link Zig FFI CI gate (see issue #62 and ffi/zig/build.zig,
 # which links system liboqs + libsodium).
 
-FROM docker.io/alpine:latest AS builder
+# alpine 3.24, pinned by multi-arch index digest (was :latest, which
+# resolved to this same digest on 2026-10-02).
+FROM docker.io/alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS builder
 
 # Install build dependencies
 RUN apk add --no-cache \
@@ -19,8 +21,13 @@ RUN apk add --no-cache \
 WORKDIR /build
 
 # Build liboqs (Post-quantum crypto: Dilithium5, Kyber-1024, SPHINCS+)
-RUN git clone --depth 1 --branch 0.11.0 https://github.com/open-quantum-safe/liboqs.git && \
+# Pinned BY COMMIT to the 0.12.0 release, the same revision CI builds
+# (.github/workflows/ci.yml, "Build liboqs 0.12.0 (pinned commit f4b96220)").
+RUN git init liboqs && \
     cd liboqs && \
+    git remote add origin https://github.com/open-quantum-safe/liboqs.git && \
+    git fetch --depth 1 origin f4b96220e4bd208895172acc4fedb5a191d9f5b1 && \
+    git checkout --detach FETCH_HEAD && \
     mkdir build && cd build && \
     cmake -GNinja \
         -DCMAKE_BUILD_TYPE=Release \
