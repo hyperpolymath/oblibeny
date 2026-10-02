@@ -133,13 +133,6 @@ description = "Post-quantum crypto with liboqs + libsodium; links only where lib
 [components.package-manager]
 # Recalibrated 2026-06-12: verify path is an explicit MVP stub with a
 # placeholder payload — TODO(security) at ffi/zig/src/obli-pkg.zig:377.
-# 2026-10-02 (branch fix/obli-pkg-laws): the installed-package DATABASE now
-# mirrors the Idris `addUnique`/`remove` of src/abi/Packages/Hello/Interface.idr
-# (ffi/zig/src/installed_set.zig, keyed by package name; `zig build test-db`,
-# 9 tests, no liboqs). Model != implementation: this is a hand mirror, not a
-# proof. `remove` deletes database rows ONLY, not installed files (no file
-# list is recorded), so the Idris `existingFiles` component has no Zig
-# counterpart and installReversible holds for the database alone.
 status = "mvp-verify-stub"
 completion = 80
 implementation = "obli-pkg"
