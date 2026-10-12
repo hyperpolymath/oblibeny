@@ -15,7 +15,7 @@ image:https://img.shields.io/badge/Crypto-Post--Quantum-purple.svg[Post-Quantum 
 **Secure edge language for reversibility and accountability in hostile environments.**
 
 [.lead]
-Oblíbený (Czech for "favorite" or "beloved") is a dual-form programming language that guarantees termination through Turing-incompleteness while maintaining full reversibility and complete accountability. Built for deployment in hostile environments where formal guarantees are essential.
+Oblíbený (Czech for "favorite" or "beloved") is a dual-form programming language: terminating by construction (it is Turing-incomplete), reversible, and accountable. _Status: termination follows from the design; reversibility and accountability are intended, to be discharged against echo-types, secret-types and occupancy-types._ Built for deployment in hostile environments where formal guarantees are essential.
 
 == Status: Active Development
 
